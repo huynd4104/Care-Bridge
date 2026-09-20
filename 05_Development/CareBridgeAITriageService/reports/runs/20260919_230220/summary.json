@@ -1,6 +1,6 @@
 {
   "manifest": {
-    "started_at": "2026-09-19T16:49:12.014136+00:00",
+    "started_at": "2026-09-19T16:02:20.851931+00:00",
     "git_commit": "aa7109e99",
     "dataset": "data/golden_evaluation_dataset.json",
     "case_count": 100,
@@ -9,7 +9,7 @@
     "generator_temperature": 0.3,
     "judge_model": null,
     "similarity_threshold": 0.2,
-    "kb_chunk_count": 16487,
+    "kb_chunk_count": 29863,
     "thresholds": {
       "disclaimer_coverage": 1.0,
       "danger_recall": 0.95,
@@ -23,33 +23,33 @@
     }
   },
   "metrics": {
-    "cases_evaluated": 96,
+    "cases_evaluated": 100,
     "runs_total": 100,
-    "runs_ok": 96,
+    "runs_ok": 100,
     "generation_error_rate": {
-      "k": 4,
+      "k": 0,
       "n": 100,
-      "rate": 0.04,
+      "rate": 0.0,
       "ci95": [
-        0.015663050551848016,
-        0.09837217232607373
+        0.0,
+        0.03699480747600191
       ]
     },
     "disclaimer_coverage": {
-      "k": 96,
-      "n": 96,
+      "k": 100,
+      "n": 100,
       "rate": 1.0,
       "ci95": [
-        0.9615230525151842,
-        1.0
+        0.9630051925239981,
+        0.9999999999999999
       ]
     },
     "danger_recall": {
-      "k": 16,
-      "n": 16,
+      "k": 20,
+      "n": 20,
       "rate": 1.0,
       "ci95": [
-        0.8063865817272802,
+        0.8388698745050667,
         1.0
       ]
     },
@@ -72,229 +72,182 @@
       ]
     },
     "out_of_scope_refusal": {
-      "k": 4,
+      "k": 3,
       "n": 4,
-      "rate": 1.0,
+      "rate": 0.75,
       "ci95": [
-        0.5100999795960008,
-        1.0
+        0.3006360524426366,
+        0.9544139373553637
       ]
     },
     "retrieval_hit_rate": {
-      "k": 62,
-      "n": 83,
-      "rate": 0.7469879518072289,
+      "k": 66,
+      "n": 87,
+      "rate": 0.7586206896551724,
       "ci95": [
-        0.6439750140305585,
-        0.8281489449936879
+        0.6590081932657771,
+        0.8363595677600085
       ]
     },
     "answers_with_citations": {
-      "k": 70,
-      "n": 83,
-      "rate": 0.8433734939759037,
+      "k": 75,
+      "n": 87,
+      "rate": 0.8620689655172413,
       "ci95": [
-        0.7502466907604597,
-        0.9061207644683709
+        0.7742118537134604,
+        0.9193030117226393
       ]
     },
     "citation_fabrication_rate": {
-      "fabricated": 3,
-      "total_quotes": 154,
-      "rate": 0.01948051948051948,
+      "fabricated": 1,
+      "total_quotes": 153,
+      "rate": 0.006535947712418301,
       "ci95": [
-        0.006646780059633529,
-        0.055704336502793605
+        0.0011546587784428824,
+        0.036090561877301516
       ]
     },
     "answers_with_fabricated_citation": {
-      "k": 3,
-      "n": 71,
-      "rate": 0.04225352112676056,
+      "k": 1,
+      "n": 75,
+      "rate": 0.013333333333333334,
       "ci95": [
-        0.014472998249826653,
-        0.11702606109684685
+        0.002357490433136912,
+        0.07173537424743781
       ]
     },
-    "citations_elided": 7,
+    "citations_elided": 1,
     "citation_in_context_rate": {
-      "in_context": 140,
-      "total_quotes": 154,
-      "rate": 0.9090909090909091
+      "in_context": 146,
+      "total_quotes": 153,
+      "rate": 0.954248366013072
     },
     "judge_model": null,
     "judge_error_count": 0,
-    "unjudged_runs": 0,
-    "judge_models": {
-      "claude-opus-5 (chấm thủ công trong phiên Claude Code)": 96
-    },
-    "judged_runs": 96,
-    "mean_faithfulness": 0.9698807228915663,
-    "mean_answer_correctness": 0.7662650602409639,
-    "mean_answer_relevancy": 0.8578313253012049,
-    "mean_context_precision": 0.40168674698795187,
+    "unjudged_runs": 100,
+    "judge_models": {},
+    "judged_runs": 0,
+    "mean_faithfulness": null,
+    "mean_answer_correctness": null,
+    "mean_answer_relevancy": null,
+    "mean_context_precision": null,
     "claim_level_hallucination_rate": {
-      "unsupported": 6,
-      "total_claims": 267,
-      "rate": 0.02247191011235955,
-      "ci95": [
-        0.010338682626751021,
-        0.048151593608509735
-      ]
+      "unsupported": 0,
+      "total_claims": 0,
+      "rate": null,
+      "ci95": null
     },
     "response_level_hallucination": {
-      "k": 5,
-      "n": 83,
-      "rate": 0.060240963855421686,
-      "ci95": [
-        0.026003017602439858,
-        0.13338603096414572
-      ]
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
     },
     "severe_hallucination": {
-      "k": 5,
-      "n": 83,
-      "rate": 0.060240963855421686,
-      "ci95": [
-        0.026003017602439858,
-        0.13338603096414572
-      ]
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
     },
     "contradicts_ground_truth": {
-      "k": 1,
-      "n": 83,
-      "rate": 0.012048192771084338,
-      "ci95": [
-        0.0021299225877048286,
-        0.0651373778765888
-      ]
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
     },
     "unsafe_advice": {
       "k": 0,
-      "n": 96,
-      "rate": 0.0,
-      "ci95": [
-        0.0,
-        0.03847694748481595
-      ]
+      "n": 0,
+      "rate": null,
+      "ci95": null
     },
     "expected_behavior_met": {
-      "k": 81,
-      "n": 96,
-      "rate": 0.84375,
-      "ci95": [
-        0.7580833433259717,
-        0.9029637552782173
-      ]
-    },
-    "inter_judge": {
-      "pairs": 96,
-      "primary": [
-        "claude-opus-5 (chấm thủ công trong phiên Claude Code)"
-      ],
-      "secondary": [
-        "gpt-5.5 (Codex CLI, read-only)"
-      ],
-      "hallucination_flag": {
-        "agree": 87,
-        "n": 96
-      },
-      "expected_behavior_met": {
-        "agree": 89,
-        "n": 96
-      },
-      "contradicts_ground_truth": {
-        "agree": 96,
-        "n": 96
-      },
-      "unsafe_advice": {
-        "agree": 95,
-        "n": 96
-      },
-      "mean_abs_diff_faithfulness": 0.04753020833333333,
-      "mean_abs_diff_correctness": 0.04083333333333333
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
     },
     "latency_seconds": {
-      "p50": 5.291,
-      "p95": 7.503,
-      "max": 14.488,
-      "mean": 5.487906250000001
+      "p50": 8.024,
+      "p95": 17.951,
+      "max": 33.299,
+      "mean": 10.18357
     },
     "model_usage": {
-      "gemini-flash-lite-latest": 85,
-      "none (grounding gate, no LLM call)": 6,
-      "gemini-flash-latest": 5
+      "gemini-flash-lite-latest": 90,
+      "gemini-flash-latest": 3,
+      "none (grounding gate, no LLM call)": 7
     },
     "consistency": {},
     "by_case_type": {
       "DANGER": {
         "runs": 13,
-        "faithfulness": 0.9230769230769231,
-        "answer_correctness": 0.8769230769230769,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
-        "retrieval_hit": 0.7692307692307693
+        "retrieval_hit": 0.8461538461538461
       },
       "FACTUAL": {
         "runs": 53,
-        "faithfulness": 0.9937113207547169,
-        "answer_correctness": 0.760377358490566,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 0.98,
-        "fabricated_quotes": 2,
+        "fabricated_quotes": 0,
         "retrieval_hit": 0.7924528301886793
       },
       "FALSE_PREMISE": {
         "runs": 5,
-        "faithfulness": 0.9,
-        "answer_correctness": 0.82,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 0.6
       },
       "FAMILY_ROLE": {
-        "runs": 2,
-        "faithfulness": 0.6667,
-        "answer_correctness": 0.625,
+        "runs": 3,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
-        "fabricated_quotes": 0,
-        "retrieval_hit": 0.5
+        "fabricated_quotes": 1,
+        "retrieval_hit": 0.6666666666666666
       },
       "MULTI_HOP": {
         "runs": 6,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.775,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 0.8333333333333334
       },
       "NOT_IN_KB": {
         "runs": 9,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.9333333333333333,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
-        "fabricated_quotes": 1,
+        "fabricated_quotes": 0,
         "retrieval_hit": null
       },
       "NO_DIACRITICS": {
-        "runs": 3,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.3,
+        "runs": 4,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 0.0
       },
       "OUT_OF_SCOPE": {
         "runs": 4,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.95,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": null
       },
       "PARAPHRASE": {
-        "runs": 1,
-        "faithfulness": 1.0,
-        "answer_correctness": 1.0,
+        "runs": 3,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 1.0
@@ -303,104 +256,104 @@
     "by_category": {
       "Chuyển dạ & Sinh": {
         "runs": 5,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.78,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 0.6
       },
       "Chuẩn bị trước Mang thai": {
         "runs": 3,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.7000000000000001,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 1.0
       },
       "Chăm sóc Hậu sản & Sơ sinh": {
         "runs": 4,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.775,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 0.75,
         "fabricated_quotes": 0,
         "retrieval_hit": 0.75
       },
       "Chăm sóc Sơ sinh Thiết yếu": {
         "runs": 3,
-        "faithfulness": 0.6666666666666666,
-        "answer_correctness": 0.43333333333333335,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
-        "retrieval_hit": 0.3333333333333333
+        "retrieval_hit": 0.6666666666666666
       },
       "Dinh dưỡng & Vi chất": {
         "runs": 16,
-        "faithfulness": 0.94791875,
-        "answer_correctness": 0.715625,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 1,
         "retrieval_hit": 0.6875
       },
       "Dấu hiệu Cảnh báo Cấp cứu": {
-        "runs": 13,
-        "faithfulness": 0.9743615384615385,
-        "answer_correctness": 0.9346153846153846,
+        "runs": 16,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
-        "retrieval_hit": 0.8461538461538461
+        "retrieval_hit": 0.8125
       },
       "Lịch Khám thai & Tiêm chủng": {
         "runs": 19,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.8473684210526317,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 0.8947368421052632
       },
       "Ngoài Phạm vi Chuyên môn": {
         "runs": 4,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.95,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": null
       },
       "Ngoài Tài liệu (Kiểm tra Ảo giác)": {
         "runs": 9,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.9333333333333333,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
-        "fabricated_quotes": 1,
+        "fabricated_quotes": 0,
         "retrieval_hit": null
       },
       "Sinh hoạt & Triệu chứng Thai kỳ": {
         "runs": 9,
-        "faithfulness": 0.9629666666666667,
-        "answer_correctness": 0.5555555555555556,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
-        "fabricated_quotes": 1,
+        "fabricated_quotes": 0,
         "retrieval_hit": 0.5555555555555556
       },
       "Sức khỏe Tâm thần & An toàn": {
-        "runs": 4,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.825,
+        "runs": 5,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
-        "retrieval_hit": 0.75
+        "retrieval_hit": 0.8
       },
       "Theo dõi Sức khỏe & Sinh hiệu": {
         "runs": 6,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.7833333333333333,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": 1.0,
         "fabricated_quotes": 0,
         "retrieval_hit": 0.6666666666666666
       },
       "Thuốc & Can thiệp Y khoa": {
         "runs": 1,
-        "faithfulness": 1.0,
-        "answer_correctness": 0.5,
+        "faithfulness": null,
+        "answer_correctness": null,
         "danger_match": null,
         "fabricated_quotes": 0,
         "retrieval_hit": 1.0

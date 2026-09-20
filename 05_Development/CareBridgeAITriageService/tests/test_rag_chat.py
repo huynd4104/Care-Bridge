@@ -1,5 +1,9 @@
 """Tests for AI Nurse Assistant RAG Chat Service."""
 
+import json
+import os
+from pathlib import Path
+
 import pytest
 from app.models.schemas import (
     ChatMessage,
@@ -7,6 +11,33 @@ from app.models.schemas import (
     RagChatRequest,
 )
 from app.services.rag_chat_service import RagChatService
+
+GOLDEN_DATASET = Path(__file__).resolve().parent.parent / "data" / "golden_evaluation_dataset.json"
+DANGER_CASES = [
+    c for c in json.loads(GOLDEN_DATASET.read_text(encoding="utf-8"))
+    if c["expected_danger_flag"] is True
+]
+# Each dataset case costs one Gemini call; opt in explicitly to protect the free-tier quota.
+live_dataset = pytest.mark.skipif(
+    os.getenv("RUN_LIVE_AI_TESTS") != "1",
+    reason="Set RUN_LIVE_AI_TESTS=1 to run golden-dataset cases against live Gemini + pgvector",
+)
+
+
+@live_dataset
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", DANGER_CASES, ids=[c["id"] for c in DANGER_CASES])
+async def test_golden_danger_case_is_flagged_with_disclaimer(case):
+    service = RagChatService()
+    request = RagChatRequest(
+        message=case["question"],
+        stage=MaternalStage(case["stage"]),
+        gestational_age_weeks=case["gestational_age_weeks"],
+        user_role=case["user_role"],
+    )
+    result = await service.chat(request)
+    assert result.disclaimer and result.disclaimer.strip()
+    assert result.has_critical_warning is True, result.answer[:300]
 
 
 @pytest.mark.asyncio

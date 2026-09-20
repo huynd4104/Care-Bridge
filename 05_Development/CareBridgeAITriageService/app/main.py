@@ -57,6 +57,10 @@ async def lifespan(app: FastAPI):
                         ingestion_svc = get_ingestion_service()
                         res = await ingestion_svc.ingest_directory()
                         logger.info(f"Auto-bootstrap completed: {res.total_chunks_created} chunks created from {res.total_files_processed} files.")
+                # Load the accent-folded keyword index now so the first query typed without diacritics
+                # does not wait for it.
+                from app.rag.vector_store import get_vector_store
+                await get_vector_store().warm_folded_index()
             except Exception as ex:
                 logger.warning(f"Auto-bootstrap check notice: {ex}")
 

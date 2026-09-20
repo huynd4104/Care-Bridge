@@ -27,8 +27,32 @@ from app.rag.prompts import (
     build_rag_chat_prompt,
 )
 from app.rag.vector_store import get_vector_store
+from app.services.chat_red_flags import RED_FLAG_SELF_HARM, contains_urgent_referral, detect_red_flags
 
 logger = logging.getLogger(__name__)
+
+# Shown when retrieval finds no document but the message describes a danger sign. Only generic safety
+# referral (no clinical claims), since there is no document to ground medical advice on.
+GATE_EMERGENCY_ANSWER = (
+    "Những gì bạn mô tả có thể là dấu hiệu cần được xử trí y tế khẩn cấp. "
+    "Hệ thống chưa tìm thấy cẩm nang đối soát phù hợp để hướng dẫn chi tiết, vì vậy để đảm bảo an toàn, "
+    "hãy gọi cấp cứu 115 hoặc đến ngay cơ sở y tế/bệnh viện sản - nhi gần nhất, không chờ đợi hay tự xử trí tại nhà."
+)
+GATE_SELF_HARM_ANSWER = (
+    "Cảm ơn bạn đã chia sẻ, những suy nghĩ này rất quan trọng và bạn không phải đối mặt một mình. "
+    "Ý nghĩ làm hại bản thân cần được hỗ trợ ngay: hãy báo ngay cho người thân để có người ở bên cạnh bạn, "
+    "và gọi cấp cứu 115 hoặc đến cơ sở y tế gần nhất nếu bạn thấy không an toàn. "
+    "Hãy liên hệ bác sĩ hoặc chuyên gia sức khỏe tâm thần ngay trong hôm nay."
+)
+# Prepended to a critical LLM answer (flagged by the LLM or by the red-flag screen) whose text has no urgent referral.
+FLOOR_EMERGENCY_PREFIX = (
+    "⚠️ Lưu ý an toàn: những gì bạn mô tả có thể là dấu hiệu cần được xử trí y tế khẩn cấp. "
+    "Hãy gọi cấp cứu 115 hoặc đến ngay cơ sở y tế gần nhất, không chờ đợi hay tự xử trí tại nhà."
+)
+FLOOR_SELF_HARM_PREFIX = (
+    "⚠️ Lưu ý an toàn: ý nghĩ làm hại bản thân cần được hỗ trợ ngay. Hãy báo người thân để có người ở bên cạnh bạn, "
+    "gọi 115 hoặc đến cơ sở y tế gần nhất nếu thấy không an toàn, và liên hệ bác sĩ/chuyên gia sức khỏe tâm thần ngay hôm nay."
+)
 
 
 class RagChatService:
@@ -90,6 +114,20 @@ class RagChatService:
         # Strict RAG Grounding Gate: If no relevant knowledge chunks retrieved, BLOCK ungrounded LLM generation
         if not valid_chunks:
             logger.warning("No relevant grounded RAG context chunks found in database; blocking ungrounded LLM generation.")
+            # Safety floor: a failed retrieval must not hide an emergency behind a generic refusal.
+            red_flags = detect_red_flags(request.message)
+            if red_flags:
+                logger.warning("Grounding gate: red flags %s detected; returning emergency referral.",
+                               [f.category for f in red_flags])
+                is_self_harm = any(f.category == RED_FLAG_SELF_HARM for f in red_flags)
+                return RagChatResponse(
+                    answer=GATE_SELF_HARM_ANSWER if is_self_harm else GATE_EMERGENCY_ANSWER,
+                    has_critical_warning=True,
+                    need_expert_consultation=True,
+                    suggested_followups=self._generate_fallback_followups(is_emergency=True, is_family=is_family),
+                    sources=[],
+                    disclaimer=MEDICAL_DISCLAIMER,
+                )
             fallback_followups = self._generate_fallback_followups(is_emergency=False, is_family=is_family)
             return RagChatResponse(
                 answer=(
@@ -132,6 +170,22 @@ class RagChatService:
         # Clean any LaTeX math artifacts from output
         answer_text = self._clean_latex_and_math_artifacts(answer_text)
         dynamic_followups = [self._clean_latex_and_math_artifacts(f) for f in dynamic_followups]
+
+        # Safety floor: the LLM decides the critical flag from whatever chunks were retrieved; when those
+        # chunks are off-topic it can answer "no information" with [CRITICAL_WARNING]: NO for a real emergency.
+        # A critical flag is not enough either: in a live run the LLM flagged a febrile newborn as critical but its
+        # answer only quoted an off-topic chunk and never told the parent to seek care. Whenever the message is an
+        # emergency, the answer text itself must carry the referral.
+        red_flags = detect_red_flags(request.message)
+        if red_flags and not has_critical_warning:
+            logger.warning("Red flags %s detected but LLM returned no critical warning; forcing emergency.",
+                           [f.category for f in red_flags])
+            has_critical_warning = True
+        if has_critical_warning and not contains_urgent_referral(answer_text):
+            logger.warning("Critical answer without an urgent referral; prepending safety floor.")
+            is_self_harm = any(f.category == RED_FLAG_SELF_HARM for f in red_flags)
+            prefix = FLOOR_SELF_HARM_PREFIX if is_self_harm else FLOOR_EMERGENCY_PREFIX
+            answer_text = f"{prefix}\n\n{answer_text}"
 
         if has_critical_warning:
             if is_family:
