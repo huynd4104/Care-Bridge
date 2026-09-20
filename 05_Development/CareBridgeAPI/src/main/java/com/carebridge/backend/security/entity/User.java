@@ -128,11 +128,13 @@ public class User {
     @Column(name = "safety_config_updated_by")
     private UUID safetyConfigUpdatedBy;
 
+    @Builder.Default
     @Column(name = "email_verified")
-    private Boolean emailVerified;
+    private Boolean emailVerified = false;
 
+    @Builder.Default
     @Column(name = "phone_verified")
-    private Boolean phoneVerified;
+    private Boolean phoneVerified = false;
 
     @Transient
     private Instant lastLoginAt;

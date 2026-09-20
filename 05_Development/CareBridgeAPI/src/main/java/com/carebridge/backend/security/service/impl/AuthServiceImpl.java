@@ -817,6 +817,18 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setName(StringUtils.sanitizeBasicText(request.getName()));
         user.setAvatarUrl(StringUtils.trimToNull(request.getAvatarUrl()));
+        if (request.getPhone() != null) {
+            String normalizedPhone = normalizePhone(request.getPhone());
+            if (!java.util.Objects.equals(normalizedPhone, user.getPhone())) {
+                userRepository.findByPhone(normalizedPhone)
+                        .filter(existing -> !existing.getId().equals(userId))
+                        .ifPresent(existing -> {
+                            throw new ValidationException("Phone number is already registered");
+                        });
+                user.setPhone(normalizedPhone);
+                user.setPhoneVerified(false);
+            }
+        }
         User saved = userRepository.save(user);
         // ADR-002: audit profile updates in the same transaction (only after a successful save).
         auditService.log(AuditAction.PROFILE_UPDATED, userId, "User", userId.toString(), null);

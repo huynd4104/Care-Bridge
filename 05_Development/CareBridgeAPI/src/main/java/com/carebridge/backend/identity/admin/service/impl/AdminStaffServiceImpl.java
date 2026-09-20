@@ -63,10 +63,14 @@ public class AdminStaffServiceImpl implements AdminStaffService {
                 .email(request.getEmail())
                 .phone(phone)
                 .name(request.getName())
+                .displayName(request.getName())
                 .role(request.getRole())
                 .passwordHash(passwordEncoder.encode(tempPassword))
                 .enabled(true)
                 .locked(false)
+                .accountStatus("ACTIVE")
+                .emailVerified(true)
+                .phoneVerified(phone != null)
                 .mustChangePassword(true)
                 .build();
 

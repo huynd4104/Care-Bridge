@@ -188,6 +188,26 @@ class AuthServiceGetProfileTest {
         assertEquals(originalPhone, saved.getPhone());
     }
 
+    @Test
+    @DisplayName("PRF-TC-009: Valid Vietnamese phone is normalized and requires re-verification")
+    void updateProfile_validPhone_normalizesAndClearsVerification() {
+        User user = createTestUser(USER_ID_1, Role.MOTHER);
+        user.setPhone("+84911000001");
+        user.setPhoneVerified(true);
+        when(userRepository.findById(USER_ID_1)).thenReturn(Optional.of(user));
+        when(userRepository.findByPhone("+84981234567")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        UpdateProfileRequest request = createUpdateRequest("Updated Name", null);
+        request.setPhone("0981234567");
+        authService.updateProfile(USER_ID_1, request);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertEquals("+84981234567", captor.getValue().getPhone());
+        assertFalse(captor.getValue().getPhoneVerified());
+    }
+
     // PRF-TC-006 — Non-existent user returns error
     @Test
     @DisplayName("PRF-TC-006: Update non-existent user throws ResourceNotFoundException")
