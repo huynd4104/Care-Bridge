@@ -65,16 +65,10 @@
 | 8 | Evaluate Health Risk Level? | The AI monitoring engine evaluates logged metrics against clinical thresholds and historical baselines to classify into Normal, Moderate Anomaly, or Critical Emergency. | System | Multi-branch decision: Normal loops to Step 6; Moderate Anomaly goes to Step 9; Critical Emergency goes to Step 9A. |
 | 9A | Trigger Medical Emergency Mode | The system immediately activates Medical Emergency Mode and alerts designated emergency contacts. | System | Initiates urgent escalation protocols for critical cases. |
 | 9A1 | View Nearest Hospital List, Call 115 / Hospital Hotline, Open Navigation Map | The mother views a list of nearby hospitals, can one-tap call 115 or emergency hotlines, and opens turn-by-turn navigation map directions. | Mother | Provides instant access to emergency hospital care and rapid calling shortcuts. |
-| 9 | Clarify Symptoms with AI Nurse Assistant (RAG Chat) | The mother interacts with the AI Nurse Assistant via RAG-powered chat to clarify non-critical symptoms and receive preliminary triage guidance. | Mother | Provides immediate conversational health support and risk triage (not a definitive medical diagnosis). |
-| 10 | Need Expert Consultation? | The system and mother assess whether professional healthcare consultation is recommended based on symptom severity. | System / Mother | If No, proceeds to Step 11B. If Yes, proceeds to Step 11A. |
-| 11A | Recommend Available Experts | The system recommends verified medical specialists and obstetricians available for teleconsultation. | System | Also serves as fallback if a booking request is rejected in Step 14. |
-| 11B | Self-tracking requirement & Disclaimer | The system issues self-tracking instructions, safety disclaimers, and guidelines for continued home monitoring. | System | Concludes self-care guidance loop. |
-| 12 | Select Specialist & Confirm Booking (Chat / Video) | The mother selects an expert, chooses the consultation mode (Chat or Video), and confirms the booking request. | Mother | Transmits the consultation booking request to the selected specialist. |
-| 13 | Receive Consultation Request Notification | The specialist receives a notification with the mother's consultation request and relevant triage summary context. | Expert | Informs the doctor of the pending patient appointment. |
-| 14 | Accept Booking? | The specialist reviews the request and decides whether to accept or decline the consultation. | Expert | If No, routes back to Step 11A to select another expert. If Yes, proceeds to Step 15. |
-| 15 | Conduct Chat / Video Teleconsultation Session | The mother and specialist conduct a live remote teleconsultation session via chat or video call. | Mother / Expert | Facilitates remote clinical evaluation and medical advice. |
-| 16 | Prescribe & Authorize Updated Personalized Care Plan | The specialist prescribes updated clinical recommendations, modifies daily care activities, and authorizes the new personalized care plan. | Expert | Official medical adjustment approved by a verified healthcare professional. |
-| 17 | Receive & Apply Updated Care Plan | The mother receives the updated, doctor-approved personalized care plan (or self-care guidelines) and integrates it into her daily routine. | Mother | The new plan is applied, looping back to Step 6 (Receive daily plans). |
+| 9B | Clarify Symptoms with AI Nurse Assistant (RAG Chat) | The mother interacts with the AI Nurse Assistant via RAG-powered chat to clarify non-critical symptoms and receive preliminary triage guidance. | Mother | Provides immediate conversational health support and risk triage (not a definitive medical diagnosis). |
+| 10 | Need Expert Consultation? | The system and mother assess whether professional healthcare consultation is recommended based on symptom severity. | System / Mother | If No, proceeds to Step 11A. If Yes, proceeds to Step 11B. |
+| 11A | Self-tracking requirement & Disclaimer | The system issues self-tracking instructions, safety disclaimers, and guidelines for continued home monitoring. | System | Concludes self-care guidance loop. |
+| 11B | Refer to Expert Consultation Workflow | The system refers the mother to the dedicated Expert Consultation Workflow (Booking, Direct Chat & Video Call). | System / Mother | Hands off to the separate Expert Consultation Workflow; upon conclusion, returns to daily care plan monitoring. |
 
 **Table 4: Maternal Care Plan Workflow Description**
 
@@ -156,3 +150,57 @@ Table 6: Community Q\&A & Moderation Workflow Description
 |  8B   | Restrict & Suspend                   | The system applies the administrator's decision by hiding the badge, restricting contributions, revoking verification or suspending the expert account. | System |   The applied restriction ends the workflow and the expert profile is updated according to the final action.    |
 
 **Table 7: Verified Expert Network & Contribution Workflow Description**
+
+---
+
+#### ***1.2.5 Family Sync Workflow***
+
+**Image Detail: [Family Sync Workflow](../03_Design/Workflow/main%20work%20flow-4.%20Family%20Sync%20Workflow.drawio.png)**
+
+**Description**
+
+| # | Step Name | Detail Description | Role | Note |
+|---|---|---|---|---|
+| 1 | Create care group | The mother creates a care group to begin sharing care information with her family. | Mother | The care group is the container that holds members, shared information and sharing permissions. |
+| 2 | Save group, auto-add Mother as OWNER | The system creates the care group and records the mother as its owner, linked to her active care journey. | System | The mother is the sole owner with administrative permissions. |
+| 3 | Invite family member or share group code | The mother sends an invitation to a phone/email or shares the care group code. | Mother | Only the group owner may invite or approve members. |
+| 4 | Invite channel? | The workflow branches: direct invitation or shared group code. | System | Direct invitation vs shared-code join request. |
+| 5A | Create an invitation and send notification | The system records a pending invitation and notifies the recipient. | System | Requires existing CareBridge account. |
+| 6A | Open pending invitation, choose role & accept | The family member opens the invitation, selects relationship role, and accepts. | Family Member | An invitation can be accepted only once. |
+| 5B | Enter shared group code & choose role | The family member inputs the code and selects relationship role. | Family Member | Code works only for active groups. |
+| 6B | Create join request and notify Mother | The system records a join request awaiting mother's decision. | System | Gives no data access until approved. |
+| 7 | Mother approves request? | The mother reviews pending join requests and approves or rejects each one. | Mother | Approval decision step. |
+| 7B | Join request rejected | The join request is rejected and the family member does not join. | Family Member | Non-permanent rejection. |
+| 8 | Activate member and notify Mother | The system activates the member in the care group and notifies the mother. | System | Member is activated without permissions initially. |
+| 9 | Grant per-member sharing permissions | The mother chooses per-member sharing permissions: calendar, logs, alerts, metrics. | Mother | Granular privacy control. |
+| 10 | Save member permission | The system stores and applies member permissions immediately. | System | Takes effect across all queries. |
+| 11 | Open family dashboard | The family member opens the family dashboard or shared screen. | Family Member | Accessible only to active group members. |
+| 12 | View shared calendar, alerts & metrics | The family member views permitted care information and tasks. | Family Member | Boundary enforces strict per-member access. |
+
+**Table 8: Family Sync Workflow Description**
+
+---
+
+#### ***1.2.6 Expert Booking & Direct Consultation Workflow***
+
+**Image Detail: [Expert Consultation Workflow](../03_Design/Workflow/main%20work%20flow-5.%20Expert%20Consultation%20Workflow.drawio)**
+
+**Description**
+
+| # | Step Name | Detail Description | Role | Note |
+|---|---|---|---|---|
+| 1 | Select Expert & Submit Consultation Request | The mother browses verified healthcare specialists, chooses an expert, specifies preferred consultation time window, enters symptoms and medical questions, and submits the consultation request. | Mother | Entry point of the expert consultation workflow; initiated from the specialist directory or AI Nurse triage referral. |
+| 2 | Save Request (PENDING) & Notify Assigned Expert | The system creates and persists the consultation request record with status PENDING, and sends a real-time notification alert to the designated doctor. | System | Initial request status is set to PENDING awaiting specialist triage and decision. |
+| 3 | Review Pending Request & Inspect Patient Context & Triage | The doctor opens their assigned consultation queue, reviews the patient's submitted notes, health profile, trimester stage, and initial triage assessment. | Expert | Doctor evaluates clinical urgency, medical relevance, and schedule availability before deciding. |
+| 4 | Accept Request? | The doctor decides whether to accept the consultation request to proceed with care, or decline it. | Expert | Decision point: Yes branches to Step 5 (Acceptance); No branches to Step 4A (Rejection). |
+| 4A | Reject Request with Reason | The doctor declines the request and enters a clear clinical or scheduling reason for the rejection. | Expert | Provides transparent feedback to the mother regarding why the request could not be fulfilled. |
+| 4B | Update Status to REJECTED & Notify Mother | The system updates the consultation request status to REJECTED, stores the rejection rationale, and delivers a notification to the mother. | System | Terminal step for declined requests. The mother may select another available specialist. |
+| 5 | Update Status to ACCEPTED & Auto-Create Direct Conversation Room | The system transitions the request status to ACCEPTED and automatically provisions a private Direct Conversation room for teleconsultation. | System | Initializes the real-time communication channel and enables direct messaging and audio/video calling. |
+| 6 | Conduct Direct Consultation Session (Chat / Video Call) | The mother and doctor participate in teleconsultation via encrypted real-time chat, sharing vital metric cards, baby milestone summaries, or 1-on-1 audio/video calling. | Mother / Expert | Teleconsultation session supports real-time WebSocket messaging and ZegoCloud WebRTC audio/video call. |
+| 7 | Inspect Shared Records & Adjust Care Plan | The doctor accesses the mother's shared maternal health records, pregnancy metrics, and daily checklist, then adds custom doctor-prescribed tasks with clinical advice. | Expert | Doctor inspects shared metrics and customizes care plan tasks with clinical guidance and scheduled reminders. |
+| 8 | Synchronize Doctor-Prescribed Tasks to Mother's Schedule | The system validates doctor-prescribed tasks, tags them with clinical origin, and synchronizes them into the mother's active daily schedule and reminder engine. | System | Synchronizes doctor-adjusted tasks, timings, and clinical notes directly into mother's active daily checklist. |
+| 9 | Receive & Apply Updated Care Plan | The mother views the doctor's clinical recommendations and approved care tasks, executing them as part of her daily maternal wellness routine. | Mother | Mother integrates doctor-approved tasks into daily routine; loops back to Maternal Care Plan Workflow (Figure 3, Step 6). |
+| Boundary | Workflow Boundary | Expert consultation is strictly conducted between verified healthcare practitioners and mothers with active care plans. All medical adjustments require explicit doctor authorization and are synchronized directly to patient routines. | System | Enforces medical data privacy, professional credential verification, and traceable clinical record keeping across CareBridge. |
+
+**Table 9: Expert Consultation & Care Plan Adjustment Workflow Description**
+

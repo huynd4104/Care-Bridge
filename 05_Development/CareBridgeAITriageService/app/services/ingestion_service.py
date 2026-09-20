@@ -35,7 +35,7 @@ class IngestionService:
             section=request.section,
         )
 
-        inserted_count = await self.vector_store.add_chunks(chunks, session=session)
+        inserted_count = await self.vector_store.replace_document_chunks(chunks, session=session)
 
         return IngestDocumentResponse(
             success=True,
@@ -58,7 +58,7 @@ class IngestionService:
             logger.warning(f"No text extracted from {path.name}")
             return 0
 
-        inserted = await self.vector_store.add_chunks(chunks, session=session)
+        inserted = await self.vector_store.replace_document_chunks(chunks, session=session)
         logger.info(f"Successfully ingested {inserted} chunks for {path.name}")
         return inserted
 

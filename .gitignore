@@ -214,3 +214,14 @@ docs/trackasia-map-flow.md
 # Tai lieu RAG (6.2GB) - khong bao gio dua vao git
 tailieuRAG/
 tailieuRAG.zip
+
+# Local developer launch scripts
+run_backend.ps1
+05_Development/CareBridgeAPI/run_backend.ps1
+
+# Vung lam viec tam cua may local, khong thuoc ve repo
+scratchpad/
+.tmp-doc-edit/
+
+# Harness xem thu ban web-mobile tren may local (hard-code duong dan D:/)
+05_Development/CareBridgeWebApp/mobile-web.vite.config.mjs

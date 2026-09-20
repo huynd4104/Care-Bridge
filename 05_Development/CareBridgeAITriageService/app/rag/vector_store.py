@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
+import unicodedata
 from typing import Any, Dict, List, Optional
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, literal, or_, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import RAW_DOCS_DIR
@@ -21,10 +24,53 @@ from app.rag.embedder import get_embedder
 
 logger = logging.getLogger(__name__)
 
+DENSE_CANDIDATES = 80
+
+# Newborn documents are ingested with stage BABY_CARE, but chat users are only ever PRECONCEPTION /
+# PREGNANCY / POSTPARTUM. A mother asking about her newborn is in the POSTPARTUM stage, so that stage
+# must also search BABY_CARE; otherwise those documents can never be retrieved.
+_EXTRA_SEARCH_STAGES = {"POSTPARTUM": ("BABY_CARE",)}
+
+
+MAX_CHUNKS_PER_DOCUMENT = 2
+
+# Stopwords whose accent-folded form is also a meaningful word (năm/nằm, đâu/đau, để/đẻ, thế/thể, ra máu...):
+# never dropped from a query typed without diacritics.
+_FOLDED_STOPWORD_COLLISIONS = {
+    "nam", "ba", "tam", "sau", "bay", "do", "co", "ma", "hai", "mot", "chin", "nao", "dau", "the",
+    "tai", "tu", "da", "de", "ra", "can", "ve", "doi",
+}
+
+
+def _fold_accents(text: str) -> str:
+    """Remove Vietnamese diacritics (đ -> d) for accent-insensitive comparison."""
+    decomposed = unicodedata.normalize("NFD", text)
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn").replace("đ", "d").replace("Đ", "D")
+
+
+def _is_unaccented(text: str) -> bool:
+    """True when the text contains letters but none of them carry Vietnamese diacritics."""
+    return any(ch.isalpha() for ch in text) and _fold_accents(text) == text
+
+
+def contains_word(term: str, text_lower: str) -> bool:
+    """Whole-word/phrase match for re-ranking (Unicode-aware boundaries), so short terms do not hit inside other words."""
+    return re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text_lower) is not None
+
+
+def searchable_stages(stage: Optional[str]) -> Optional[List[str]]:
+    """Stages whose chunks a query at `stage` may retrieve; None means no stage filter."""
+    if not stage or stage == "ALL":
+        return None
+    return [stage, "ALL", *_EXTRA_SEARCH_STAGES.get(stage, ())]
+
 
 class PgVectorStore:
     def __init__(self) -> None:
         self.embedder = get_embedder()
+        # Accent-folded copy of every stored chunk (id, stage, topic, title, content) for queries typed without
+        # diacritics; built on first use, dropped whenever the stored chunks change.
+        self._folded_index: Optional[List[tuple]] = None
         # In-memory cache fallback for fast local testing
         self._local_cache: List[Dict[str, Any]] = []
 
@@ -34,6 +80,7 @@ class PgVectorStore:
         session: Optional[AsyncSession] = None,
     ) -> int:
         """Embed and insert chunks into PostgreSQL pgvector."""
+        self._invalidate_folded_index()
         if not chunks:
             return 0
 
@@ -71,6 +118,7 @@ class PgVectorStore:
                 s.add(db_chunk)
                 count += 1
             await s.commit()
+            self._invalidate_folded_index()  # a query may have rebuilt it from pre-commit rows
             return count
 
         if session is not None:
@@ -87,12 +135,53 @@ class PgVectorStore:
                 logger.warning(f"PostgreSQL not reachable for insert, saved to in-memory store: {e}")
                 return len(chunks)
 
+    async def replace_document_chunks(
+        self,
+        chunks: List[DocumentChunkDTO],
+        session: Optional[AsyncSession] = None,
+    ) -> int:
+        """Idempotent ingestion: replace every stored chunk of the same document title (exact match) in one
+        transaction. Re-running ingestion with add_chunks alone duplicated the whole knowledge base."""
+        self._invalidate_folded_index()
+        if not chunks:
+            return 0
+        titles = sorted({c.title for c in chunks})
+        embeddings = await self.embedder.embed_documents([c.content for c in chunks])
+
+        async def _replace(s: AsyncSession) -> int:
+            await s.execute(delete(MaternalKnowledgeChunk).where(MaternalKnowledgeChunk.title.in_(titles)))
+            for chunk, emb in zip(chunks, embeddings):
+                s.add(MaternalKnowledgeChunk(
+                    title=chunk.title, stage=chunk.stage, topic=chunk.topic, source=chunk.source,
+                    section=chunk.section, content=chunk.content, chunk_index=chunk.chunk_index, embedding=emb,
+                ))
+            await s.commit()  # delete + insert commit together
+            return len(chunks)
+
+        if session is not None:
+            inserted = await _replace(session)
+        else:
+            async with AsyncSessionLocal() as db:
+                inserted = await _replace(db)
+
+        self._invalidate_folded_index()  # again: a query may have rebuilt it from pre-commit rows
+        # Mirror into the in-memory fallback only after the database commit succeeded.
+        self._local_cache = [c for c in self._local_cache if c["title"] not in titles]
+        for chunk, emb in zip(chunks, embeddings):
+            self._local_cache.append({
+                "id": len(self._local_cache) + 1, "title": chunk.title, "stage": chunk.stage, "topic": chunk.topic,
+                "source": chunk.source, "section": chunk.section, "content": chunk.content,
+                "chunk_index": chunk.chunk_index, "embedding": emb,
+            })
+        return inserted
+
     async def delete_by_title(
         self,
         title: str,
         session: Optional[AsyncSession] = None,
     ) -> int:
         """Delete all chunks belonging to a document title or filename."""
+        self._invalidate_folded_index()
         prev_len = len(self._local_cache)
         self._local_cache = [c for c in self._local_cache if title.lower() not in c["title"].lower()]
         deleted_count = prev_len - len(self._local_cache)
@@ -103,6 +192,7 @@ class PgVectorStore:
             )
             result = await s.execute(stmt)
             await s.commit()
+            self._invalidate_folded_index()
             return result.rowcount or 0
 
         if session is not None:
@@ -126,6 +216,7 @@ class PgVectorStore:
         session: Optional[AsyncSession] = None,
     ) -> int:
         """Delete all knowledge chunks from the entire database and memory cache."""
+        self._invalidate_folded_index()
         count = len(self._local_cache)
         self._local_cache.clear()
 
@@ -133,6 +224,7 @@ class PgVectorStore:
             stmt = delete(MaternalKnowledgeChunk)
             result = await s.execute(stmt)
             await s.commit()
+            self._invalidate_folded_index()
             return result.rowcount or 0
 
         if session is not None:
@@ -285,10 +377,12 @@ class PgVectorStore:
         session: Optional[AsyncSession] = None,
     ) -> List[Dict[str, Any]]:
         """Find the top-K most similar knowledge chunks using Hybrid Search (Dense Vector + Sparse Keyword Re-ranking)."""
-        import re
-        from sqlalchemy import or_
+        # A query typed entirely without diacritics embeds to near-random vectors (similarity ~0.14) and its
+        # keywords never match the accented corpus with ILIKE, so it retrieved nothing and the chat refused.
+        # Such queries take their keyword candidates from an accent-folded in-memory index instead
+        # (folding inside SQL with translate() took ~20 s per query on the hosted database).
+        typed_unaccented = _is_unaccented(query)
 
-        query_vector = await self.embedder.embed_query(query)
         general_stopwords = {
             "là", "và", "của", "cho", "các", "những", "được", "có", "trong",
             "để", "khi", "ở", "gì", "thế", "nào", "ạ", "nhé", "với", "từ",
@@ -303,6 +397,12 @@ class PgVectorStore:
         
         # Domain filler words that occur in almost every maternal doc
         domain_fillers = {"mẹ", "bầu", "thai", "tuần", "tháng", "em", "bé", "con", "mình", "người", "nhà", "hỏi", "chào"}
+
+        if typed_unaccented:
+            # "moi ngay uong bao nhieu" must drop its fillers too, or they take the few keyword slots sent to
+            # search. Folded forms that are also a clinical word ("năm"/"nằm", "đâu"/"đau") are kept.
+            general_stopwords |= {_fold_accents(w) for w in general_stopwords} - _FOLDED_STOPWORD_COLLISIONS
+            domain_fillers |= {_fold_accents(w) for w in domain_fillers} - _FOLDED_STOPWORD_COLLISIONS
 
         clean_words = [
             w for w in re.sub(r"[^\w\s]", " ", query.lower()).split()
@@ -330,83 +430,135 @@ class PgVectorStore:
 
         key_phrases = phrases_3 + phrases_2
 
+        # Only the first few terms go to SQL. Taking them in sentence order sent "em mang thai", "mang thai 32"
+        # and dropped the symptoms at the end ("đau đầu dữ dội", "nhìn mờ"). Prefer terms with the most
+        # clinical (non-numeric) words; the stable sort keeps sentence order among equals.
+        clinical_set = {w for w in clinical_words if not w.isdigit()}
+
+        def _informativeness(phrase: str) -> int:
+            return -sum(1 for w in phrase.split() if w in clinical_set)
+
+        phrases_2_sql = sorted(phrases_2, key=_informativeness)[:6]
+        phrases_3_sql = sorted(phrases_3, key=_informativeness)[:6]
+
+        allowed_stages = searchable_stages(stage)
+
+        def _filtered(stmt):
+            if allowed_stages is not None:
+                stmt = stmt.where(MaternalKnowledgeChunk.stage.in_(allowed_stages))
+            if topic:
+                stmt = stmt.where(MaternalKnowledgeChunk.topic == topic)
+            return stmt
+
+        def _ranked_match_query(column, terms: List[str], limit: int):
+            # Rows matching the most terms first (then id for determinism). Without ORDER BY, LIMIT returned
+            # arbitrary rows, so retrieval changed from run to run and relevant chunks were often cut off.
+            # Ties go to shorter chunks: long chunks match more terms by sheer size, not by focus.
+            # Plain ILIKE keeps candidate generation fast; precision comes from whole-word re-ranking below.
+            conditions = [column.ilike(f"%{t}%") for t in terms]
+            match_count = sum((case((cond, 1), else_=0) for cond in conditions), literal(0))
+            stmt = select(MaternalKnowledgeChunk).where(or_(*conditions))
+            return _filtered(stmt).order_by(match_count.desc(), func.length(MaternalKnowledgeChunk.content).asc(), MaternalKnowledgeChunk.id.asc()).limit(limit)
+
+        # Keyword candidate queries do not need the query embedding: start them now on a separate pooled
+        # connection so their round trip overlaps with the embedding call.
+        search_keywords = clinical_words or clean_words
+        keyword_stmts = []
+        if phrases_2:
+            keyword_stmts.append(_ranked_match_query(MaternalKnowledgeChunk.title, phrases_2_sql, 30))
+        if phrases_3:
+            keyword_stmts.append(_ranked_match_query(MaternalKnowledgeChunk.content, phrases_3_sql, 40))
+        if search_keywords:
+            keyword_stmts.append(_ranked_match_query(
+                MaternalKnowledgeChunk.content, sorted(search_keywords, key=str.isdigit)[:6], 40))
+
+        folded_specs = []  # same three candidate queries, evaluated on folded text: (use_title, terms, limit)
+        if phrases_2:
+            folded_specs.append((True, phrases_2_sql, 30))
+        if phrases_3:
+            folded_specs.append((False, phrases_3_sql, 40))
+        if search_keywords:
+            folded_specs.append((False, sorted(search_keywords, key=str.isdigit)[:6], 40))
+
+        async def _run_keyword_queries() -> List[MaternalKnowledgeChunk]:
+            if typed_unaccented:
+                ids = await self._folded_keyword_ids(folded_specs, allowed_stages, topic)
+                if not ids:
+                    return []
+                async with AsyncSessionLocal() as ks:
+                    stmt = select(MaternalKnowledgeChunk).where(MaternalKnowledgeChunk.id.in_(ids))
+                    return list((await ks.execute(stmt)).scalars())
+            # One round trip and one extra pooled connection: UNION ALL of each ranked query's ids.
+            if not keyword_stmts:
+                return []
+            id_selects = [select(q.with_only_columns(MaternalKnowledgeChunk.id).subquery().c.id) for q in keyword_stmts]
+            stmt = select(MaternalKnowledgeChunk).where(MaternalKnowledgeChunk.id.in_(union_all(*id_selects)))
+            async with AsyncSessionLocal() as ks:
+                return list((await ks.execute(stmt)).scalars())
+
+        keyword_future = asyncio.gather(_run_keyword_queries(), return_exceptions=True)
+        try:
+            query_vector = await self.embedder.embed_query(query)
+        finally:
+            keyword_results = await keyword_future
+
         async def _search_db(s: AsyncSession) -> List[Dict[str, Any]]:
+            # With a WHERE filter, an HNSW scan only yields ~hnsw.ef_search rows (default 40) before filtering,
+            # so LIMIT DENSE_CANDIDATES was silently capped. Raise it for this transaction (pgvector guidance
+            # for filtered search). Isolated in a savepoint so a database without the setting is unaffected.
+            try:
+                async with s.begin_nested():
+                    await s.execute(
+                        text("SELECT set_config('hnsw.ef_search', :ef, true)"),
+                        {"ef": str(int(DENSE_CANDIDATES))},
+                    )
+            except Exception as e:  # e.g. not PostgreSQL / pgvector without HNSW
+                logger.debug(f"hnsw.ef_search not applied: {e}")
+
             # 1. Query Top Dense Vector candidates
             stmt_vec = select(
                 MaternalKnowledgeChunk,
                 MaternalKnowledgeChunk.embedding.cosine_distance(query_vector).label("distance"),
             )
-            if stage and stage != "ALL":
-                stmt_vec = stmt_vec.where(MaternalKnowledgeChunk.stage.in_([stage, "ALL"]))
-            if topic:
-                stmt_vec = stmt_vec.where(MaternalKnowledgeChunk.topic == topic)
-
-            stmt_vec = stmt_vec.order_by("distance").limit(40)
+            # Wider candidate pool: duplicated ingestion can fill a small pool with copies of the same chunk.
+            stmt_vec = _filtered(stmt_vec).order_by("distance", MaternalKnowledgeChunk.id.asc()).limit(DENSE_CANDIDATES)
             res_vec = await s.execute(stmt_vec)
-            
+
             candidates: Dict[int, tuple[MaternalKnowledgeChunk, float]] = {}
             for chunk, dist in res_vec.all():
                 vec_sim = 1.0 - float(dist) if dist is not None else 0.0
                 candidates[chunk.id] = (chunk, vec_sim)
 
-            # 2. Query Exact Title Matches (highest priority)
-            if phrases_2:
-                title_filters = [MaternalKnowledgeChunk.title.ilike(f"%{p}%") for p in phrases_2[:6]]
-                stmt_title = select(MaternalKnowledgeChunk).where(or_(*title_filters)).limit(30)
-                if stage and stage != "ALL":
-                    stmt_title = stmt_title.where(MaternalKnowledgeChunk.stage.in_([stage, "ALL"]))
-                if topic:
-                    stmt_title = stmt_title.where(MaternalKnowledgeChunk.topic == topic)
-                res_title = await s.execute(stmt_title)
-                for chunk in res_title.scalars():
-                    if chunk.id not in candidates:
-                        candidates[chunk.id] = (chunk, 0.0)
-
-            # 3. Query 3-gram Content Matches
-            if phrases_3:
-                p3_filters = [MaternalKnowledgeChunk.content.ilike(f"%{p}%") for p in phrases_3[:6]]
-                stmt_p3 = select(MaternalKnowledgeChunk).where(or_(*p3_filters)).limit(40)
-                if stage and stage != "ALL":
-                    stmt_p3 = stmt_p3.where(MaternalKnowledgeChunk.stage.in_([stage, "ALL"]))
-                if topic:
-                    stmt_p3 = stmt_p3.where(MaternalKnowledgeChunk.topic == topic)
-                res_p3 = await s.execute(stmt_p3)
-                for chunk in res_p3.scalars():
-                    if chunk.id not in candidates:
-                        candidates[chunk.id] = (chunk, 0.0)
-
-            # 4. Query Core Clinical Keyword Matches (Prioritize clinical terms over filler)
-            search_keywords = clinical_words or clean_words
-            if search_keywords:
-                kw_filters = [MaternalKnowledgeChunk.content.ilike(f"%{w}%") for w in search_keywords[:6]]
-                stmt_kw = select(MaternalKnowledgeChunk).where(or_(*kw_filters)).limit(40)
-                if stage and stage != "ALL":
-                    stmt_kw = stmt_kw.where(MaternalKnowledgeChunk.stage.in_([stage, "ALL"]))
-                if topic:
-                    stmt_kw = stmt_kw.where(MaternalKnowledgeChunk.topic == topic)
-                res_kw = await s.execute(stmt_kw)
-                for chunk in res_kw.scalars():
+            # 2-4. Title / 3-gram / keyword candidates (fetched concurrently above)
+            for result in keyword_results:
+                if isinstance(result, Exception):
+                    logger.warning(f"Keyword candidate query failed: {result}")
+                    continue
+                for chunk in result:
                     if chunk.id not in candidates:
                         candidates[chunk.id] = (chunk, 0.0)
 
             # 5. Compute Hybrid Re-ranking Score
             target_words = clinical_words or clean_words
+            # A query typed without Vietnamese diacritics can never match accented text literally, so
+            # compare it against accent-folded content instead (accented queries keep exact matching).
+            fold = typed_unaccented
             scored = []
             for chunk_id, (chunk, vec_sim) in candidates.items():
-                content_lower = chunk.content.lower()
-                title_lower = chunk.title.lower()
+                content_lower = _fold_accents(chunk.content.lower()) if fold else chunk.content.lower()
+                title_lower = _fold_accents(chunk.title.lower()) if fold else chunk.title.lower()
                 
-                kw_hits = sum(1 for w in target_words if w in content_lower or w in title_lower)
+                kw_hits = sum(1 for w in target_words if contains_word(w, content_lower) or contains_word(w, title_lower))
                 kw_ratio = kw_hits / max(len(target_words), 1)
 
                 title_boost = 0.0
                 for p in key_phrases:
-                    if p in title_lower:
+                    if contains_word(p, title_lower):
                         title_boost += 0.40
 
                 content_phrase_boost = 0.0
                 for p in key_phrases:
-                    if p in content_lower:
+                    if contains_word(p, content_lower):
                         content_phrase_boost += 0.30
 
                 has_kw_match = kw_hits >= 1
@@ -423,15 +575,25 @@ class PgVectorStore:
                 
                 scored.append((chunk, hybrid_score))
 
-            scored.sort(key=lambda x: x[1], reverse=True)
+            # Stable order: score desc, then id asc, so equal scores do not reorder between runs.
+            scored.sort(key=lambda x: (-x[1], x[0].id))
 
             results = []
             seen_sections = set()
+            seen_contents = set()
+            per_title: Dict[str, int] = {}
             for chunk, h_score in scored:
                 sec_key = f"{chunk.title}_{chunk.section}"
-                if sec_key in seen_sections:
+                content_key = (chunk.content or "").strip()
+                if sec_key in seen_sections or content_key in seen_contents:
                     continue
+                # Source diversity: a title match boosts every chunk of that document, which let a single
+                # document fill all top_k slots and push out the chunk that actually answers the question.
+                if per_title.get(chunk.title, 0) >= MAX_CHUNKS_PER_DOCUMENT:
+                    continue
+                per_title[chunk.title] = per_title.get(chunk.title, 0) + 1
                 seen_sections.add(sec_key)
+                seen_contents.add(content_key)
 
                 results.append({
                     "id": chunk.id,
@@ -454,7 +616,7 @@ class PgVectorStore:
                 if db_results:
                     return db_results
             except Exception as e:
-                logger.debug(f"pgvector query error on provided session: {e}")
+                logger.warning(f"pgvector query error on provided session: {e}")
         else:
             try:
                 async with AsyncSessionLocal() as db:
@@ -462,10 +624,56 @@ class PgVectorStore:
                     if db_results:
                         return db_results
             except Exception as e:
-                logger.debug(f"PostgreSQL pgvector query unavailable ({e}), using in-memory cache")
+                logger.warning(f"PostgreSQL pgvector query unavailable ({e}), using in-memory cache")
 
         # Fallback in-memory Cosine Similarity
         return self._in_memory_search(query_vector, stage, top_k)
+
+    async def warm_folded_index(self) -> None:
+        """Build the accent-folded keyword index ahead of the first unaccented query (~16k chunks: a few
+        seconds to load, then ~0.1 s per query)."""
+        if self._folded_index is not None:
+            return
+        async with AsyncSessionLocal() as s:
+            rows = (await s.execute(select(
+                MaternalKnowledgeChunk.id, MaternalKnowledgeChunk.stage, MaternalKnowledgeChunk.topic,
+                MaternalKnowledgeChunk.title, MaternalKnowledgeChunk.content,
+            ))).all()
+        # Concurrent first calls may both build; the result is identical, so no lock is needed.
+        self._folded_index = [
+            (cid, st, tp, _fold_accents((ti or "").lower()), _fold_accents((c or "").lower()))
+            for cid, st, tp, ti, c in rows
+        ]
+        logger.info("Accent-folded keyword index built: %d chunks", len(self._folded_index))
+
+    def _invalidate_folded_index(self) -> None:
+        self._folded_index = None
+
+    async def _folded_keyword_ids(self, specs, allowed_stages: Optional[List[str]], topic: Optional[str]) -> List[int]:
+        """Same ranking as the SQL keyword candidates (most matched terms, then shorter chunk, then id), but on
+        accent-folded text. `specs` holds (match_title, terms, limit) per candidate query."""
+        if not specs:
+            return []
+        try:
+            await self.warm_folded_index()
+        except Exception as e:
+            logger.warning(f"Accent-folded keyword index unavailable: {e}")
+            return []
+        rows = [
+            r for r in self._folded_index
+            if (allowed_stages is None or r[1] in allowed_stages) and (not topic or r[2] == topic)
+        ]
+        ids: List[int] = []
+        for match_title, terms, limit in specs:
+            folded_terms = [_fold_accents(t) for t in terms]
+            ranked = []
+            for cid, _, _, title, content in rows:
+                hits = sum(1 for t in folded_terms if t in (title if match_title else content))
+                if hits:
+                    ranked.append((-hits, len(content), cid))
+            ranked.sort()
+            ids.extend(cid for _, _, cid in ranked[:limit])
+        return list(dict.fromkeys(ids))
 
     def _in_memory_search(
         self,
@@ -476,10 +684,15 @@ class PgVectorStore:
         if not self._local_cache:
             return []
 
+        allowed_stages = searchable_stages(stage)
         scored = []
+        seen_contents = set()
         for item in self._local_cache:
-            if stage and stage != "ALL" and item["stage"] not in (stage, "ALL"):
+            if allowed_stages is not None and item["stage"] not in allowed_stages:
                 continue
+            if item["content"] in seen_contents:
+                continue
+            seen_contents.add(item["content"])
 
             doc_vector = item.get("embedding") or []
             dot = sum(a * b for a, b in zip(query_vector, doc_vector))

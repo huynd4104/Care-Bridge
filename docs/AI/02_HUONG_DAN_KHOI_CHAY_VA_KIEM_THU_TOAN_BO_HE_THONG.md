@@ -1,6 +1,6 @@
 # HƯỚNG DẪN KHỞI CHẠY & KIỂM THỬ TOÀN BỘ HỆ THỐNG CAREBRIDGE
 
-> **Dự án:** CareBridge (SEP490 - Capstone Project)  
+> **Dự án:** CareBridge (SEP490 - Capstone Project)
 > **Phân hệ bao gồm:** PostgreSQL Database, AI RAG Service (FastAPI), Main Backend (Spring Boot), Web App (React Vite), Mobile App (Flutter).
 
 ---
@@ -31,10 +31,12 @@
 ## 📌 BƯỚC 1: Khởi động Cơ sở Dữ liệu PostgreSQL
 
 Mở **Terminal 1** và chạy Docker Compose để bật PostgreSQL (có hỗ trợ extension `pgvector`):
+
 ```bash
 cd "05_Development/CareBridgeAPI"
 docker compose up -d
 ```
+
 *(Nếu bạn dùng PostgreSQL cài trực tiếp trên máy macOS/Windows hoặc Supabase thì chỉ cần đảm bảo dịch vụ CSDL đang bật).*
 
 ---
@@ -42,13 +44,17 @@ docker compose up -d
 ## 📌 BƯỚC 2: Thêm File Dữ liệu & Khởi chạy Python AI RAG Service
 
 ### 2.1. Thêm tài liệu mới (Nếu muốn)
+
 Thả các file cẩm nang (`.pdf`, `.docx`, `.md`, `.txt`) vào thư mục:
+
 ```text
 05_Development/CareBridgeAITriageService/data/raw_documents/
 ```
 
 ### 2.2. Khởi tạo CSDL Vector & Nạp tri thức
+
 Mở **Terminal 2**:
+
 ```bash
 cd "05_Development/CareBridgeAITriageService"
 
@@ -61,6 +67,7 @@ cd "05_Development/CareBridgeAITriageService"
 # 3. Chạy Server FastAPI AI Service
 ./venv/bin/uvicorn app.main:app --reload --port 8001
 ```
+
 * **Server AI hoạt động tại:** `http://localhost:8001`
 * **Giao diện Swagger UI tương tác trực tiếp:** `http://localhost:8001/docs`
 
@@ -69,12 +76,14 @@ cd "05_Development/CareBridgeAITriageService"
 ## 📌 BƯỚC 3: Khởi chạy Backend Java Spring Boot
 
 Mở **Terminal 3**:
+
 ```bash
 cd "05_Development/CareBridgeAPI"
 
 # Khởi chạy Spring Boot
 ./mvnw spring-boot:run
 ```
+
 * **Backend Spring Boot hoạt động tại:** `http://localhost:8080`
 * **Swagger UI Spring Boot:** `http://localhost:8080/swagger-ui.html`
 
@@ -83,6 +92,7 @@ cd "05_Development/CareBridgeAPI"
 ## 📌 BƯỚC 4: Khởi chạy Web App (React + TypeScript + Vite)
 
 Mở **Terminal 4**:
+
 ```bash
 cd "05_Development/CareBridgeWebApp"
 
@@ -92,6 +102,7 @@ npm install
 # Khởi chạy dev server
 npm run dev
 ```
+
 * **Truy cập Web App tại:** `http://localhost:5173`
 
 ---
@@ -99,6 +110,7 @@ npm run dev
 ## 📌 BƯỚC 5: Khởi chạy Mobile App (Flutter)
 
 Mở **Terminal 5** (Đảm bảo đã kết nối thiết bị thật hoặc mở máy ảo Android/iOS):
+
 ```bash
 cd "05_Development/CareBridgeMobileApp"
 
@@ -114,6 +126,7 @@ flutter run
 ## 🧪 BƯỚC 6: KỊCH BẢN KIỂM THỬ TỪNG TÍNH NĂNG (TESTING WORKFLOW)
 
 ### Kịch bản 1: Sàng lọc Sinh hiệu Mẹ Bầu & Báo động Cấp cứu (Bước 7 ➔ 8 ➔ 9)
+
 1. Mở trình duyệt truy cập: `http://localhost:8001/docs`
 2. Chọn `POST /api/v1/metrics/evaluate` ➔ Bấm **Try it out**.
 3. Dán JSON thử nghiệm ca **Tiền sản giật khẩn cấp (Huyết áp 165/110 + đau đầu, nhìn mờ)**:
@@ -136,6 +149,7 @@ flutter run
 ---
 
 ### Kịch bản 2: Hỏi đáp Trợ lý Điều dưỡng AI Nurse RAG Chat (Bước 10)
+
 1. Chọn `POST /api/v1/chat/message` ➔ Bấm **Try it out**.
 2. Dán câu hỏi về chăm sóc thai kỳ:
    ```json
@@ -154,6 +168,7 @@ flutter run
 ---
 
 ### Kịch bản 3: Nạp trực tiếp file PDF/Word Cẩm nang mới qua Web Admin
+
 1. Chọn `POST /api/v1/documents/upload` ➔ Bấm **Try it out**.
 2. Chọn file `.pdf` hoặc `.docx` từ máy tính ➔ Bấm **Execute**.
 3. Hệ thống sẽ tự động cắt khúc văn bản, tạo vector và lưu vào pgvector.
@@ -161,19 +176,24 @@ flutter run
 ---
 
 ### Kịch bản 4: Chạy Toàn bộ Unit & Integration Test Tự động
+
 Mở terminal và chạy lệnh test độc lập cho AI Service:
+
 ```bash
 cd "05_Development/CareBridgeAITriageService"
 ./venv/bin/pytest tests/ -v
 ```
+
 *(Toàn bộ **14/14 test cases** lâm sàng và API đều đạt kết quả 100% Passed).*
 
 ---
 
 ### Kịch bản 5: Luồng AI Nurse Phát hiện Dấu hiệu Bất thường ➔ Khuyến nghị Tham vấn Chuyên gia ➔ Tuyên bố Miễn trừ Trách nhiệm (Bước 10 ➔ 11 ➔ 12A/12B)
+
 Theo thiết kế kiến trúc chuẩn tại `docs/mainworkflow-Trang-3.drawio.png`:
 
 #### 🔹 Trường hợp 5.1: Mẹ đồng ý kết nối bác sĩ (Nhánh Bước 12B ➔ 13)
+
 1. Trên Mobile App, mẹ mở màn hình **Đo chỉ số** hoặc **Hỏi Trợ lý AI Nurse**.
 2. Gửi câu hỏi kèm chỉ số cảnh báo: *"Hôm nay em đo huyết áp 145/95 mmHg và thấy nhức đầu nhiều, có sao không?"*
 3. **AI Phản hồi:**
@@ -184,6 +204,7 @@ Theo thiết kế kiến trúc chuẩn tại `docs/mainworkflow-Trang-3.drawio.p
    - Bấm nút **'Kết nối Bác sĩ'** ➔ Ứng dụng điều hướng tức thì sang trang **Danh sách Chuyên gia/Bác sĩ sản phụ khoa** (`/experts`) để mẹ chọn bác sĩ và đặt lịch tư vấn trực tuyến (Teleconsultation Chat / Video).
 
 #### 🔹 Trường hợp 5.2: Mẹ từ chối kết nối bác sĩ ➔ Kích hoạt Cảnh báo Pháp lý & Tự theo dõi (Nhánh Bước 12A)
+
 1. Tại Modal Bước 11 (*Khuyến nghị Tham vấn Bác sĩ*), người dùng bấm **'Tự theo dõi thêm'** (Từ chối).
 2. **Modal Bước 12A kích hoạt:**
    - **Tuyên bố miễn trừ trách nhiệm:** Hệ thống AI Nurse chỉ cung cấp thông tin tham khảo dựa trên thuật toán, không thay thế cho chẩn đoán, điều trị hoặc lời khuyên y khoa chuyên nghiệp. CareBridge hoàn toàn miễn trừ trách nhiệm đối với bất kỳ hậu quả, tổn thất nào phát sinh từ quyết định từ chối khám y khoa của bạn.
@@ -195,8 +216,10 @@ Theo thiết kế kiến trúc chuẩn tại `docs/mainworkflow-Trang-3.drawio.p
 ---
 
 ### Kịch bản 6: Kiểm thử Banner Đính kèm Hồ sơ & Kết quả Khảo sát Survey
+
 1. Tại màn hình **Đo chỉ số sức khỏe** (`AddMaternalHealthMetricScreen`), nhập huyết áp hoặc triệu chứng và bấm **'HỎI TRỢ LÝ AI NURSE'**.
 2. **Trên màn hình AI Nurse (`RagChatScreen`):**
+
    - Phía trên ô nhập tin nhắn có Banner: `📋 Đính kèm ngữ cảnh lâm sàng • Tuần thai X • ...`
    - Bấm vào banner ➔ Modal BottomSheet mở ra chi tiết:
      - Giai đoạn / Tuần thai / Tam cá nguyệt.
@@ -206,14 +229,35 @@ Theo thiết kế kiến trúc chuẩn tại `docs/mainworkflow-Trang-3.drawio.p
        - Nếu thể trạng bình thường: Hiển thị thẻ xanh xác nhận: `✅ Đã ghi nhận khảo sát • Không có tiền sử bệnh lý nguy cơ`.
      - Bảng snapshot toàn bộ sinh hiệu gần nhất.
      - Nút **'Gỡ đính kèm'** để xóa ngữ cảnh khi muốn chat tự do.
-
-
 3. Cách chạy lại Benchmark khi cần (CLI)
-Khi muốn chạy lại đánh giá (ví dụ chạy toàn bộ 16 ca hoặc chỉ định số ca):
 
-bash
+Golden Dataset (`data/golden_evaluation_dataset.json`) có 100 case: FACTUAL, DANGER, MULTI_HOP, NOT_IN_KB (tài liệu không có → AI phải từ chối), OUT_OF_SCOPE, FALSE_PREMISE, và các biến thể không dấu / diễn đạt khác / người nhà hỏi. Mỗi đáp án chuẩn có `evidence_quotes` trích nguyên văn từ `data/raw_documents`.
+
+Yêu cầu trước khi chạy: PostgreSQL + pgvector đã ingest tài liệu (script tự dừng nếu vector store rỗng hoặc không kết nối được) và `GEMINI_API_KEY` trong `.env`. Toàn bộ chạy bằng Gemini free tier.
+
+```bash
 cd 05_Development/CareBridgeAITriageService
-# Chạy thử 4 ca nhanh:
-./venv/bin/python scripts/evaluate_rag_benchmark.py --limit 4
-# Chạy toàn bộ 16 ca trong Golden Dataset:
-./venv/bin/python scripts/evaluate_rag_benchmark.py
+# Kiểm tra offline (miễn phí, không gọi API): dataset không có trích dẫn bịa + logic chấm điểm
+.venv/Scripts/python -m pytest tests/test_golden_dataset.py tests/test_rag_eval_utils.py tests/test_rag_benchmark_aggregate.py
+# Chạy thử 5 ca:
+.venv/Scripts/python scripts/evaluate_rag_benchmark.py --limit 5
+# Toàn bộ 100 ca, mỗi ca hỏi 1 lần:
+.venv/Scripts/python scripts/evaluate_rag_benchmark.py
+# Kiểm tra tính nhất quán: hỏi lặp 10 lần các ca cấp cứu và ca ngoài tài liệu
+.venv/Scripts/python scripts/evaluate_rag_benchmark.py --repeats 10 --case-types DANGER,NOT_IN_KB
+# Chỉ các kiểm tra tất định (không dùng judge, tiết kiệm quota):
+.venv/Scripts/python scripts/evaluate_rag_benchmark.py --no-judge
+# Hết quota giữa chừng → chạy tiếp đúng thư mục cũ (cùng --repeats/--judge-model):
+.venv/Scripts/python scripts/evaluate_rag_benchmark.py --resume reports/runs/<thư_mục_run>
+# Test live theo dataset (tốn quota, phải bật cờ):
+RUN_LIVE_AI_TESTS=1 .venv/Scripts/python -m pytest tests/test_rag_chat.py -k golden
+```
+
+Kết quả nằm trong `reports/runs/<thời_điểm>/`:
+
+- `RAG_BENCHMARK_REPORT.md`: báo cáo nộp thầy. Mọi nhận xét ĐẠT/KHÔNG ĐẠT đều sinh từ số liệu, kèm khoảng tin cậy 95%.
+- `per_run.csv`: từng lượt hỏi.
+- `manual_review_sheet.csv`: file cho **test tay**. Người chấm điền các cột `HUMAN_*`; cột `ai_quotes_and_auto_check` đã tự tra từng đoạn AI trích dẫn trong tài liệu.
+- `raw_runs.jsonl`: dữ liệu thô gồm câu trả lời, chunk đã truy xuất, và kết quả judge.
+
+Báo cáo mới nhất cũng được chép ra `reports/RAG_BENCHMARK_REPORT.md` và `reports/rag_evaluation_report.json`.
