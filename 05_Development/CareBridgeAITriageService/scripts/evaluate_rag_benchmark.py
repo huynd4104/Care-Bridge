@@ -843,6 +843,7 @@ async def rejudge_missing(run_dir: Path, raw_path: Path, cases: List[dict], judg
 
 def answer_sha1(answer: str) -> str:
     import hashlib
+    # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
     return hashlib.sha1(answer.encode("utf-8")).hexdigest()[:12]
 
 

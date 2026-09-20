@@ -508,7 +508,10 @@ class PgVectorStore:
             # for filtered search). Isolated in a savepoint so a database without the setting is unaffected.
             try:
                 async with s.begin_nested():
-                    await s.execute(text(f"SET LOCAL hnsw.ef_search = {int(DENSE_CANDIDATES)}"))
+                    await s.execute(
+                        text("SELECT set_config('hnsw.ef_search', :ef, true)"),
+                        {"ef": str(int(DENSE_CANDIDATES))},
+                    )
             except Exception as e:  # e.g. not PostgreSQL / pgvector without HNSW
                 logger.debug(f"hnsw.ef_search not applied: {e}")
 
