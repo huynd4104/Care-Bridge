@@ -332,7 +332,16 @@ class RagChatService:
             rest = after_tag.split("\n", 1)[1] if "\n" in after_tag else ""
             cleaned_text = before_tag.strip() + ("\n\n" + rest.strip() if rest.strip() else "")
 
-        # 3. Extract follow-up suggestions
+        # 3. Strip repetitive boilerplate self-introductions while preserving warm greeting (e.g. "Chào mẹ,")
+        import re
+        cleaned_text = re.sub(
+            r"^(Chào\s+[^,\n]+[.,!:]?\s*)?(?:em|tôi|mình)\s+là\s+(?:CareBridge\s+AI\s+Nurse\s+Assistant|Trợ lý Điều dưỡng Y tế)[^.\n]*[.\n]+\s*",
+            lambda m: (m.group(1).rstrip() + "\n\n") if m.group(1) else "",
+            cleaned_text.strip(),
+            flags=re.IGNORECASE,
+        ).strip()
+
+        # 4. Extract follow-up suggestions
         tag_candidates = [
             "[GỢI Ý CÂU HỎI]:",
             "[GỢI Ý CÂU HỎI TIẾP THEO]:",
