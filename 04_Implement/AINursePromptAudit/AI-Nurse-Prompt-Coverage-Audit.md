@@ -322,6 +322,8 @@ Theo `.claude/rules/implement-flow.md`, việc sửa `prompts.py` / `rag_chat_se
 | `app/models/schemas.py` | `message` có `min_length=1`, `max_length=4000` |
 | `app/api/v1/chat.py` | `/chat/test-prompt` trả 503 khi Gemini lỗi + docstring cảnh báo admin-only |
 | `scripts/normalize_chunk_stages.py` | **File mới** — backfill stage cho dữ liệu đã nạp |
+| `scripts/restore_stages_from_source.py` | **File mới** — khôi phục `stage` từ frontmatter tài liệu nguồn (xem G3b) |
+| `tests/test_ingestion_and_chunker.py` | Cách ly khỏi database thật: dùng thư mục tạm + vector store giả; bản chạy thật tách riêng, mặc định skip |
 | `scripts/rag_eval_utils.py` | `OFFLINE_FALLBACK_MARKER` trỏ sang marker outage mới |
 | `tests/test_chat_scope_and_resilience.py` | **File mới** — 41 test cho toàn bộ hạng mục trên |
 
@@ -423,17 +425,40 @@ Trong nhóm còn lại còn có cả *"Phòng vệ sinh học và khủng bố s
 > Bắt buộc chạy `scripts/evaluate_rag_benchmark.py` **TRƯỚC và SAU** khi backfill, cùng một API key, rồi so sánh.
 > Nếu precision giảm: điều chỉnh ngưỡng `0.20` (`rag_chat_service.py`) hoặc `MAX_CHUNKS_PER_DOCUMENT` (`vector_store.py`) — **không** revert bản sửa taxonomy.
 
+### G3b. 🔴 SỰ CỐ PHÁT SINH TRONG QUÁ TRÌNH LÀM & CÁCH XỬ LÝ (cần biết)
+
+**Chuyện gì đã xảy ra:** `tests/test_ingestion_and_chunker.py::test_batch_ingestion_directory` gọi thẳng `ingest_directory(RAW_DOCS_DIR)` với vector store **thật**, tức là **chạy `pytest` sẽ nạp lại toàn bộ kho tri thức vào đúng database mà biến môi trường đang trỏ tới**. Test này không có DB cách ly.
+
+Một lần chạy test nền (22 phút) đã kích hoạt đúng điều đó, trong khi `DocumentChunker` khi ấy vẫn đang ép mọi `stage` lạ thành `ALL`. Hậu quả đo được:
+
+| Chỉ số | Trước | Sau sự cố | Sau khi khôi phục |
+|---|---|---|---|
+| Tổng chunk | 74.596 | 77.290 | **74.596** ✅ |
+| `ALL` (cạnh tranh mọi truy vấn) | 25.688 | **41.727** ❌ | **26.459** ✅ |
+| Số giá trị `stage` khác nhau | 48 | 7 | 25 |
+| Chunk ngoài vùng tìm kiếm | 13.894 | 461 | 12.950 |
+
+**13.494 chunk ngoài domain** (giáo dục giới tính học đường, bạo lực giới, chăm sóc người cao tuổi, khủng bố sinh học...) đã bị đẩy vào `ALL` — **đúng cái kịch bản mà mục G3 đã phân tích và cố ý tránh**.
+
+**Đã khắc phục:**
+1. **Khôi phục dữ liệu:** script mới [`scripts/restore_stages_from_source.py`](../../05_Development/CareBridgeAITriageService/scripts/restore_stages_from_source.py) đọc lại frontmatter của tài liệu nguồn, áp bộ phân loại thận trọng hiện tại, rồi UPDATE cột `stage` theo `title`. **Chỉ sửa cột `stage`** — không cắt chunk lại, không nhúng lại embedding, không gọi Gemini. Chạy ~30 giây, có sao lưu toàn bộ 74.596 giá trị cũ ra `reports/stage_restore_backup_<ngày>.json`. Kết quả: 12.574 chunk được khôi phục, tổng chunk về đúng 74.596.
+2. **Sửa nguyên nhân gốc:** test nay chạy trên **thư mục tạm + vector store giả trong bộ nhớ**, không chạm DB thật. Phiên bản chạy thật được tách riêng và **mặc định skip**, chỉ bật bằng `RUN_REAL_INGESTION_TESTS=1`.
+3. **Hiệu ứng phụ tích cực:** bộ test full chạy từ **22 phút → 26 giây**.
+
+> ⚠️ **Bài học cần nêu nếu hội đồng hỏi về quy trình kiểm thử:** một test tích hợp ghi vào database thật là rủi ro vận hành nghiêm trọng — nó có thể âm thầm sửa dữ liệu production chỉ vì ai đó chạy `pytest`. Nhóm em đã phát hiện qua chính sự cố này và đã cách ly.
+
 ### G4. Kiểm chứng đã chạy
 
 ```
 tests/test_chat_scope_and_resilience.py (mới)  + test_chat_red_flags + test_rag_chat
 + test_rag_eval_utils + test_vector_store_retrieval + test_metrics_screening
 
-TỔNG: 143 passed, 20 skipped  (20 skip = golden dataset, cần RUN_LIVE_AI_TESTS=1 + Gemini + pgvector)
+TỔNG: 154 passed, 21 skipped (thời gian chạy: 26 giây)  (20 skip = golden dataset, cần RUN_LIVE_AI_TESTS=1 + Gemini + pgvector)
 ```
 
-**Hai thất bại KHÔNG liên quan đến thay đổi này** (đã xác minh bằng cách stash toàn bộ thay đổi và chạy lại trên baseline — kết quả giống hệt):
-- `test_ingestion_and_chunker.py::test_batch_ingestion_directory` — 1 failed (DB đã có sẵn toàn bộ title nên skip hết)
+**Lưu ý:** `test_ingestion_and_chunker.py` nay đã được cách ly khỏi DB thật (xem G3b) nên không còn fail.
+
+**Một thất bại KHÔNG liên quan đến thay đổi này** (đã xác minh bằng cách stash toàn bộ thay đổi và chạy lại trên baseline — kết quả giống hệt):
 - `test_golden_dataset.py` — 197 failed (các file `data/raw_documents` đã bị xoá ở commit trước)
 
 ### G5. ⚠️ VIỆC BẠN CẦN LÀM (theo đúng thứ tự)
@@ -445,7 +470,7 @@ python scripts/evaluate_rag_benchmark.py     # lưu lại reports/rag_evaluation
 cp reports/rag_evaluation_report.json reports/rag_eval_BEFORE_stage_backfill.json
 ```
 
-**2. Chạy backfill stage** — chuẩn hoá ở chunker chỉ áp dụng cho lần nạp mới, dữ liệu đang nằm trong DB cần lệnh này:
+**2. Chạy backfill stage** — ⚠️ **BƯỚC NÀY ĐÃ ĐƯỢC THỰC HIỆN** trong quá trình khôi phục sự cố ở G3b (`restore_stages_from_source.py` đã đưa toàn bộ `stage` về đúng nguồn và chuẩn hoá phần thuộc thai sản). Chỉ chạy lại nếu bạn nạp thêm tài liệu mới:
 ```bash
 python scripts/normalize_chunk_stages.py --dry-run   # xem trước, không ghi gì
 python scripts/normalize_chunk_stages.py             # áp dụng 1.724 chunk chắc chắn thuộc thai sản

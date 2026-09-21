@@ -63,6 +63,7 @@
 │   ├── init_pgvector_db.py             # Script khởi tạo extension vector, bảng và HNSW index
 │   ├── ingest_documents.py             # Script CLI nạp tri thức từ thư mục vào pgvector
 │   ├── normalize_chunk_stages.py       # Backfill chuẩn hoá `stage` cho dữ liệu đã nạp (có sao lưu trước khi ghi đè)
+│   ├── restore_stages_from_source.py   # Khôi phục `stage` từ frontmatter tài liệu nguồn (chỉ sửa cột stage, không nhúng lại)
 │   └── evaluate_rag_benchmark.py       # Bộ kiểm thử tự động chuẩn RAGAS (Faithfulness, Relevancy, Precision)
 ├── tests/                              # Bộ kiểm thử tự động (Unit & Integration Tests)
 │   ├── conftest.py                     # Cấu hình môi trường test Pytest

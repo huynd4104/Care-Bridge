@@ -1033,9 +1033,10 @@ cd 05_Development/CareBridgeAITriageService
 cd 05_Development/CareBridgeAITriageService
 ./venv/bin/pytest tests/ -v
 ```
-Các bộ test chạy offline (không cần API key), kết quả gần nhất: **143 passed, 20 skipped**.
+Các bộ test chạy offline (không cần API key), kết quả gần nhất: **154 passed, 21 skipped** trong ~26 giây.
 * 20 test skip là bộ Golden Dataset chạy với Gemini thật — bật bằng `RUN_LIVE_AI_TESTS=1` (tốn quota).
 * Bộ test an toàn & phạm vi nằm tại `tests/test_chat_scope_and_resilience.py` và `tests/test_chat_red_flags.py`, bao phủ: sự cố mất kết nối LLM, câu hỏi ngoài phạm vi, tin nhắn rỗng/rác, chống prompt injection, các biến thể định dạng nhãn, và chuẩn hoá `stage`.
+* `tests/test_ingestion_and_chunker.py` chạy trên thư mục tạm + vector store giả, **không ghi vào database thật**. Phiên bản nạp liệu thật được tách riêng và mặc định skip — bật bằng `RUN_REAL_INGESTION_TESTS=1`.
 
 ```bash
 # Đo chất lượng RAG định lượng (cần API key thật)
