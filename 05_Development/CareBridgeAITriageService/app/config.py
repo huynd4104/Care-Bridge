@@ -51,11 +51,16 @@ class GeminiSettings(BaseModel):
     @property
     def api_keys(self) -> list[str]:
         keys: list[str] = []
-        if self.api_keys_raw:
-            keys.extend([k.strip() for k in self.api_keys_raw.split(",") if k.strip()])
-        if self.api_key and self.api_key.strip() not in keys:
-            keys.append(self.api_key.strip())
+        raw_combined = f"{self.api_keys_raw},{self.api_key}"
+        for k in raw_combined.split(","):
+            k_clean = k.strip()
+            if k_clean and k_clean not in keys:
+                keys.append(k_clean)
         return keys
+
+    @property
+    def primary_api_key(self) -> str:
+        return self.api_keys[0] if self.api_keys else ""
 
 
 class SecuritySettings(BaseModel):
