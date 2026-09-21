@@ -29,7 +29,13 @@ DENSE_CANDIDATES = 80
 # Newborn documents are ingested with stage BABY_CARE, but chat users are only ever PRECONCEPTION /
 # PREGNANCY / POSTPARTUM. A mother asking about her newborn is in the POSTPARTUM stage, so that stage
 # must also search BABY_CARE; otherwise those documents can never be retrieved.
-_EXTRA_SEARCH_STAGES = {"POSTPARTUM": ("BABY_CARE",)}
+# PREGNANCY searches it too: mothers routinely prepare for newborn care before giving birth
+# ("trẻ sơ sinh vàng da có sao không?"), and pinning those 123 documents to POSTPARTUM made the
+# assistant answer "chưa tìm thấy tài liệu" to a perfectly valid question.
+_EXTRA_SEARCH_STAGES = {
+    "POSTPARTUM": ("BABY_CARE",),
+    "PREGNANCY": ("BABY_CARE",),
+}
 
 
 MAX_CHUNKS_PER_DOCUMENT = 2

@@ -22,6 +22,7 @@
 │   │   └── health.py                   # Endpoint: Health check & Kiểm tra Vector DB
 │   ├── constants/                      # Tầng Hằng số & Danh mục Lâm sàng (Clean Code & Clinical Thresholds)
 │   │   ├── __init__.py
+│   │   ├── stages.py                   # Bộ từ vựng `stage` chuẩn & chuẩn hoá taxonomy (chống tài liệu bị 'mồ côi')
 │   │   └── vital_thresholds.py         # Quản lý tập trung const & enum ngưỡng sinh hiệu chuẩn Bộ Y Tế / WHO / ACOG
 │   ├── core/                           # Tầng Hạ tầng Cốt lõi (Infrastructure)
 │   │   ├── __init__.py
@@ -40,6 +41,7 @@
 │   │   └── vector_store.py             # Thao tác tìm kiếm Cosine Similarity trên pgvector
 │   ├── services/                       # Tầng Xử lý Nghiệp vụ Logic (Business Services)
 │   │   ├── __init__.py
+│   │   ├── chat_red_flags.py           # Sàn an toàn tất định: nhận diện dấu hiệu cấp cứu & tự hại (kể cả tiếng Việt không dấu)
 │   │   ├── ingestion_service.py        # Dịch vụ nạp file, cắt chunk và lưu Vector DB
 │   │   ├── metrics_screening_service.py# Sàng lọc sinh hiệu, phát hiện Tiền sản giật & Cấp cứu SOS
 │   │   └── rag_chat_service.py         # Xử lý hội thoại RAG, trích dẫn nguồn & gợi ý follow-up
@@ -60,11 +62,14 @@
 ├── scripts/                            # Các công cụ dòng lệnh (CLI Tools)
 │   ├── init_pgvector_db.py             # Script khởi tạo extension vector, bảng và HNSW index
 │   ├── ingest_documents.py             # Script CLI nạp tri thức từ thư mục vào pgvector
+│   ├── normalize_chunk_stages.py       # Backfill chuẩn hoá `stage` cho dữ liệu đã nạp (có sao lưu trước khi ghi đè)
 │   └── evaluate_rag_benchmark.py       # Bộ kiểm thử tự động chuẩn RAGAS (Faithfulness, Relevancy, Precision)
 ├── tests/                              # Bộ kiểm thử tự động (Unit & Integration Tests)
 │   ├── conftest.py                     # Cấu hình môi trường test Pytest
 │   ├── test_api_endpoints.py           # Test toàn bộ REST API endpoints
 │   ├── test_ingestion_and_chunker.py   # Test bộ cắt chunk và nạp tài liệu
+│   ├── test_chat_red_flags.py          # Test sàn an toàn: dấu hiệu cấp cứu, tự hại, lời khuyên chuyển tuyến
+│   ├── test_chat_scope_and_resilience.py # Test phạm vi, chống injection, input rác & sự cố mất LLM
 │   ├── test_metrics_screening.py       # Test sàng lọc sinh hiệu (Bình thường, Tiền sản giật, Sốt...)
 │   └── test_rag_chat.py                # Test chatbot AI Nurse và nhận diện ý định khẩn cấp
 ├── .env                                # File biến môi trường cấu hình API Key & Database
@@ -123,6 +128,11 @@
       - Nhịp tim $\ge 120$ bpm hoặc $< 50$ bpm, Cờ đỏ câu 10 thang trầm cảm EPDS...
     - **`SANITY_RANGES`:** Bộ giới hạn dải sinh lý y tế hợp lý để bắt lỗi người dùng gõ nhầm đơn vị hoặc số liệu phi lý (ví dụ: gõ nhầm 300 mmol/L, $SBP \le DBP$ hoặc HA $600/500$, nhịp tim ngoài dải $30-250$).
     - **Danh mục từ khóa báo động (Keywords Catalog):** Tiền sản giật, Nhiễm trùng ối, Vỡ ối, Ra máu tươi... theo chuẩn Bộ Y Tế, WHO và ACOG.
+* **`app/constants/stages.py`:**
+  - *Chức năng:* Nguồn chân lý duy nhất cho bộ từ vựng giai đoạn: `PRECONCEPTION`, `PREGNANCY`, `POSTPARTUM`, `BABY_CARE`, `ALL`.
+  - *Lý do tồn tại:* Truy xuất lọc theo `stage`, nên một chunk lưu với giá trị nằm ngoài bộ từ vựng này sẽ **không bao giờ** được trả về. Frontmatter tài liệu do người biên soạn tự gõ đã trôi rất xa khỏi enum (`GENERAL`, `PREGNANCY,POSTPARTUM`, tiếng Việt tự do...), khiến 193/936 tài liệu bị 'mồ côi'.
+  - *API:* `classify_stage()` trả về `(stage_chuẩn, có_nhận_diện_được)` — cờ thứ hai cho phép bên gọi **phân biệt giữa 'đã nhận diện' và 'chỉ fallback'**, từ đó không vô tình đẩy tài liệu ngoài domain vào `ALL`. `normalize_stage()` là biến thể rút gọn dùng cho pipeline nạp liệu.
+
 * **`app/constants/__init__.py`:**
   - *Chức năng:* Package export thuận tiện cho toàn bộ service và tests tái sử dụng nhất quán.
 
@@ -159,17 +169,31 @@
     ```
 * **`app/rag/prompts.py`:**
   - *Chức năng:* Quản lý tập trung các System Prompt y tế nghiêm ngặt:
-    - `NURSE_ASSISTANT_SYSTEM_PROMPT`: Ràng buộc 6 nguyên tắc an toàn (Non-diagnostic, không kê đơn, Strict Grounding cẩm nang, ân cần).
-    - `build_rag_chat_prompt()`: Ghép nối Context tri thức + Câu hỏi + Thông tin mẹ bầu thành một Prompt hoàn chỉnh.
+    - `NURSE_ASSISTANT_SYSTEM_PROMPT`: Ràng buộc an toàn theo **10 nhánh phân luồng tình huống** (tư vấn thường, cấp cứu, ngoài phạm vi, yêu cầu chẩn đoán/kê đơn, khủng hoảng tâm lý & ý nghĩ tự hại, yêu cầu bị pháp luật cấm, câu hỏi về chính hệ thống AI, tin nhắn vô nghĩa, đính chính thông tin sai, hỏi về tính năng ứng dụng) — cộng **Mục 5** định nghĩa ranh giới in/out-of-scope và **Mục 6** quy tắc chống thao túng (Prompt Injection).
+    - `build_rag_chat_prompt()`: Ghép nối Context tri thức + Câu hỏi + Thông tin mẹ bầu thành một Prompt hoàn chỉnh. Nội dung người dùng nhập được **bọc trong cặp mốc phân tách** và khai báo rõ là dữ liệu chứ không phải mệnh lệnh; yêu cầu LLM xuất 3 cờ máy `[CRITICAL_WARNING]`, `[NEED_EXPERT_CONSULTATION]`, `[OUT_OF_SCOPE]`.
 
 ---
 
 ### 2.6. Tầng Xử lý Nghiệp vụ (`app/services/`)
+* **`app/services/chat_red_flags.py`:**
+  - *Chức năng:* **Sàn an toàn tất định (Deterministic Safety Floor)** cho luồng chat — cố ý dùng biểu thức chính quy thay vì LLM.
+  - *Vì sao cần:* LLM là mô hình xác suất và **có thể bỏ sót**; tầng này còn phải chạy được cả khi retrieval rỗng hoặc Gemini hết quota. Nó chỉ có thể **nâng** mức cảnh báo, không bao giờ hạ.
+  - *Đặc điểm:* so khớp trên văn bản đã bỏ dấu (bắt được `"mau ra o at"`); phân 3 nhóm `SELF_HARM` / `NEWBORN` / `OBSTETRIC`; triết lý **ưu tiên độ nhạy hơn độ chính xác**; câu hỏi thuần kiến thức không mô tả tình trạng bản thân thì không bị gắn cờ.
+  - *`contains_urgent_referral()`:* kiểm tra **nội dung câu trả lời** có thực sự khuyên đi khám ngay không (xử lý được cả thể phủ định `"không cần cấp cứu"`), để chặn trường hợp AI gắn cờ cấp cứu nhưng lại quên dặn người dùng đi viện.
+
 * **`app/services/metrics_screening_service.py`:**
   - *Chức năng:* Trái tim của **Bước 7 ➔ 8 ➔ 9**. Triển khai mô hình **Deterministic Safety Guardrails**: Import và đối chiếu toàn bộ chỉ số đầu vào với các hằng số y khoa từ `app.constants.vital_thresholds` ($< 1\text{ ms}$) để đảm bảo an toàn tuyệt đối, loại bỏ rủi ro ảo giác AI đối với các ca cấp cứu sản khoa nguy kịch; đồng thời kích hoạt tìm kiếm RAG đối chiếu cẩm nang để trích dẫn bằng chứng y khoa (`SourceCitation`).
   - *Hỗ trợ toàn diện:* 6 ngữ cảnh đo đường huyết (`FASTING`, `PRE_MEAL`, `POST_MEAL_1H`, `POST_MEAL_2H`, `RANDOM`, `OTHER_APPROVED`), kiểm soát tuần thai $\ge 28$ tuần cho thai máy, phân tầng BMI & Lượng nước uống theo 3 giai đoạn hành trình (`PRECONCEPTION`, `PREGNANCY`, `POSTPARTUM`), và kiểm tra dải sinh lý hợp lý (Sanity validation).
 * **`app/services/rag_chat_service.py`:**
-  - *Chức năng:* Điều phối luồng **Bước 10**. Nhận câu hỏi $\rightarrow$ Vector Search $\rightarrow$ Bơm Context vào Prompt $\rightarrow$ Gọi Gemini Flash tạo sinh $\rightarrow$ Trích xuất trích dẫn tài liệu & sinh 3 câu hỏi gợi ý tiếp theo.
+  - *Chức năng:* Điều phối luồng **Bước 10** qua 7 chặng, trong đó **4 chặng là cổng an toàn chạy bằng code**:
+    1. **Input Gate** — chặn tin nhắn rỗng / chỉ dấu câu / chỉ emoji trước khi vào retrieval.
+    2. **Vector Search** — Top K=4, lọc theo `stage`.
+    3. **Strict Grounding Gate** — không chunk nào đạt ngưỡng 0.20 thì **không gọi LLM** (chống bịa ở tầng code, không phải tầng prompt).
+    4. **Prompt Build + Gọi Gemini** — nếu mọi model đều chết, bắt `GeminiUnavailableError` và trả thông báo gián đoạn **không chứa nội dung y khoa**, `sources` rỗng.
+    5. **Clinical Safety Floor** — `chat_red_flags` chạy sau LLM, ép cờ cấp cứu nếu LLM bỏ sót và tự chèn cảnh báo nếu câu trả lời thiếu lời khuyên đi khám.
+    6. **Scope Gate** — cờ `[OUT_OF_SCOPE]` bật thì cưỡng chế `sources=[]` và không bật `need_expert_consultation`.
+    7. **Response Assembly** — khử trùng lặp trích dẫn, sinh 3 câu hỏi gợi ý, gắn disclaimer y tế bắt buộc.
+  - *Ghi chú thiết kế:* việc bóc tách nhãn dùng regex có dung sai định dạng (`**[TAG]:**`, `[TAG] : `, viết thường) và neo theo đầu dòng để không làm vỡ cặp `**` in đậm của câu phía trước.
 * **`app/services/ingestion_service.py`:**
   - *Chức năng:* Quản lý toàn bộ vòng đời nạp tài liệu: Đọc file $\rightarrow$ Cắt Chunks $\rightarrow$ Sinh Embedding $\rightarrow$ Lưu vào pgvector.
 

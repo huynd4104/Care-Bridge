@@ -156,10 +156,18 @@ def test_detect_abstention():
     assert not detect_abstention("Mẹ nên uống 400 mcg axit folic mỗi ngày.")
 
 
-def test_offline_fallback_marker_matches_gemini_client_text():
-    source = (PROJECT_ROOT / "app" / "core" / "gemini.py").read_text(encoding="utf-8")
+def test_offline_fallback_marker_matches_service_outage_text():
+    """The benchmark detects an outage by this marker, so it must stay in sync with the service."""
+    source = (PROJECT_ROOT / "app" / "services" / "rag_chat_service.py").read_text(encoding="utf-8")
     assert OFFLINE_FALLBACK_MARKER in source
-    assert is_offline_fallback(f"Chào mẹ, {OFFLINE_FALLBACK_MARKER}, mẹ cần chú ý...")
+    assert is_offline_fallback(f"{OFFLINE_FALLBACK_MARKER} nên chưa thể tra cứu cẩm nang y tế...")
+
+
+def test_gemini_client_no_longer_fabricates_an_offline_answer():
+    """An outage must never be answered with hard-coded medical advice shipped next to real citations."""
+    source = (PROJECT_ROOT / "app" / "core" / "gemini.py").read_text(encoding="utf-8")
+    assert "bổ sung đầy đủ vi chất" not in source
+    assert "GeminiUnavailableError" in source
 
 
 def test_wilson_ci():

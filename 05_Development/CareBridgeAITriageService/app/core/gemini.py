@@ -24,6 +24,14 @@ FALLBACK_EMBEDDING_MODELS = [
 ]
 
 
+class GeminiUnavailableError(RuntimeError):
+    """Raised when no generation model could answer (no API key, quota exhausted, every fallback failed).
+
+    Generation has no safe offline substitute: unlike embeddings, a fabricated answer would be
+    ungrounded medical advice. Callers must degrade to an explicit service-outage message.
+    """
+
+
 class GeminiClient:
     def __init__(self) -> None:
         self._api_keys: list[str] = GEMINI_SETTINGS.api_keys
@@ -254,11 +262,11 @@ class GeminiClient:
                     )
                     continue
 
-        # Safe fallback if all network/API calls fail
-        return (
-            "Chào mẹ, CareBridge AI Nurse Assistant xin được giải đáp: Dựa trên cẩm nang y tế thai kỳ chính thống, "
-            "mẹ cần chú ý theo dõi kỹ các thay đổi sinh lý, bổ sung đầy đủ vi chất (sắt, canxi, axit folic), "
-            "nghỉ ngơi hợp lý và tái khám định kỳ theo chỉ định của Bác sĩ chuyên khoa sản."
+        # No usable generation. Never invent medical content here: a hard-coded "safe" answer would be
+        # ungrounded advice that the caller then ships next to real document citations, which is exactly
+        # the hallucination the RAG grounding gate exists to prevent. Let the caller degrade explicitly.
+        raise GeminiUnavailableError(
+            "No Gemini generation available (client not configured or every model call failed)."
         )
 
     def _mock_embedding(self, text: str) -> list[float]:

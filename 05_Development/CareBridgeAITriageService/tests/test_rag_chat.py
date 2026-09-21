@@ -150,7 +150,7 @@ def test_strip_boilerplate_greeting():
         "[NEED_EXPERT_CONSULTATION]: NO\n"
         "[GỢI Ý CÂU HỎI]:\n- Câu hỏi 1?"
     )
-    ans_1, crit_1, need_1, fu_1 = service._extract_llm_flags_and_followups(raw_1)
+    ans_1, crit_1, need_1, oos_1, fu_1 = service._extract_llm_flags_and_followups(raw_1)
     assert "CareBridge AI Nurse Assistant" not in ans_1
     assert "Trợ lý Điều dưỡng Y tế ảo" not in ans_1
     assert "Chào chị" in ans_1
@@ -166,14 +166,14 @@ def test_strip_boilerplate_greeting():
         "[CRITICAL_WARNING]: NO\n"
         "[NEED_EXPERT_CONSULTATION]: NO"
     )
-    ans_2, crit_2, need_2, fu_2 = service._extract_llm_flags_and_followups(raw_2)
+    ans_2, crit_2, need_2, oos_2, fu_2 = service._extract_llm_flags_and_followups(raw_2)
     assert "CareBridge AI Nurse Assistant" not in ans_2
     assert "Chào mẹ bầu" in ans_2
     assert "Về việc bổ sung axit folic" in ans_2
 
     # Case 3: Already natural greeting "Chào mẹ, để bổ sung axit folic..."
     raw_3 = "Chào mẹ, để bổ sung axit folic đúng cách trước khi mang thai, mẹ cần lưu ý:"
-    ans_3, _, _, _ = service._extract_llm_flags_and_followups(raw_3)
+    ans_3, _, _, _, _ = service._extract_llm_flags_and_followups(raw_3)
     assert ans_3 == "Chào mẹ, để bổ sung axit folic đúng cách trước khi mang thai, mẹ cần lưu ý:"
 
 

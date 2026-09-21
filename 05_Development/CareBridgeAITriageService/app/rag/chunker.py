@@ -11,6 +11,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 import docx
 
+from app.constants.stages import RETRIEVABLE_STAGES, classify_stage
 from app.models.schemas import DocumentChunkDTO
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,24 @@ class DocumentChunker:
         section: Optional[str] = None,
     ) -> List[DocumentChunkDTO]:
         """Chunk raw text string into DocumentChunkDTOs with smart section extraction."""
+        # Single choke point for the stage vocabulary: every file type and every caller reaches the
+        # store through here, so classifying once covers every ingestion path.
+        #
+        # Unrecognised vocabulary is deliberately left ALONE rather than coerced to "ALL". The corpus
+        # holds a lot of non-maternal material under such values (sexuality education, gender-based
+        # violence, elderly care, "Phòng vệ sinh học và khủng bố sinh học"); making it searchable from
+        # every stage would pollute every retrieval. This matches what scripts/normalize_chunk_stages.py
+        # does to existing rows, so a re-ingest cannot quietly undo that curation decision. The warning
+        # is how a curator learns a document needs a real stage.
+        canonical, recognised = classify_stage(stage)
+        if recognised:
+            stage = canonical
+        elif stage and str(stage).upper() not in RETRIEVABLE_STAGES:
+            logger.warning(
+                "Document %r declares stage %r, which is not maternal vocabulary. Leaving it as-is: the "
+                "chunks stay unreachable by search until the stage is corrected.",
+                title, stage,
+            )
         cleaned = self._clean_text(text)
         splits = self.splitter.split_text(cleaned)
         chunks: List[DocumentChunkDTO] = []
@@ -167,8 +186,10 @@ class DocumentChunker:
             topic = inferred_topic
         else:
             stage = metadata.get("stage") or metadata.get("applicableStages", "ALL")
-            if isinstance(stage, list):
-                stage = stage[0] if stage else "ALL"
+            # Frontmatter sometimes gives a YAML list; flatten it to the string form chunk_raw_text
+            # classifies (it handles the comma/semicolon separated spellings itself).
+            if isinstance(stage, (list, tuple, set)):
+                stage = ", ".join(str(p).strip() for p in stage if str(p).strip()) or "ALL"
             topic = metadata.get("topic") or "GENERAL"
 
         source = metadata.get("source") or metadata.get("organization") or metadata.get("publisher") or "Bộ Y Tế / Tài liệu Y tế"

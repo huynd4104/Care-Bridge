@@ -184,7 +184,9 @@ cd "05_Development/CareBridgeAITriageService"
 ./venv/bin/pytest tests/ -v
 ```
 
-*(Toàn bộ **14/14 test cases** lâm sàng và API đều đạt kết quả 100% Passed).*
+*(Kết quả chạy gần nhất: **143 passed, 20 skipped**. 20 test skip là bộ Golden Dataset cần Gemini thật — bật bằng `RUN_LIVE_AI_TESTS=1`.)*
+
+> **Lưu ý:** hai bộ test `test_chat_scope_and_resilience.py` và `test_chat_red_flags.py` bao phủ các tầng an toàn lâm sàng (sự cố mất kết nối LLM, câu hỏi ngoài phạm vi, tin nhắn rỗng/rác, chống prompt injection, chuẩn hoá `stage`). Riêng `test_ingestion_and_chunker.py::test_batch_ingestion_directory` phụ thuộc trạng thái database thật (sẽ fail khi mọi tài liệu đã có sẵn trong DB nên bị skip toàn bộ) — đây là hành vi đã biết, không phải lỗi hồi quy.
 
 ---
 

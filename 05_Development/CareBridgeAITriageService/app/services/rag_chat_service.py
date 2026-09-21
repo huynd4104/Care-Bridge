@@ -15,7 +15,7 @@ from app.constants.vital_thresholds import (
     GLUCOSE_POST_MEAL_1H_WARNING_THRESHOLD,
     TEMP_CRITICAL_FEVER_PREGNANCY,
 )
-from app.core.gemini import get_gemini_client
+from app.core.gemini import GeminiUnavailableError, get_gemini_client
 from app.models.schemas import (
     HealthMetricsLogRequest,
     RagChatRequest,
@@ -53,6 +53,19 @@ FLOOR_SELF_HARM_PREFIX = (
     "⚠️ Lưu ý an toàn: ý nghĩ làm hại bản thân cần được hỗ trợ ngay. Hãy báo người thân để có người ở bên cạnh bạn, "
     "gọi 115 hoặc đến cơ sở y tế gần nhất nếu thấy không an toàn, và liên hệ bác sĩ/chuyên gia sức khỏe tâm thần ngay hôm nay."
 )
+# Returned when no generation model is available (no API key, quota exhausted, every fallback failed).
+# Deliberately contains no medical content: the previous hard-coded "safe" answer was ungrounded advice
+# that still shipped with real document citations attached.
+BLANK_MESSAGE_ANSWER = (
+    "Mình chưa nhận được nội dung câu hỏi của bạn. "
+    "Bạn vui lòng mô tả cụ thể hơn điều đang băn khoăn về sức khỏe mẹ và bé "
+    "(ví dụ: tuần thai, triệu chứng đang gặp, hoặc chủ đề muốn tìm hiểu) để mình hỗ trợ chính xác nhé!"
+)
+SERVICE_UNAVAILABLE_ANSWER = (
+    "Hệ thống AI Nurse đang tạm thời gián đoạn kết nối nên chưa thể tra cứu cẩm nang y tế cho câu hỏi này. "
+    "Để đảm bảo an toàn, CareBridge không đưa ra lời khuyên y khoa khi chưa đối soát được tài liệu chính thống. "
+    "Mẹ/Gia đình vui lòng thử lại sau ít phút, hoặc liên hệ trực tiếp Bác sĩ chuyên khoa nếu cần giải đáp gấp."
+)
 
 
 class RagChatService:
@@ -69,6 +82,21 @@ class RagChatService:
         # 1. Semantic Search across Maternal Knowledge pgvector
         search_query = request.message.strip()
 
+        user_role = (request.user_role or "MOTHER").upper()
+        is_family = user_role == "FAMILY"
+
+        # A blank or content-free message ("   ", "?????", emoji only) has nothing to embed: retrieval
+        # returns noise and the grounding gate then answers it as if a medical question had been asked.
+        if not self._has_answerable_content(search_query):
+            return RagChatResponse(
+                answer=BLANK_MESSAGE_ANSWER,
+                has_critical_warning=False,
+                need_expert_consultation=False,
+                suggested_followups=self._generate_fallback_followups(is_emergency=False, is_family=is_family),
+                sources=[],
+                disclaimer=MEDICAL_DISCLAIMER,
+            )
+
         # 2. Semantic Search across Maternal Knowledge pgvector
         stage_filter = request.stage.value if request.stage else "PREGNANCY"
         retrieved_chunks = await self.vector_store.similarity_search(
@@ -79,9 +107,6 @@ class RagChatService:
         )
 
         # 3. Format Clinical Context & Survey Profile based on User Role
-        user_role = (request.user_role or "MOTHER").upper()
-        is_family = user_role == "FAMILY"
-
         gestational_age_weeks = None if is_family else request.gestational_age_weeks
         recent_metrics_summary = None
         survey_profile_summary = None
@@ -159,13 +184,43 @@ class RagChatService:
         )
 
         # 5. Call Gemini Flash Generator (Semantic reasoning & strict grounding)
-        raw_answer = await self.gemini.generate_response(
-            prompt=prompt,
-            system_instruction=NURSE_ASSISTANT_SYSTEM_PROMPT,
-        )
+        try:
+            raw_answer = await self.gemini.generate_response(
+                prompt=prompt,
+                system_instruction=NURSE_ASSISTANT_SYSTEM_PROMPT,
+            )
+        except GeminiUnavailableError:
+            # No generation available. Degrade explicitly with no medical content and no citations, but
+            # never let an outage swallow an emergency: the deterministic red-flag screen still applies.
+            logger.error("Gemini generation unavailable; returning service-outage answer without citations.")
+            red_flags = detect_red_flags(request.message)
+            if red_flags:
+                is_self_harm = any(f.category == RED_FLAG_SELF_HARM for f in red_flags)
+                return RagChatResponse(
+                    answer=GATE_SELF_HARM_ANSWER if is_self_harm else GATE_EMERGENCY_ANSWER,
+                    has_critical_warning=True,
+                    need_expert_consultation=True,
+                    suggested_followups=self._generate_fallback_followups(is_emergency=True, is_family=is_family),
+                    sources=[],
+                    disclaimer=MEDICAL_DISCLAIMER,
+                )
+            return RagChatResponse(
+                answer=SERVICE_UNAVAILABLE_ANSWER,
+                has_critical_warning=False,
+                need_expert_consultation=self._check_abnormal_metrics_guardrail(request.recent_metrics),
+                suggested_followups=self._generate_fallback_followups(is_emergency=False, is_family=is_family),
+                sources=[],
+                disclaimer=MEDICAL_DISCLAIMER,
+            )
 
         # 6. Extract Dynamic Follow-up Suggestions & AI Clinical Decision Flags
-        answer_text, has_critical_warning, need_expert_llm, dynamic_followups = self._extract_llm_flags_and_followups(raw_answer)
+        (
+            answer_text,
+            has_critical_warning,
+            need_expert_llm,
+            llm_out_of_scope,
+            dynamic_followups,
+        ) = self._extract_llm_flags_and_followups(raw_answer)
 
         # Clean any LaTeX math artifacts from output
         answer_text = self._clean_latex_and_math_artifacts(answer_text)
@@ -196,8 +251,11 @@ class RagChatService:
         elif not dynamic_followups:
             dynamic_followups = self._generate_fallback_followups(has_critical_warning, is_family=is_family)
 
-        # Check if the AI answered with an out-of-scope refusal
-        is_refusal = any(
+        # Check if the AI answered with an out-of-scope refusal. The [OUT_OF_SCOPE] tag is authoritative:
+        # matching refusal wording alone was unreliable because the prompt never mandated a fixed phrase,
+        # so a politely-worded refusal ("mình là trợ lý mẹ và bé, câu này mình không hỗ trợ") still shipped
+        # maternal handbook citations. The phrase list is kept only as a fallback for answers missing the tag.
+        is_refusal = llm_out_of_scope or any(
             phrase in answer_text.lower()
             for phrase in [
                 "ngoài phạm vi",
@@ -251,6 +309,10 @@ class RagChatService:
         # Check if objective health metrics logged warrant expert consult (Clinical Safety Guardrail)
         has_abnormal_metrics = self._check_abnormal_metrics_guardrail(request.recent_metrics)
         need_expert_consultation = has_critical_warning or need_expert_llm or has_abnormal_metrics
+        # An out-of-scope question ("giá Bitcoin hôm nay?") must not tell the user to see an obstetrician.
+        # A red flag or an abnormal logged metric still overrides this, whatever the question was about.
+        if is_refusal and not (has_critical_warning or has_abnormal_metrics):
+            need_expert_consultation = False
 
         return RagChatResponse(
             answer=answer_text.strip(),
@@ -260,6 +322,22 @@ class RagChatService:
             sources=citations,
             disclaimer=MEDICAL_DISCLAIMER,
         )
+
+    @staticmethod
+    def _has_answerable_content(message: str) -> bool:
+        """True when the message carries at least one word to search on.
+
+        Punctuation runs ("?????"), emoji-only messages and stray symbols embed to near-random vectors,
+        so they must not be routed into retrieval and answered as though a question had been asked.
+        """
+        import re
+
+        if not message or not message.strip():
+            return False
+        # Keep letters (any script) and digits; drop punctuation, symbols and emoji.
+        meaningful = re.sub(r"[^\w]", "", message, flags=re.UNICODE)
+        meaningful = re.sub(r"_", "", meaningful)
+        return len(meaningful) >= 2
 
     @staticmethod
     def _clean_latex_and_math_artifacts(text: str) -> str:
@@ -304,35 +382,45 @@ class RagChatService:
         cleaned = re.sub(r"\$([≥≤><=+\-\d\.\s/]+)\$", r"\1", cleaned)
         return cleaned
 
-    def _extract_llm_flags_and_followups(self, text: str) -> tuple[str, bool, bool, List[str]]:
+    @staticmethod
+    def _extract_flag(text: str, tag_name: str) -> tuple[str, bool]:
+        """Pull one decision tag out of the answer, returning the text without it and its boolean value.
+
+        Matched permissively: the model routinely emits `**[CRITICAL_WARNING]:** YES`, a lowercase
+        spelling, or a stray space before the colon. An exact-substring match left those variants in
+        the answer, so the raw tag was rendered to the user.
+        """
+        import re
+
+        # The markdown prefix is only consumed when it starts its own line, so a bolded closing "**" on
+        # the preceding sentence ("...**đi khám ngay**\n[CRITICAL_WARNING]: YES") is not swallowed into
+        # the tag match - which left the answer ending in an unclosed "**".
+        pattern = re.compile(
+            r"(?:^[ \t]*[*_#]*[ \t]*|[ \t]*)\[\s*" + tag_name + r"\s*\]\s*:[ \t]*",
+            re.IGNORECASE | re.MULTILINE,
+        )
+        match = pattern.search(text)
+        if not match:
+            return text, False
+
+        before_tag = text[: match.start()]
+        after_tag = text[match.end():]
+        flag_line, _, rest = after_tag.partition("\n")
+        value = flag_line.strip().upper()
+        is_set = "YES" in value or "TRUE" in value
+        cleaned = before_tag.strip() + ("\n\n" + rest.strip() if rest.strip() else "")
+        return cleaned, is_set
+
+    def _extract_llm_flags_and_followups(self, text: str) -> tuple[str, bool, bool, bool, List[str]]:
         """Extracts dynamic clinical decision flags and follow-up questions generated by Gemini LLM."""
-        has_critical_warning = False
-        need_expert_from_llm = False
         cleaned_text = text
 
-        # 1. Extract [CRITICAL_WARNING] tag if present
-        if "[CRITICAL_WARNING]:" in cleaned_text:
-            parts = cleaned_text.split("[CRITICAL_WARNING]:", 1)
-            before_tag = parts[0]
-            after_tag = parts[1]
-            flag_line = after_tag.split("\n", 1)[0].strip().upper()
-            if "YES" in flag_line or "TRUE" in flag_line:
-                has_critical_warning = True
-            rest = after_tag.split("\n", 1)[1] if "\n" in after_tag else ""
-            cleaned_text = before_tag.strip() + ("\n\n" + rest.strip() if rest.strip() else "")
+        # 1-3. Extract decision tags if present
+        cleaned_text, has_critical_warning = self._extract_flag(cleaned_text, "CRITICAL_WARNING")
+        cleaned_text, need_expert_from_llm = self._extract_flag(cleaned_text, "NEED_EXPERT_CONSULTATION")
+        cleaned_text, out_of_scope = self._extract_flag(cleaned_text, "OUT_OF_SCOPE")
 
-        # 2. Extract [NEED_EXPERT_CONSULTATION] tag if present
-        if "[NEED_EXPERT_CONSULTATION]:" in cleaned_text:
-            parts = cleaned_text.split("[NEED_EXPERT_CONSULTATION]:", 1)
-            before_tag = parts[0]
-            after_tag = parts[1]
-            flag_line = after_tag.split("\n", 1)[0].strip().upper()
-            if "YES" in flag_line or "TRUE" in flag_line:
-                need_expert_from_llm = True
-            rest = after_tag.split("\n", 1)[1] if "\n" in after_tag else ""
-            cleaned_text = before_tag.strip() + ("\n\n" + rest.strip() if rest.strip() else "")
-
-        # 3. Strip repetitive boilerplate self-introductions while preserving warm greeting (e.g. "Chào mẹ,")
+        # 4. Strip repetitive boilerplate self-introductions while preserving warm greeting (e.g. "Chào mẹ,")
         import re
         cleaned_text = re.sub(
             r"^(Chào\s+[^,\n]+[.,!:]?\s*)?(?:em|tôi|mình)\s+là\s+(?:CareBridge\s+AI\s+Nurse\s+Assistant|Trợ lý Điều dưỡng Y tế)[^.\n]*[.\n]+\s*",
@@ -341,36 +429,30 @@ class RagChatService:
             flags=re.IGNORECASE,
         ).strip()
 
-        # 4. Extract follow-up suggestions
-        tag_candidates = [
-            "[GỢI Ý CÂU HỎI]:",
-            "[GỢI Ý CÂU HỎI TIẾP THEO]:",
-            "[SUGGESTED_QUESTIONS]:",
-            "[GỢI Ý]:",
-        ]
+        # 5. Extract follow-up suggestions
+        followup_tag = re.compile(
+            r"[*_#\s]*\[\s*(?:GỢI Ý CÂU HỎI TIẾP THEO|GỢI Ý CÂU HỎI|SUGGESTED_QUESTIONS|GỢI Ý)\s*\]\s*:\s*",
+            re.IGNORECASE,
+        )
+        match = followup_tag.search(cleaned_text)
+        if not match:
+            return cleaned_text.strip(), has_critical_warning, need_expert_from_llm, out_of_scope, []
 
-        found_tag = None
-        for tag in tag_candidates:
-            if tag in cleaned_text:
-                found_tag = tag
-                break
-
-        if not found_tag:
-            return cleaned_text.strip(), has_critical_warning, need_expert_from_llm, []
-
-        parts = cleaned_text.split(found_tag, 1)
-        main_answer = parts[0].strip()
-        followup_raw = parts[1].strip()
+        main_answer = cleaned_text[: match.start()].strip()
+        followup_raw = cleaned_text[match.end():].strip()
 
         followups: List[str] = []
         for line in followup_raw.splitlines():
             cleaned = line.strip().lstrip("-*•123456789.) ").strip()
-            if cleaned and len(cleaned) > 3:
-                if not cleaned.endswith("?"):
-                    cleaned += "?"
-                followups.append(cleaned)
+            # A chip is a short question. Prose that the model sometimes writes after the tag used to be
+            # turned into a chip by blindly appending "?", producing paragraph-long suggestion buttons.
+            if not cleaned or len(cleaned) <= 3 or len(cleaned) > 120:
+                continue
+            if not cleaned.endswith("?"):
+                cleaned += "?"
+            followups.append(cleaned)
 
-        return main_answer, has_critical_warning, need_expert_from_llm, followups[:3]
+        return main_answer, has_critical_warning, need_expert_from_llm, out_of_scope, followups[:3]
 
     @staticmethod
     def _format_survey_profile(profile: dict | None) -> str | None:

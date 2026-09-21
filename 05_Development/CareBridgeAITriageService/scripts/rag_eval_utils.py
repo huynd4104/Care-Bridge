@@ -19,8 +19,11 @@ RAW_DOCUMENTS_DIR = Path(__file__).resolve().parent.parent / "data" / "raw_docum
 # Minimum length of a quoted span in an AI answer before we treat it as a citation claim.
 MIN_CITATION_CHARS = 20
 
-# Text GeminiClient.generate_response returns when every model call failed (app/core/gemini.py).
-OFFLINE_FALLBACK_MARKER = "CareBridge AI Nurse Assistant xin được giải đáp: Dựa trên cẩm nang y tế thai kỳ chính thống"
+# Text RagChatService returns when no generation model was available (app/services/rag_chat_service.py
+# :: SERVICE_UNAVAILABLE_ANSWER). GeminiClient.generate_response used to answer an outage with a
+# hard-coded paragraph of medical advice; it now raises GeminiUnavailableError and the service degrades
+# to this content-free message, so the benchmark detects an outage by this marker instead.
+OFFLINE_FALLBACK_MARKER = "Hệ thống AI Nurse đang tạm thời gián đoạn kết nối"
 
 # Phrases showing the assistant declined / said the documents do not cover the question.
 ABSTENTION_PHRASES = (
