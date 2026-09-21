@@ -69,8 +69,16 @@ async def test_rag_chat_detects_emergency_intent():
     assert any("115" in fu or "Bệnh viện" in fu for fu in result.suggested_followups)
 
 
+@live_dataset
 @pytest.mark.asyncio
 async def test_rag_chat_multi_turn_conversation():
+    """Asserts on live retrieval quality, so it needs a working embedding quota.
+
+    It used to run by default and pass even when every API key was exhausted, because embed_text then
+    silently returned a pseudo-embedding and the search still produced rows - unrelated ones. Now that
+    an exhausted quota raises, this test fails honestly instead, so it is opt-in like the other live
+    checks in this file.
+    """
     service = RagChatService()
     # Turn 2: User asks follow-up with implicit reference ("Nó có nguy hiểm không?")
     request = RagChatRequest(

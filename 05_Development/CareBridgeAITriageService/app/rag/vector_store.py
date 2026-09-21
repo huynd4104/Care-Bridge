@@ -40,6 +40,25 @@ _EXTRA_SEARCH_STAGES = {
 
 MAX_CHUNKS_PER_DOCUMENT = 2
 
+# Words that carry no retrieval signal. Module level because RagChatService reuses them to decide
+# whether a follow-up question is specific enough to search on its own, and the two must not drift.
+GENERAL_STOPWORDS = frozenset({
+    "là", "và", "của", "cho", "các", "những", "được", "có", "trong",
+    "để", "khi", "ở", "gì", "thế", "nào", "ạ", "nhé", "với", "từ",
+    "ra", "vào", "thì", "cần", "nên", "hãy", "bị", "do", "về",
+    "cách", "theo", "dõi", "tại", "nhà", "làm", "sao", "bao", "nhiêu",
+    "rất", "nhiều", "ít", "hết", "cũng", "đều", "đã", "đang", "sẽ",
+    "phải", "mà", "này", "đó", "kia", "lên", "xuống", "lại", "qua",
+    "sau", "trước", "giữa", "xin", "giúp", "biết", "thấy", "ai", "đâu",
+    "mỗi", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười",
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "tỉ", "triệu", "nghìn", "k", "ngàn",
+})
+
+# Domain filler words that occur in almost every maternal document.
+DOMAIN_FILLERS = frozenset({
+    "mẹ", "bầu", "thai", "tuần", "tháng", "em", "bé", "con", "mình", "người", "nhà", "hỏi", "chào",
+})
+
 # Stopwords whose accent-folded form is also a meaningful word (năm/nằm, đâu/đau, để/đẻ, thế/thể, ra máu...):
 # never dropped from a query typed without diacritics.
 _FOLDED_STOPWORD_COLLISIONS = {
@@ -412,20 +431,8 @@ class PgVectorStore:
         # (folding inside SQL with translate() took ~20 s per query on the hosted database).
         typed_unaccented = _is_unaccented(query)
 
-        general_stopwords = {
-            "là", "và", "của", "cho", "các", "những", "được", "có", "trong",
-            "để", "khi", "ở", "gì", "thế", "nào", "ạ", "nhé", "với", "từ",
-            "ra", "vào", "thì", "cần", "nên", "hãy", "bị", "do", "về",
-            "cách", "theo", "dõi", "tại", "nhà", "làm", "sao", "bao", "nhiêu",
-            "rất", "nhiều", "ít", "hết", "cũng", "đều", "đã", "đang", "sẽ",
-            "phải", "mà", "này", "đó", "kia", "lên", "xuống", "lại", "qua",
-            "sau", "trước", "giữa", "xin", "giúp", "biết", "thấy", "ai", "đâu",
-            "mỗi", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười",
-            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "tỉ", "triệu", "nghìn", "k", "ngàn",
-        }
-        
-        # Domain filler words that occur in almost every maternal doc
-        domain_fillers = {"mẹ", "bầu", "thai", "tuần", "tháng", "em", "bé", "con", "mình", "người", "nhà", "hỏi", "chào"}
+        general_stopwords = set(GENERAL_STOPWORDS)
+        domain_fillers = set(DOMAIN_FILLERS)
 
         if typed_unaccented:
             # "moi ngay uong bao nhieu" must drop its fillers too, or they take the few keyword slots sent to

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
@@ -139,6 +140,42 @@ void main() {
       expect(
         FederatedAuthFailure.from(http.ClientException('URI detail')).kind,
         FederatedAuthFailureKind.connectivity,
+      );
+    });
+
+    test('maps PlatformException from native Google Sign-In', () {
+      expect(
+        FederatedAuthFailure.from(
+          PlatformException(code: 'sign_in_canceled'),
+        ).kind,
+        FederatedAuthFailureKind.canceled,
+      );
+      expect(
+        FederatedAuthFailure.from(
+          PlatformException(code: 'CANCELED', message: 'User canceled'),
+        ).kind,
+        FederatedAuthFailureKind.canceled,
+      );
+      expect(
+        FederatedAuthFailure.from(
+          PlatformException(code: 'network_error', message: 'Network issue'),
+        ).kind,
+        FederatedAuthFailureKind.connectivity,
+      );
+      expect(
+        FederatedAuthFailure.from(
+          PlatformException(
+            code: 'sign_in_failed',
+            message: 'Your app is missing support for the following URL schemes',
+          ),
+        ).kind,
+        FederatedAuthFailureKind.configuration,
+      );
+      expect(
+        FederatedAuthFailure.from(
+          PlatformException(code: 'sign_in_required'),
+        ).kind,
+        FederatedAuthFailureKind.invalidCredential,
       );
     });
 

@@ -222,7 +222,10 @@ Nhờ cơ chế này, tài liệu chuyên khảo về *Dinh dưỡng thai kỳ* 
 ### 4.5. Cơ chế Lọc Ngưỡng Tương Đồng & Khử Trùng Lặp Trích Dẫn (Relevance Gate & Deduplication)
 
 1. **Relevance Gate (Bộ lọc Ngưỡng Liên quan):**
-   * Các đoạn văn bản có $\text{Similarity Score} < 0.20$ (không mang ý nghĩa đóng góp cho câu trả lời) sẽ bị loại bỏ hoàn toàn, không được đưa vào `context` của Prompt và không hiển thị ở danh sách `sources` của câu trả lời.
+   * Các đoạn văn bản có $\text{Score} < 0.20$ (không mang ý nghĩa đóng góp cho câu trả lời) sẽ bị loại bỏ hoàn toàn, không được đưa vào `context` của Prompt và không hiển thị ở danh sách `sources` của câu trả lời.
+   * ⚠️ **Lưu ý khi trình bày:** trường `similarity` trả về cho client **không phải** điểm Cosine thuần, mà là **điểm Hybrid** kết hợp vector và từ khóa:
+     $$\text{Score} = 0.40 \times \text{vec\_sim} + 0.35 \times \text{kw\_ratio} + \text{title\_boost} + \text{content\_phrase\_boost}$$
+     Vì có các thành phần cộng thêm, giá trị này **có thể vượt 1.0** — đây là hành vi đúng, không phải lỗi.
    * Ngăn chặn tình trạng AI trích dẫn các tài liệu "râu ông nọ cắm cằm bà kia".
 
 2. **Strict Grounding Gate (Cổng chặn Sinh văn bản Không Căn cứ) — tầng an toàn quan trọng nhất:**
@@ -439,10 +442,14 @@ Khi mẹ bầu trò chuyện qua lại nhiều lượt, một bài toán kinh đ
 * Nếu hệ thống chỉ lấy câu *"Nó có nguy hiểm đến em bé không ạ?"* đi tìm kiếm trong Vector DB, pgvector sẽ không thể tìm thấy cẩm nang Tiền sản giật/Huyết áp vì không chứa từ khóa triệu chứng.
 
 ### 6.2. Giải pháp Kỹ thuật của CareBridge:
-1. **Mở rộng Truy vấn Ngữ nghĩa (Semantic Query Expansion):**
-   Hệ thống tự động trích xuất các triệu chứng mà mẹ đã đề cập trong các lượt chat gần nhất ghép nối vào câu hỏi mới:
-   $$\text{Search Query} = \text{"đau đầu phù hai chân tuần 32"} + \text{"Nó có nguy hiểm đến em bé không ạ?"}$$
-   ➔ CSDL Vector lập tức truy xuất chính xác $100\%$ cẩm nang xử trí Tiền sản giật và Biến chứng thai nhi.
+1. **Mở rộng Truy vấn Ngữ nghĩa (Semantic Query Expansion) — có điều kiện:**
+   Hệ thống ghép các lượt hỏi **của chính mẹ** trong 2 lượt gần nhất vào câu hỏi mới:
+   $$\text{Search Query} = \text{"...đau đầu và phù hai chân"} + \text{"Nó có nguy hiểm đến em bé không ạ?"}$$
+   **Chỉ ghép khi thực sự cần** — đây là điểm thiết kế quan trọng:
+   - **Kích hoạt** khi câu hỏi mang tính tham chiếu ngược (`nó`, `vậy`, `tình trạng này`, `điều đó`...) hoặc quá ngắn (≤ 4 từ). Nhận diện chạy trên văn bản đã bỏ dấu nên bắt được cả `"no co nguy hiem khong"`.
+   - **KHÔNG ghép** khi câu hỏi đã tự đứng vững (*"Bà bầu ăn trứng ngỗng có tốt không?"*). Nếu ghép vô điều kiện, triệu chứng cũ sẽ kéo truy xuất quay về chủ đề cũ và **trả lời sai trọng tâm**.
+   - **Lượt trả lời của AI bị loại khỏi truy vấn**: văn AI dài và đầy từ ngữ thai sản chung chung, sẽ lấn át vector câu hỏi.
+   - **Lượt thử hai (fallback)**: nếu truy vấn nguyên bản không tìm được đoạn nào vượt ngưỡng 0.20, hệ thống tự thử lại bằng truy vấn đã mở rộng trước khi từ chối — nên các câu hỏi nối tiếp mà heuristic bỏ sót vẫn được cứu.
 2. **Cơ chế Cửa sổ Trượt (Sliding Window Context - 4 đến 6 tin nhắn gần nhất):**
    Hệ thống duy trì **4 đến 6 tin nhắn gần nhất (2-3 cặp Hỏi - Đáp)** đưa vào Prompt của Gemini Flash. Tỷ lệ này đảm bảo:
    - AI luôn nắm trọn vẹn toàn bộ diễn biến sức khỏe mẹ vừa chia sẻ.
@@ -596,8 +603,14 @@ Nhằm phục vụ công tác quản trị, kiểm thử và **thuyết trình t
 
 ### Câu 5: "Khi mẹ bầu chat nhiều câu liên tục (ví dụ: 'Nó có nguy hiểm không?'), làm sao AI hiểu 'Nó' là triệu chứng gì để tra cứu tài liệu chính xác?"
 * **Trả lời:**
-  > "Thưa Thầy/Cô, hệ thống CareBridge áp dụng kỹ thuật **Semantic Query Expansion kết hợp Cửa sổ trượt (Sliding Window)**:
-  > Khi mẹ hỏi câu phụ như 'Nó có nguy hiểm không?', hệ thống sẽ tự động lấy các triệu chứng mẹ đã kể ở 4-6 tin nhắn trước đó (ví dụ 'đau đầu, phù chân tuần 32') để ghép thành một Query tìm kiếm đầy đủ ngữ cảnh gửi vào pgvector. Đồng thời, toàn bộ đoạn hội thoại gần nhất được gửi vào Prompt của Gemini Flash giúp câu trả lời liền mạch và thông minh."
+  > "Thưa Thầy/Cô, hệ thống áp dụng **Semantic Query Expansion có điều kiện** kết hợp **Cửa sổ trượt (Sliding Window)**. Có hai đường đi khác nhau và nhóm em xin phân biệt rõ:
+  >
+  > 1. **Đường truy xuất (tìm tài liệu):** khi mẹ hỏi câu phụ như *'Nó có nguy hiểm không?'*, hệ thống phát hiện đây là câu **tham chiếu ngược** (chứa đại từ `nó`/`vậy`/`tình trạng này`, hoặc quá ngắn) và ghép 2 lượt hỏi gần nhất **của chính mẹ** vào truy vấn gửi sang pgvector. Chỉ lấy lượt của mẹ, không lấy lượt trả lời của AI vì văn AI dài sẽ lấn át vector câu hỏi.
+  > 2. **Đường sinh câu trả lời:** toàn bộ 6 tin nhắn gần nhất được đưa vào Prompt của Gemini Flash để câu trả lời liền mạch.
+  >
+  > **Điểm nhóm em cân nhắc kỹ nhất là KHÔNG ghép vô điều kiện.** Nếu lần nào cũng ghép, khi mẹ đổi chủ đề (*'giờ em hỏi bà bầu ăn trứng ngỗng được không'*) thì triệu chứng đau đầu, phù chân cũ vẫn bị kéo vào truy vấn và lôi kết quả về tiền sản giật — trả lời sai trọng tâm. Nên hệ thống chỉ mở rộng khi câu hỏi **không tự đứng vững được**.
+  >
+  > Ngoài ra còn một **lượt thử hai**: nếu truy vấn nguyên bản không tìm được tài liệu nào vượt ngưỡng liên quan, hệ thống tự động thử lại bằng truy vấn đã mở rộng trước khi từ chối — để các câu nối tiếp mà bộ nhận diện bỏ sót vẫn được cứu."
 
 ---
 
@@ -677,7 +690,8 @@ Nhằm phục vụ công tác quản trị, kiểm thử và **thuyết trình t
   > - Vì vòng lặp gọi model nằm trong điều kiện `if self._client:`, nên ở **bất kỳ môi trường nào chưa cấu hình API key**, đoạn bịa đó là phản hồi **mặc định cho mọi câu hỏi**, chứ không phải trường hợp hiếm.
   >
   > Nguyên tắc nhóm em rút ra: *với hệ thống y tế, khi không chắc chắn thì im lặng và chuyển tuyến — tuyệt đối không đoán cho có.*
-  > 3. **Sự cố không được phép che giấu cấp cứu:** Ngay cả trên nhánh lỗi này, bộ sàng lọc dấu hiệu nguy hiểm tất định vẫn chạy. Nếu tin nhắn mô tả một ca cấp cứu, người dùng nhận được hướng dẫn gọi 115/đến cơ sở y tế chứ không phải câu 'hệ thống đang bận'. Luồng sàng lọc chỉ số sinh hiệu (Bước 7-9) cũng hoạt động độc lập bình thường vì nó chạy bằng bộ quy tắc lâm sàng, không cần LLM."
+  > 3. **Không chỉ tầng sinh văn bản — tầng nhúng vector cũng vậy:** hệ thống cấu hình 7 API key. Trước đây cơ chế xoay vòng key **chỉ đấu nối cho luồng nạp tài liệu**; luồng truy vấn của người dùng khi cạn hạn mức ngày của key #1 sẽ **âm thầm rơi xuống vector giả** rồi vẫn đi tìm kiếm và vẫn gắn trích dẫn. Nhóm em đã đấu nối xoay vòng key cho cả luồng truy vấn, và khi cạn **toàn bộ** key thì **ném lỗi** thay vì trả vector giả — người dùng nhận thông báo gián đoạn, `sources` rỗng, thay vì một danh sách tài liệu lạc đề đội lốt nguồn Bộ Y Tế.
+  > 4. **Sự cố không được phép che giấu cấp cứu:** Ngay cả trên nhánh lỗi này, bộ sàng lọc dấu hiệu nguy hiểm tất định vẫn chạy. Nếu tin nhắn mô tả một ca cấp cứu, người dùng nhận được hướng dẫn gọi 115/đến cơ sở y tế chứ không phải câu 'hệ thống đang bận'. Luồng sàng lọc chỉ số sinh hiệu (Bước 7-9) cũng hoạt động độc lập bình thường vì nó chạy bằng bộ quy tắc lâm sàng, không cần LLM."
 
 ---
 
@@ -1033,7 +1047,7 @@ cd 05_Development/CareBridgeAITriageService
 cd 05_Development/CareBridgeAITriageService
 ./venv/bin/pytest tests/ -v
 ```
-Các bộ test chạy offline (không cần API key), kết quả gần nhất: **154 passed, 21 skipped** trong ~26 giây.
+Các bộ test chạy offline (không cần API key), kết quả gần nhất: **167 passed, 22 skipped**.
 * 20 test skip là bộ Golden Dataset chạy với Gemini thật — bật bằng `RUN_LIVE_AI_TESTS=1` (tốn quota).
 * Bộ test an toàn & phạm vi nằm tại `tests/test_chat_scope_and_resilience.py` và `tests/test_chat_red_flags.py`, bao phủ: sự cố mất kết nối LLM, câu hỏi ngoài phạm vi, tin nhắn rỗng/rác, chống prompt injection, các biến thể định dạng nhãn, và chuẩn hoá `stage`.
 * `tests/test_ingestion_and_chunker.py` chạy trên thư mục tạm + vector store giả, **không ghi vào database thật**. Phiên bản nạp liệu thật được tách riêng và mặc định skip — bật bằng `RUN_REAL_INGESTION_TESTS=1`.

@@ -2,6 +2,21 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.772548995876-uurp64uddnp6s2b2t7h245c6ia8523ts</string>
+			</array>
+		</dict>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.pravera.flutter_foreground_task.refresh</string>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -24,30 +39,31 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.pravera.flutter_foreground_task.refresh</string>
-	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>CareBridge uses the camera for video consultations and photos you choose to share with the community.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>CareBridge accesses photos only when you choose an image to share with the community.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>CareBridge saves chat images to your photo library only when you choose Download.</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
-	<key>UIFileSharingEnabled</key>
+	<key>MGLMapboxMetricsEnabledSettingShownInApp</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>CareBridge uses the camera for video consultations and photos you choose to share with the community.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>CareBridge includes your location in an emergency alert only when you explicitly consent and grant location access.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CareBridge uses the microphone for one-to-one voice and video consultations.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>CareBridge uses motion sensors to detect possible falls after you explicitly enable safety monitoring.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>CareBridge includes your location in an emergency alert only when you explicitly consent and grant location access.</string>
-	<key>MGLMapboxMetricsEnabledSettingShownInApp</key>
-	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CareBridge saves chat images to your photo library only when you choose Download.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CareBridge accesses photos only when you choose an image to share with the community.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -69,13 +85,6 @@
 			</array>
 		</dict>
 	</dict>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
@@ -83,6 +92,8 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

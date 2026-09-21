@@ -24,6 +24,15 @@ FALLBACK_EMBEDDING_MODELS = [
 ]
 
 
+class EmbeddingUnavailableError(RuntimeError):
+    """Raised when a query cannot be embedded because every API key is exhausted.
+
+    Retrieval must fail loudly here. Searching with a deterministic pseudo-embedding "works" in the sense
+    that it returns rows, but they are unrelated to the question and are then presented to the user as
+    official Bộ Y Tế / WHO citations.
+    """
+
+
 class GeminiUnavailableError(RuntimeError):
     """Raised when no generation model could answer (no API key, quota exhausted, every fallback failed).
 
@@ -78,7 +87,13 @@ class GeminiClient:
         return self._client is not None
 
     async def embed_text(self, text: str) -> list[float]:
-        """Generate a 768-dimensional vector embedding for a single text chunk."""
+        """Generate a 768-dimensional vector embedding for a single text chunk.
+
+        Raises EmbeddingUnavailableError when the API is configured but every key is exhausted.
+        A pseudo-embedding is only returned in explicit offline mode: silently falling back to one for a
+        live query made the search run against essentially random vectors, so a question about headache
+        and swollen feet at 32 weeks retrieved "Bệnh bại liệt" and shipped it as a Bộ Y Tế citation.
+        """
         if not text.strip():
             return [0.0] * GEMINI_SETTINGS.embedding_dimension
 
@@ -86,51 +101,67 @@ class GeminiClient:
             return self._mock_embedding(text)
 
         if self._client:
-            models_to_try = [GEMINI_SETTINGS.embedding_model] + [
-                m for m in FALLBACK_EMBEDDING_MODELS if m != GEMINI_SETTINGS.embedding_model
-            ]
-            for model_name in models_to_try:
-                import asyncio
-                import re
-                max_retries = 4
-                for attempt in range(max_retries):
-                    try:
-                        def _call():
-                            return self._client.models.embed_content(
-                                model=model_name,
-                                contents=text,
-                                config=types.EmbedContentConfig(
-                                    output_dimensionality=GEMINI_SETTINGS.embedding_dimension
-                                ),
-                            )
+            import asyncio
+            import re
 
-                        response = await asyncio.wait_for(asyncio.to_thread(_call), timeout=GEMINI_SETTINGS.timeout_seconds)
-                        if hasattr(response, "embeddings") and response.embeddings:
-                            return response.embeddings[0].values
-                        if hasattr(response, "embedding") and response.embedding:
-                            return response.embedding.values
-                    except Exception as e:
-                        err_msg = str(e)
-                        if "perday" in err_msg.lower():
-                            logger.warning(
-                                f"Hạn mức ngày (Daily Quota: 1,000 requests/day) của model {model_name} trên API Key này đã cạn kiệt!"
+            # One pass over the key ring: a daily quota is per key, so an exhausted key is retried on the
+            # next one instead of degrading the whole service (embed_texts already did this).
+            for _key_attempt in range(max(1, len(self._api_keys))):
+                key_exhausted = False
+                models_to_try = [GEMINI_SETTINGS.embedding_model] + [
+                    m for m in FALLBACK_EMBEDDING_MODELS if m != GEMINI_SETTINGS.embedding_model
+                ]
+                for model_name in models_to_try:
+                    max_retries = 4
+                    for attempt in range(max_retries):
+                        try:
+                            def _call():
+                                return self._client.models.embed_content(
+                                    model=model_name,
+                                    contents=text,
+                                    config=types.EmbedContentConfig(
+                                        output_dimensionality=GEMINI_SETTINGS.embedding_dimension
+                                    ),
+                                )
+
+                            response = await asyncio.wait_for(
+                                asyncio.to_thread(_call), timeout=GEMINI_SETTINGS.timeout_seconds
                             )
+                            if hasattr(response, "embeddings") and response.embeddings:
+                                return response.embeddings[0].values
+                            if hasattr(response, "embedding") and response.embedding:
+                                return response.embedding.values
+                        except Exception as e:
+                            err_msg = str(e)
+                            if "perday" in err_msg.lower():
+                                logger.warning(
+                                    f"API Key #{self._current_key_idx + 1} đã hết hạn mức ngày "
+                                    f"(1,000 requests/day) trên {model_name}!"
+                                )
+                                key_exhausted = True
+                                break
+                            if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "Too Many Requests" in err_msg) and attempt < max_retries - 1:
+                                wait_sec = 5.0 * (attempt + 1)
+                                m_delay = re.search(r"retry in ([0-9]+(?:\.[0-9]+)?)s", err_msg)
+                                if m_delay:
+                                    wait_sec = max(float(m_delay.group(1)) + 0.5, wait_sec)
+                                logger.warning(
+                                    f"Rate limit (429) on {model_name}. Waiting {wait_sec:.1f}s before retry (attempt {attempt+1}/{max_retries})..."
+                                )
+                                await asyncio.sleep(wait_sec)
+                                continue
+                            logger.debug(f"Embedding model {model_name} notice ({e}), trying next fallback...")
                             break
-                        if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "Too Many Requests" in err_msg) and attempt < max_retries - 1:
-                            wait_sec = 5.0 * (attempt + 1)
-                            m_delay = re.search(r"retry in ([0-9]+(?:\.[0-9]+)?)s", err_msg)
-                            if m_delay:
-                                wait_sec = max(float(m_delay.group(1)) + 0.5, wait_sec)
-                            logger.warning(
-                                f"Rate limit (429) on {model_name}. Waiting {wait_sec:.1f}s before retry (attempt {attempt+1}/{max_retries})..."
-                            )
-                            await asyncio.sleep(wait_sec)
-                            continue
-                        logger.debug(f"Embedding model {model_name} notice ({e}), trying next fallback...")
+                    if key_exhausted:
                         break
 
-        # Fallback deterministic pseudo-embedding for testing without live API key
-        return self._mock_embedding(text)
+                if not (key_exhausted and self.rotate_to_next_key()):
+                    break
+
+        raise EmbeddingUnavailableError(
+            "No embedding available (every configured API key is exhausted or the embedding call failed). "
+            "Refusing to search with a pseudo-embedding, which would return unrelated documents."
+        )
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Generate vector embeddings for a list of text chunks with batching, throttling, and auto-retry."""

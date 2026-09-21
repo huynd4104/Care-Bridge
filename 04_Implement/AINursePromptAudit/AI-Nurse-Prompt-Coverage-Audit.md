@@ -457,13 +457,99 @@ Một lần chạy test nền (22 phút) đã kích hoạt đúng điều đó, 
 
 > ⚠️ **Bài học cần nêu nếu hội đồng hỏi về quy trình kiểm thử:** một test tích hợp ghi vào database thật là rủi ro vận hành nghiêm trọng — nó có thể âm thầm sửa dữ liệu production chỉ vì ai đó chạy `pytest`. Nhóm em đã phát hiện qua chính sự cố này và đã cách ly.
 
+### G3c. ✅ HAI LỖI MỚI PHÁT HIỆN — ĐÃ SỬA
+
+Phát hiện khi truy vết một test fail trong lần chạy full (`test_rag_chat_multi_turn_conversation`). Cả hai đều xác minh trực tiếp bằng code, **không phụ thuộc vào việc chạy được API**.
+
+#### Lỗi 1 — 🔴 Hết quota key #1 thì chat ÂM THẦM trả về tài liệu rác (không báo lỗi)
+
+`GeminiClient` có sẵn cơ chế xoay vòng 7 API key, **nhưng chỉ đấu nối cho luồng nạp liệu**:
+
+| Hàm | Dùng cho | Hết quota ngày thì làm gì? |
+|---|---|---|
+| `embed_texts()` ([gemini.py:188-192](../../05_Development/CareBridgeAITriageService/app/core/gemini.py#L188-L192)) | Nạp tài liệu (batch) | ✅ Gọi `rotate_to_next_key()` → dùng key tiếp theo |
+| `embed_text()` ([gemini.py:114-118](../../05_Development/CareBridgeAITriageService/app/core/gemini.py#L114-L118)) | **Truy vấn chat của người dùng** | ❌ Chỉ `break` → thử 2 model còn lại trên **cùng key** → rơi xuống `_mock_embedding()` |
+
+**Hậu quả:** khi key #1 cạn hạn mức ngày (1.000 request/ngày), mọi câu hỏi của mẹ bầu được embed bằng **vector giả tất định**, rồi đem đi tìm kiếm thật. Hệ thống **không báo lỗi**, vẫn trả lời, vẫn gắn trích dẫn "Bộ Y Tế / WHO".
+
+Quan sát thực tế lúc quota cạn — câu hỏi về **đau đầu + phù chân tuần 32** (nghi tiền sản giật) cho ra các nguồn:
+
+```
+sim=1.435  Medlineplus Caffeine Tac Dung Va Luu Y Mang Thai
+sim=1.361  Bệnh bại liệt và hội chứng sau bại liệt
+sim=1.069  Thuốc lá và đái tháo đường: nguy cơ, biến chứng
+```
+
+(⚠️ *Đính chính:* ban đầu tôi cho rằng `similarity > 1.0` chứng minh đang chạy vector giả. **Sai** — trường `similarity` không phải cosine mà là **điểm hybrid** `vec_sim*0.40 + kw_ratio*0.35 + title_boost + content_phrase_boost`, nên vượt 1.0 là hợp lệ. Bằng chứng thật của lỗi này là **nội dung tài liệu trả về hoàn toàn lạc đề**, không phải con số điểm.)
+
+Đây là **cùng loại lỗi với C1**: hệ thống nói dối bằng cách vẫn trả lời tự tin khi thực chất đã mất năng lực. Với C1 là bịa nội dung, ở đây là **bịa mức độ liên quan của trích dẫn**.
+
+**Hướng sửa:** đấu `rotate_to_next_key()` vào nhánh `perday` của `embed_text()` giống `embed_texts()`; khi cạn cả 7 key thì **raise** thay vì trả vector giả, để tầng trên hiển thị thông báo gián đoạn (cùng triết lý với `GeminiUnavailableError`).
+
+#### Lỗi 2 — 🟠 "Semantic Query Expansion" được mô tả trong tài liệu nhưng KHÔNG tồn tại trong code
+
+[`rag_chat_service.py:83`](../../05_Development/CareBridgeAITriageService/app/services/rag_chat_service.py#L83):
+```python
+search_query = request.message.strip()     # chỉ tin nhắn cuối
+```
+`conversation_history` **chỉ** được truyền vào `build_rag_chat_prompt()` (dòng 183), **không bao giờ** đi vào vector search.
+
+Trong khi đó tài liệu bảo vệ đang khẳng định điều ngược lại:
+- **Mục 6.1** nêu đúng vấn đề: *"Nếu hệ thống chỉ lấy câu 'Nó có nguy hiểm đến em bé không ạ?' đi tìm kiếm, pgvector sẽ không tìm thấy cẩm nang Tiền sản giật"* — **đó chính xác là những gì code đang làm**.
+- **Mục 6.2** khẳng định có công thức ghép truy vấn và *"truy xuất chính xác 100%"*.
+- **Câu 5** trong bộ Q&A trả lời hội đồng rằng hệ thống *"tự động lấy triệu chứng ở 4-6 tin trước ghép thành Query gửi vào pgvector"*.
+- Sơ đồ kiến trúc có hẳn node `Semantic Query Expansion`.
+
+**Rủi ro bảo vệ rất cao:** Câu 5 là câu hội đồng có thể hỏi, và nếu họ mở `rag_chat_service.py` thì thấy ngay một dòng mâu thuẫn với toàn bộ phần trả lời.
+
+Test `test_rag_chat_multi_turn_conversation` chính là test cho kịch bản này, comment trong test ghi *"thanks to multi-turn query expansion"* — nó **fail không ổn định** vì tính năng đó không tồn tại, chỉ pass khi retrieval may mắn.
+
+**Hai lựa chọn:** (a) **triển khai thật** query expansion (ghép triệu chứng từ các lượt user gần nhất vào `search_query`), hoặc (b) **sửa tài liệu** cho đúng sự thật (lịch sử chỉ vào prompt, giúp AI *diễn giải*, không giúp *truy xuất*). Khuyến nghị (a) vì nó vốn là thiết kế đúng và tài liệu đã hứa.
+
+#### ✅ Đã sửa cả hai
+
+| Hạng mục | Thay đổi |
+|---|---|
+| Lỗi 1 | `embed_text()` nay xoay vòng qua cả 7 key khi gặp hạn mức ngày (giống `embed_texts()`). Cạn **toàn bộ** key → ném `EmbeddingUnavailableError` thay vì trả vector giả. |
+| Lỗi 1 (điểm gọi) | `rag_chat_service` → trả thông báo gián đoạn, `sources=[]`, **vẫn escalate red-flag**. `metrics_screening_service` → **không chặn phân loại cấp cứu**, chỉ mất phần trích dẫn (triage là ngưỡng tất định, không cần embedding). |
+| Lỗi 2 | Query expansion **có điều kiện** + **lượt thử hai** khi truy vấn nguyên bản không tìm được gì vượt ngưỡng. Chỉ ghép lượt hỏi **của người dùng**, tối đa 2 lượt gần nhất. |
+| Tài liệu | Mục 6.2, Câu 5, Câu 12 trong defense handbook đã sửa cho khớp code. |
+
+**Kiểm chứng thực tế Lỗi 1** — log chạy thật sau khi sửa:
+```
+WARNING  API Key #1 đã hết hạn mức ngày (1,000 requests/day)!
+INFO     Tự động chuyển sang API Key tiếp theo: Key #2/7
+WARNING  API Key #2 đã hết hạn mức ngày!
+INFO     Tự động chuyển sang API Key tiếp theo: Key #3/7
+WARNING  API Key #3 đã hết hạn mức ngày!
+INFO     Tự động chuyển sang API Key tiếp theo: Key #4/7
+embed OK, dim: 768 | norm: 1.0        <- embedding THẬT, không phải vector giả
+```
+Trước bản sửa, ngay ở dòng đầu tiên hệ thống đã rơi xuống vector giả và **6 key còn lại không bao giờ được dùng** cho luồng chat.
+
+**Kiểm chứng Lỗi 2** — phân loại đúng 7/7 ca thử:
+
+| Câu hỏi | Kết quả |
+|---|---|
+| "Nó có nguy hiểm đến em bé không ạ?" | ✅ mở rộng |
+| "Tình trạng này có nguy hiểm không?" | ✅ mở rộng |
+| "Vậy ạ?" | ✅ mở rộng |
+| "no co nguy hiem khong" (không dấu) | ✅ mở rộng |
+| "Bà bầu ăn trứng ngỗng có tốt không?" | ✅ giữ nguyên |
+| "Lịch tiêm phòng cho bà bầu gồm những mũi nào?" | ✅ giữ nguyên |
+| "Em bị tiền sản giật thì nên ăn uống thế nào?" | ✅ giữ nguyên |
+
+**Một tác dụng phụ đáng chú ý:** test `test_rag_chat_multi_turn_conversation` (assert `sources > 0`) nay **fail trung thực** khi hết quota, thay vì "pass" nhờ vector giả trả về tài liệu lạc đề như trước. Đã chuyển nó sang nhóm chạy có điều kiện `RUN_LIVE_AI_TESTS=1` giống các test live khác cùng file — đây chính là test đã fail chập chờn suốt phiên làm việc và là manh mối dẫn tới hai lỗi trên.
+
+> ⚠️ **Còn lại:** **toàn bộ 7 key đã cạn hạn mức ngày** (phần lớn do các lần chạy test nền trong phiên làm việc này). Nên **chưa chạy được benchmark định lượng** để đo precision trước/sau. Phải chạy `scripts/evaluate_rag_benchmark.py` khi quota reset.
+
 ### G4. Kiểm chứng đã chạy
 
 ```
 tests/test_chat_scope_and_resilience.py (mới)  + test_chat_red_flags + test_rag_chat
 + test_rag_eval_utils + test_vector_store_retrieval + test_metrics_screening
 
-TỔNG: 154 passed, 21 skipped (thời gian chạy: 26 giây)  (20 skip = golden dataset, cần RUN_LIVE_AI_TESTS=1 + Gemini + pgvector)
+TỔNG: 167 passed, 22 skipped (thời gian chạy: ~18 giây)  (20 skip = golden dataset, cần RUN_LIVE_AI_TESTS=1 + Gemini + pgvector)
 ```
 
 **Lưu ý:** `test_ingestion_and_chunker.py` nay đã được cách ly khỏi DB thật (xem G3b) nên không còn fail.

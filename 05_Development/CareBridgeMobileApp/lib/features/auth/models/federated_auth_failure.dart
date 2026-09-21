@@ -1,6 +1,7 @@
 import 'package:universal_io/io.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
@@ -129,6 +130,32 @@ class FederatedAuthFailure {
 
     if (error is SocketException || error is http.ClientException) {
       return connectivity;
+    }
+
+    if (error is PlatformException) {
+      final code = error.code.toLowerCase();
+      final msg = (error.message ?? '').toLowerCase();
+      if (code == 'sign_in_canceled' ||
+          code == 'canceled' ||
+          code == 'cancelled' ||
+          msg.contains('canceled') ||
+          msg.contains('cancelled')) {
+        return canceled;
+      }
+      if (code == 'network_error' || msg.contains('network')) {
+        return connectivity;
+      }
+      if (code == 'sign_in_required') {
+        return invalidCredential;
+      }
+      if (msg.contains('url scheme') ||
+          msg.contains('configuration') ||
+          msg.contains('client_id') ||
+          msg.contains('missing support') ||
+          code.contains('configuration')) {
+        return configuration;
+      }
+      return unexpected;
     }
 
     return unexpected;

@@ -5,15 +5,19 @@ off-topic questions, meta/system questions, prompt injection, empty or gibberish
 outage that used to be answered with hard-coded medical advice.
 """
 
+from pathlib import Path
+
 import pytest
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 from app.constants.stages import (
     RETRIEVABLE_STAGES,
     is_retrievable_stage,
     normalize_stage,
 )
-from app.core.gemini import GeminiUnavailableError
-from app.models.schemas import MaternalStage, RagChatRequest
+from app.core.gemini import EmbeddingUnavailableError, GeminiUnavailableError
+from app.models.schemas import ChatMessage, MaternalStage, RagChatRequest
 from app.rag.prompts import NURSE_ASSISTANT_SYSTEM_PROMPT, build_rag_chat_prompt
 from app.rag.vector_store import searchable_stages
 from app.services.rag_chat_service import (
@@ -327,3 +331,140 @@ def test_ingest_canonicalises_recognised_maternal_stages(declared, expected):
 def test_pregnancy_and_postpartum_both_reach_newborn_documents():
     assert "BABY_CARE" in searchable_stages("PREGNANCY")
     assert "BABY_CARE" in searchable_stages("POSTPARTUM")
+
+
+# --------------------------------------------------------------------------------------
+# Embedding outage: never search with a pseudo-embedding (it returns unrelated documents)
+# --------------------------------------------------------------------------------------
+
+class _EmbeddingDownVectorStore:
+    async def similarity_search(self, *args, **kwargs):
+        raise EmbeddingUnavailableError("every key exhausted")
+
+
+def _embedding_down_service():
+    service = RagChatService()
+    service.vector_store = _EmbeddingDownVectorStore()
+    service.gemini = _MustNotBeCalledGemini()
+    return service
+
+
+@pytest.mark.asyncio
+async def test_embedding_outage_returns_outage_answer_without_citations():
+    result = await _embedding_down_service().chat(RagChatRequest(
+        message="Bà bầu nên bổ sung sắt như thế nào?", stage=MaternalStage.PREGNANCY,
+    ))
+    assert result.answer == SERVICE_UNAVAILABLE_ANSWER
+    assert result.sources == []
+    assert result.has_critical_warning is False
+
+
+@pytest.mark.asyncio
+async def test_embedding_outage_still_escalates_a_red_flag():
+    result = await _embedding_down_service().chat(RagChatRequest(
+        message="Em mang thai 32 tuần, bị ra máu ồ ạt và đau bụng dữ dội",
+        stage=MaternalStage.PREGNANCY,
+    ))
+    assert result.has_critical_warning is True
+    assert result.need_expert_consultation is True
+
+
+def test_embed_text_raises_instead_of_returning_a_pseudo_embedding():
+    """A live query must fail loudly rather than search with random vectors."""
+    source = (PROJECT_ROOT / "app" / "core" / "gemini.py").read_text(encoding="utf-8")
+    embed_text_src = source.split("async def embed_text")[1].split("async def embed_texts")[0]
+    assert "raise EmbeddingUnavailableError" in embed_text_src
+    # The daily quota is per key, so an exhausted key must move to the next one.
+    assert "rotate_to_next_key" in embed_text_src
+
+
+# --------------------------------------------------------------------------------------
+# Multi-turn query expansion (the behaviour section 6.2 of the design doc describes)
+# --------------------------------------------------------------------------------------
+
+_HISTORY = [
+    ChatMessage(role="user", content="Em đang mang thai 32 tuần, hôm nay thấy bị đau đầu và phù hai chân"),
+    ChatMessage(role="assistant", content="Chào mẹ, đau đầu và phù chân tuần 32 cần được theo dõi kỹ."),
+]
+
+
+@pytest.mark.parametrize("message", [
+    "Nó có nguy hiểm đến em bé không ạ?",
+    "Tình trạng này có nguy hiểm không?",
+    "Vậy ạ?",
+    "no co nguy hiem khong",          # typed without diacritics
+])
+def test_referential_followups_are_expanded(message):
+    assert RagChatService._looks_like_followup(message) is True
+    expanded = RagChatService._expand_with_history(message, _HISTORY)
+    assert "đau đầu" in expanded and "phù hai chân" in expanded
+    assert message in expanded
+
+
+@pytest.mark.parametrize("message", [
+    "Bà bầu ăn trứng ngỗng có tốt không?",
+    "Lịch tiêm phòng cho bà bầu gồm những mũi nào?",
+    "Em bị tiền sản giật thì nên ăn uống thế nào?",
+])
+def test_self_contained_questions_are_not_expanded(message):
+    """Pasting stale symptoms into a new topic drags retrieval back to the old one."""
+    assert RagChatService._looks_like_followup(message) is False
+
+
+def test_expansion_uses_only_user_turns():
+    """The assistant's prose is long and generic; it would dominate the query vector."""
+    expanded = RagChatService._expand_with_history("Nó có nguy hiểm không?", _HISTORY)
+    assert "Chào mẹ" not in expanded
+
+
+def test_expansion_is_a_noop_without_history():
+    assert RagChatService._expand_with_history("Nó có nguy hiểm không?", None) == "Nó có nguy hiểm không?"
+    assert RagChatService._expand_with_history("Nó có nguy hiểm không?", []) == "Nó có nguy hiểm không?"
+
+
+class _QueryRecordingStore:
+    """Returns grounded chunks only for the history-expanded query."""
+
+    def __init__(self, grounded_on: str) -> None:
+        self.grounded_on = grounded_on
+        self.queries: list[str] = []
+
+    async def similarity_search(self, query, *args, **kwargs):
+        self.queries.append(query)
+        similarity = 0.55 if self.grounded_on in query else 0.05
+        return [{"title": "Cẩm nang tiền sản giật", "section": "Dấu hiệu", "source": "Bộ Y Tế",
+                 "content": "Đau đầu và phù là dấu hiệu cảnh báo tiền sản giật.", "similarity": similarity}]
+
+
+@pytest.mark.asyncio
+async def test_followup_question_retrieves_via_expanded_query():
+    store = _QueryRecordingStore(grounded_on="đau đầu")
+    service = RagChatService()
+    service.vector_store = store
+    service.gemini = _LlmSaysOutOfScope()   # any answer; we assert on the query that was searched
+
+    await service.chat(RagChatRequest(
+        message="Nó có nguy hiểm đến em bé không ạ?",
+        stage=MaternalStage.PREGNANCY,
+        conversation_history=_HISTORY,
+    ))
+    assert store.queries, "no search was performed"
+    assert "đau đầu" in store.queries[0], f"first query was not expanded: {store.queries[0]!r}"
+
+
+@pytest.mark.asyncio
+async def test_plain_query_is_retried_expanded_when_nothing_is_grounded():
+    """Second pass: the heuristic misses some follow-ups, so a barren search retries with context."""
+    store = _QueryRecordingStore(grounded_on="đau đầu")
+    service = RagChatService()
+    service.vector_store = store
+    service.gemini = _LlmSaysOutOfScope()
+
+    await service.chat(RagChatRequest(
+        message="Chỉ số đó có bất thường không thưa bác sĩ?",   # not caught by the heuristic
+        stage=MaternalStage.PREGNANCY,
+        conversation_history=_HISTORY,
+    ))
+    assert len(store.queries) == 2, store.queries
+    assert "đau đầu" not in store.queries[0]
+    assert "đau đầu" in store.queries[1]

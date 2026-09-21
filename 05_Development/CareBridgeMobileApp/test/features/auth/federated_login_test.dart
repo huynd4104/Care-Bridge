@@ -157,4 +157,69 @@ void main() {
 
     expect(find.text('Auth landing'), findsOneWidget);
   });
+
+  testWidgets(
+    'tapping SMS login with empty field opens phone input bottom sheet',
+    (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+
+      final smsButton = find.byKey(const Key('federated-phone-login'));
+      await tester.ensureVisible(smsButton);
+      await tester.pumpAndSettle();
+      await tester.tap(smsButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đăng nhập qua SMS OTP'), findsOneWidget);
+      expect(find.byKey(const Key('sms-phone-input-field')), findsOneWidget);
+      expect(find.byKey(const Key('sms-phone-submit-button')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'entering invalid phone number in bottom sheet shows inline error',
+    (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+
+      final smsButton = find.byKey(const Key('federated-phone-login'));
+      await tester.ensureVisible(smsButton);
+      await tester.pumpAndSettle();
+      await tester.tap(smsButton);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('sms-phone-input-field')),
+        '12345',
+      );
+      await tester.tap(find.byKey(const Key('sms-phone-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Vui lòng nhập số điện thoại hợp lệ (ví dụ: 0912345678 hoặc +84912345678).',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'tapping SMS login with prefilled valid phone navigates directly to phone verification',
+    (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+
+      await tester.enterText(
+        find.byKey(const Key('login-email-field')),
+        '0912345678',
+      );
+      final smsButton = find.byKey(const Key('federated-phone-login'));
+      await tester.ensureVisible(smsButton);
+      await tester.pumpAndSettle();
+      await tester.tap(smsButton);
+      await tester.pumpAndSettle();
+
+      // Should not show bottom sheet, but rather navigate directly to phone verification
+      expect(find.text('Đăng nhập qua SMS OTP'), findsNothing);
+      expect(find.byKey(const Key('phone-sms-code')), findsOneWidget);
+    },
+  );
 }

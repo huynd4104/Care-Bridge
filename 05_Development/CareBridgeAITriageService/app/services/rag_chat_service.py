@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import List
 from app.core.database import AsyncSession
 
@@ -15,7 +16,7 @@ from app.constants.vital_thresholds import (
     GLUCOSE_POST_MEAL_1H_WARNING_THRESHOLD,
     TEMP_CRITICAL_FEVER_PREGNANCY,
 )
-from app.core.gemini import GeminiUnavailableError, get_gemini_client
+from app.core.gemini import EmbeddingUnavailableError, GeminiUnavailableError, get_gemini_client
 from app.models.schemas import (
     HealthMetricsLogRequest,
     RagChatRequest,
@@ -27,7 +28,12 @@ from app.rag.prompts import (
     build_rag_chat_prompt,
 )
 from app.rag.vector_store import get_vector_store
-from app.services.chat_red_flags import RED_FLAG_SELF_HARM, contains_urgent_referral, detect_red_flags
+from app.services.chat_red_flags import (
+    RED_FLAG_SELF_HARM,
+    contains_urgent_referral,
+    detect_red_flags,
+    strip_diacritics,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +67,8 @@ BLANK_MESSAGE_ANSWER = (
     "Bạn vui lòng mô tả cụ thể hơn điều đang băn khoăn về sức khỏe mẹ và bé "
     "(ví dụ: tuần thai, triệu chứng đang gặp, hoặc chủ đề muốn tìm hiểu) để mình hỗ trợ chính xác nhé!"
 )
+# Minimum cosine similarity for a retrieved chunk to be usable as grounding.
+RELEVANCE_THRESHOLD = 0.20
 SERVICE_UNAVAILABLE_ANSWER = (
     "Hệ thống AI Nurse đang tạm thời gián đoạn kết nối nên chưa thể tra cứu cẩm nang y tế cho câu hỏi này. "
     "Để đảm bảo an toàn, CareBridge không đưa ra lời khuyên y khoa khi chưa đối soát được tài liệu chính thống. "
@@ -97,14 +105,37 @@ class RagChatService:
                 disclaimer=MEDICAL_DISCLAIMER,
             )
 
-        # 2. Semantic Search across Maternal Knowledge pgvector
+        # 2. Semantic Search across Maternal Knowledge pgvector.
+        # Multi-turn query expansion: a follow-up that points back at an earlier turn ("Nó có nguy hiểm
+        # đến em bé không ạ?") names no symptom, so searching it verbatim cannot reach the guidance the
+        # mother is asking about. Expansion is conditional rather than unconditional - always pasting the
+        # history in drags stale symptoms into an unrelated new question and pulls retrieval off topic.
         stage_filter = request.stage.value if request.stage else "PREGNANCY"
-        retrieved_chunks = await self.vector_store.similarity_search(
-            query=search_query,
-            stage=stage_filter,
-            top_k=4,
-            session=session,
+        expanded_query = self._expand_with_history(search_query, request.conversation_history)
+        first_query = (
+            expanded_query
+            if (expanded_query != search_query and self._looks_like_followup(search_query))
+            else search_query
         )
+
+        try:
+            retrieved_chunks = await self.vector_store.similarity_search(
+                query=first_query, stage=stage_filter, top_k=4, session=session,
+            )
+            # Second pass: the heuristic above only catches obvious follow-ups. If a plain search came
+            # back with nothing grounded and history is available, retry expanded before refusing.
+            if first_query == search_query and expanded_query != search_query and not self._grounded(retrieved_chunks):
+                logger.info("Plain query found nothing grounded; retrying with history-expanded query.")
+                expanded_chunks = await self.vector_store.similarity_search(
+                    query=expanded_query, stage=stage_filter, top_k=4, session=session,
+                )
+                if self._grounded(expanded_chunks):
+                    retrieved_chunks = expanded_chunks
+        except EmbeddingUnavailableError:
+            # Searching with a pseudo-embedding returns rows unrelated to the question and ships them as
+            # official citations, so an embedding outage degrades exactly like a generation outage.
+            logger.error("Embedding unavailable; refusing to search with a pseudo-embedding.")
+            return self._service_outage_response(request, is_family=is_family)
 
         # 3. Format Clinical Context & Survey Profile based on User Role
         gestational_age_weeks = None if is_family else request.gestational_age_weeks
@@ -130,11 +161,8 @@ class RagChatService:
             if request.survey_profile:
                 survey_profile_summary = self._format_survey_profile(request.survey_profile)
 
-        # 4. Filter relevant chunks (threshold >= 0.20)
-        valid_chunks = [
-            c for c in retrieved_chunks
-            if c.get("similarity") is not None and c.get("similarity", 0.0) >= 0.20
-        ]
+        # 4. Filter relevant chunks
+        valid_chunks = [c for c in retrieved_chunks if self._is_relevant(c)]
 
         # Strict RAG Grounding Gate: If no relevant knowledge chunks retrieved, BLOCK ungrounded LLM generation
         if not valid_chunks:
@@ -193,25 +221,7 @@ class RagChatService:
             # No generation available. Degrade explicitly with no medical content and no citations, but
             # never let an outage swallow an emergency: the deterministic red-flag screen still applies.
             logger.error("Gemini generation unavailable; returning service-outage answer without citations.")
-            red_flags = detect_red_flags(request.message)
-            if red_flags:
-                is_self_harm = any(f.category == RED_FLAG_SELF_HARM for f in red_flags)
-                return RagChatResponse(
-                    answer=GATE_SELF_HARM_ANSWER if is_self_harm else GATE_EMERGENCY_ANSWER,
-                    has_critical_warning=True,
-                    need_expert_consultation=True,
-                    suggested_followups=self._generate_fallback_followups(is_emergency=True, is_family=is_family),
-                    sources=[],
-                    disclaimer=MEDICAL_DISCLAIMER,
-                )
-            return RagChatResponse(
-                answer=SERVICE_UNAVAILABLE_ANSWER,
-                has_critical_warning=False,
-                need_expert_consultation=self._check_abnormal_metrics_guardrail(request.recent_metrics),
-                suggested_followups=self._generate_fallback_followups(is_emergency=False, is_family=is_family),
-                sources=[],
-                disclaimer=MEDICAL_DISCLAIMER,
-            )
+            return self._service_outage_response(request, is_family=is_family)
 
         # 6. Extract Dynamic Follow-up Suggestions & AI Clinical Decision Flags
         (
@@ -322,6 +332,85 @@ class RagChatService:
             sources=citations,
             disclaimer=MEDICAL_DISCLAIMER,
         )
+
+    def _service_outage_response(self, request: RagChatRequest, is_family: bool) -> RagChatResponse:
+        """Degrade with no medical content and no citations, without swallowing an emergency.
+
+        Shared by the generation outage and the embedding outage: in both cases the assistant has lost
+        the ability to answer truthfully, but the deterministic red-flag screen still works and an
+        emergency must still be escalated.
+        """
+        red_flags = detect_red_flags(request.message)
+        if red_flags:
+            is_self_harm = any(f.category == RED_FLAG_SELF_HARM for f in red_flags)
+            return RagChatResponse(
+                answer=GATE_SELF_HARM_ANSWER if is_self_harm else GATE_EMERGENCY_ANSWER,
+                has_critical_warning=True,
+                need_expert_consultation=True,
+                suggested_followups=self._generate_fallback_followups(is_emergency=True, is_family=is_family),
+                sources=[],
+                disclaimer=MEDICAL_DISCLAIMER,
+            )
+        return RagChatResponse(
+            answer=SERVICE_UNAVAILABLE_ANSWER,
+            has_critical_warning=False,
+            need_expert_consultation=self._check_abnormal_metrics_guardrail(request.recent_metrics),
+            suggested_followups=self._generate_fallback_followups(is_emergency=False, is_family=is_family),
+            sources=[],
+            disclaimer=MEDICAL_DISCLAIMER,
+        )
+
+    @staticmethod
+    def _is_relevant(chunk: dict) -> bool:
+        """True when a retrieved chunk is close enough to be used as grounding."""
+        similarity = chunk.get("similarity")
+        return similarity is not None and similarity >= RELEVANCE_THRESHOLD
+
+    @classmethod
+    def _grounded(cls, chunks) -> bool:
+        """True when at least one retrieved chunk clears the relevance threshold."""
+        return any(cls._is_relevant(c) for c in (chunks or []))
+
+    @staticmethod
+    def _expand_with_history(message: str, conversation_history) -> str:
+        """Fold the mother's own recent turns into the query so a follow-up can be searched on.
+
+        "Nó có nguy hiểm đến em bé không ạ?" names no symptom - the headache and swollen feet live in
+        her previous message - so searching it verbatim cannot reach the preeclampsia guidance she is
+        actually asking about.
+
+        Only the user's turns are folded in: the assistant's replies are long and full of generic
+        maternal vocabulary that would dominate the query vector.
+        """
+        query = (message or "").strip()
+        if not conversation_history:
+            return query
+        user_turns = [
+            (msg.content or "").strip()
+            for msg in conversation_history
+            if getattr(msg, "role", None) in ("user", "human") and (msg.content or "").strip()
+        ]
+        if not user_turns:
+            return query
+        return " ".join(user_turns[-2:] + ([query] if query else []))
+
+    # A follow-up that points back at something already said instead of naming it. Matched on
+    # accent-stripped text so messages typed without diacritics behave the same.
+    _REFERENTIAL_FOLLOWUP = re.compile(
+        r"\bno\b|\bvay\b|\bthe a\b|\bthe khong\b|"
+        r"(cai|dieu|viec|tinh trang|trieu chung|benh|hien tuong|chuyen)\s+(nay|do|ay)"
+    )
+
+    @classmethod
+    def _looks_like_followup(cls, message: str) -> bool:
+        """True when the message leans on earlier context instead of standing on its own."""
+        text = strip_diacritics(message)
+        if not text:
+            return False
+        if cls._REFERENTIAL_FOLLOWUP.search(text):
+            return True
+        # Very short questions ("Vậy ạ?", "Có sao không?") carry no searchable content either.
+        return len(text.split()) <= 4
 
     @staticmethod
     def _has_answerable_content(message: str) -> bool:
