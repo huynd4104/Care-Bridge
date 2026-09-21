@@ -108,16 +108,18 @@ class IngestionService:
         skipped_files: List[str] = []
         errors: List[str] = []
 
-        for f in files:
+        total_files = len(files)
+        for idx, f in enumerate(files, 1):
             try:
                 count = await self.ingest_file(f, session=session, existing_titles=existing_titles)
                 if count > 0:
                     total_chunks += count
                     processed_files.append(f.name)
+                    logger.info(f"[{idx}/{total_files}] ✓ Đã nạp: {f.name} (+{count} chunks, Tổng: {total_chunks})")
                 else:
                     skipped_files.append(f.name)
             except Exception as e:
-                logger.error(f"Error ingesting file {f.name}: {e}")
+                logger.error(f"[{idx}/{total_files}] ✗ Lỗi khi nạp file {f.name}: {e}")
                 errors.append(f"{f.name}: {str(e)}")
 
         return BatchIngestResponse(

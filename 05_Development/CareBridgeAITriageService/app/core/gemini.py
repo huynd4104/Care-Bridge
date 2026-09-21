@@ -26,23 +26,44 @@ FALLBACK_EMBEDDING_MODELS = [
 
 class GeminiClient:
     def __init__(self) -> None:
+        self._api_keys: list[str] = GEMINI_SETTINGS.api_keys
+        self._current_key_idx: int = 0
         self._client: Optional[genai.Client] = None
-        if GEMINI_SETTINGS.enabled and GEMINI_SETTINGS.api_key:
-            try:
-                import os
-                for var in ("NO_PROXY", "no_proxy"):
-                    if var in os.environ and "::" in os.environ[var]:
-                        os.environ[var] = ",".join(p.strip() for p in os.environ[var].split(",") if "::" not in p)
-                self._client = genai.Client(api_key=GEMINI_SETTINGS.api_key)
-                logger.info(
-                    f"Gemini client initialized with model={GEMINI_SETTINGS.model} "
-                    f"embedding_model={GEMINI_SETTINGS.embedding_model}"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to initialize live Gemini Client: {e}")
-                self._client = None
+
+        if GEMINI_SETTINGS.enabled and self._api_keys:
+            self._init_client_for_current_key()
         else:
             logger.info("Gemini client running in offline/mock mode (no API key configured)")
+
+    def _init_client_for_current_key(self) -> bool:
+        if not self._api_keys:
+            self._client = None
+            return False
+        import os
+        for var in ("NO_PROXY", "no_proxy"):
+            if var in os.environ and "::" in os.environ[var]:
+                os.environ[var] = ",".join(p.strip() for p in os.environ[var].split(",") if "::" not in p)
+        cur_key = self._api_keys[self._current_key_idx]
+        masked = cur_key[:6] + "..." + cur_key[-4:] if len(cur_key) > 10 else "***"
+        try:
+            self._client = genai.Client(api_key=cur_key)
+            logger.info(
+                f"Gemini client initialized with Key #{self._current_key_idx + 1}/{len(self._api_keys)} ({masked}), "
+                f"model={GEMINI_SETTINGS.model} embedding_model={GEMINI_SETTINGS.embedding_model}"
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to initialize Gemini Client with Key #{self._current_key_idx + 1}: {e}")
+            self._client = None
+            return False
+
+    def rotate_to_next_key(self) -> bool:
+        """Switch to next API key if multiple keys are available."""
+        if len(self._api_keys) > 1:
+            self._current_key_idx = (self._current_key_idx + 1) % len(self._api_keys)
+            logger.info(f"Tự động chuyển sang API Key tiếp theo: Key #{self._current_key_idx + 1}/{len(self._api_keys)}")
+            return self._init_client_for_current_key()
+        return False
 
     @property
     def is_available(self) -> bool:
@@ -52,6 +73,9 @@ class GeminiClient:
         """Generate a 768-dimensional vector embedding for a single text chunk."""
         if not text.strip():
             return [0.0] * GEMINI_SETTINGS.embedding_dimension
+
+        if not GEMINI_SETTINGS.enabled:
+            return self._mock_embedding(text)
 
         if self._client:
             models_to_try = [GEMINI_SETTINGS.embedding_model] + [
@@ -79,6 +103,11 @@ class GeminiClient:
                             return response.embedding.values
                     except Exception as e:
                         err_msg = str(e)
+                        if "perday" in err_msg.lower():
+                            logger.warning(
+                                f"Hạn mức ngày (Daily Quota: 1,000 requests/day) của model {model_name} trên API Key này đã cạn kiệt!"
+                            )
+                            break
                         if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "Too Many Requests" in err_msg) and attempt < max_retries - 1:
                             wait_sec = 5.0 * (attempt + 1)
                             m_delay = re.search(r"retry in ([0-9]+(?:\.[0-9]+)?)s", err_msg)
@@ -100,11 +129,14 @@ class GeminiClient:
         if not texts:
             return []
 
+        if not GEMINI_SETTINGS.enabled:
+            return [self._mock_embedding(t) for t in texts]
+
         if self._client:
             models_to_try = [GEMINI_SETTINGS.embedding_model] + [
                 m for m in FALLBACK_EMBEDDING_MODELS if m != GEMINI_SETTINGS.embedding_model
             ]
-            batch_size = 32
+            batch_size = 50
 
             for model_name in models_to_try:
                 try:
@@ -145,6 +177,16 @@ class GeminiClient:
                                     break
                             except Exception as e:
                                 err_msg = str(e)
+                                if "perday" in err_msg.lower():
+                                    logger.warning(
+                                        f"API Key #{self._current_key_idx + 1} đã hết hạn mức ngày (1,000 requests/day) trên {model_name}!"
+                                    )
+                                    if self.rotate_to_next_key():
+                                        # Retry current batch with new rotated key
+                                        continue
+                                    else:
+                                        logger.error("Đã hết toàn bộ API Key khả dụng cho ngày hôm nay.")
+                                        break
                                 if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "Too Many Requests" in err_msg) and attempt < max_retries - 1:
                                     wait_sec = 6.0 * (attempt + 1)
                                     m_delay = re.search(r"retry in ([0-9]+(?:\.[0-9]+)?)s", err_msg)

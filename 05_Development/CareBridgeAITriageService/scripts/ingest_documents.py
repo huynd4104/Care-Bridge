@@ -38,7 +38,18 @@ async def main():
         default=False,
         help="Force re-ingestion of documents even if they already exist in database",
     )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        default=False,
+        help="Use deterministic offline embeddings without calling Gemini API (0s latency, no quota limit)",
+    )
     args = parser.parse_args()
+
+    if args.offline:
+        from app.config import GEMINI_SETTINGS
+        GEMINI_SETTINGS.enabled = False
+        logger.info("Chế độ OFFLINE được kích hoạt: Sử dụng thuật toán vector nội bộ, không gọi Gemini API.")
 
     service = get_ingestion_service()
 

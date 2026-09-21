@@ -149,9 +149,14 @@ class DocumentChunker:
         return stage, topic
 
     def _chunk_markdown(self, path: Path) -> List[DocumentChunkDTO]:
-        post = frontmatter.load(path)
-        metadata = post.metadata or {}
-        body = post.content
+        try:
+            post = frontmatter.load(path)
+            metadata = post.metadata or {}
+            body = post.content
+        except Exception as e:
+            logger.warning(f"Failed to parse frontmatter in {path.name} ({e}), parsing as plain text.")
+            metadata = {}
+            body = path.read_text(encoding="utf-8", errors="ignore")
 
         title = metadata.get("title") or path.stem.replace("_", " ").title()
         
