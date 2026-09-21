@@ -340,12 +340,13 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
             // Urgency picker
             _SectionLabel('Mức độ ưu tiên'),
             const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: _surface,
+            Material(
+              color: _surface,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _outlineVariant),
+                side: const BorderSide(color: _outlineVariant),
               ),
+              clipBehavior: Clip.antiAlias,
               child: RadioGroup<String>(
                 groupValue: _urgency,
                 onChanged: (value) {

@@ -518,21 +518,20 @@ void main() {
     );
     expect(find.text('Cơ sở xa hơn', skipOffstage: offstage), findsWidgets);
 
-    // Each tile states where the record came from and whether CareBridge verified it, so an
-    // unverified TrackAsia import can never be presented as verified care.
-    expect(
-      find.textContaining(
-        'Nguồn TrackAsia · Đã được CareBridge xác minh',
-        skipOffstage: offstage,
-      ),
-      findsOneWidget,
-    );
+    // Source and verification labels are removed from the list tile per design update.
     expect(
       find.textContaining(
         'Chưa được CareBridge xác minh',
         skipOffstage: offstage,
       ),
-      findsOneWidget,
+      findsNothing,
+    );
+    expect(
+      find.textContaining(
+        'Nguồn TrackAsia',
+        skipOffstage: offstage,
+      ),
+      findsNothing,
     );
     expect(
       find.textContaining('9.0 km', skipOffstage: offstage),
