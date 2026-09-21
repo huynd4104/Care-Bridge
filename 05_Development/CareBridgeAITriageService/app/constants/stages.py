@@ -2,9 +2,10 @@
 
 Retrieval filters chunks by `stage`, so a chunk stored under any value outside RETRIEVABLE_STAGES can
 never be returned by a search - it is silently invisible to the assistant. Document frontmatter is
-hand-written and had drifted far from the enum: a scan of data/raw_documents found 193 of 936 files
-carrying values such as "GENERAL", "PREGNANCY,POSTPARTUM" or free-text Vietnamese
-("THAI KỲ; SAU SINH; SỨC KHỎE TÂM THẦN CHU SINH"). Every one of those documents was unreachable.
+hand-written and had drifted far from the enum: of the 557 documents under data/raw_documents that
+declare a stage, 125 carried values such as "GENERAL", "PREGNANCY,POSTPARTUM" or free-text Vietnamese
+("THAI KỲ; SAU SINH; SỨC KHỎE TÂM THẦN CHU SINH"). Every one of those documents was unreachable -
+about 19% of stored chunks.
 
 normalize_stage() maps whatever a document declares onto the canonical set, falling back to "ALL"
 (searchable from every stage) rather than dropping the document out of reach.

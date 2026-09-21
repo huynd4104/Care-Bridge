@@ -2,8 +2,8 @@
 
 Retrieval filters by `stage`, so a chunk stored under a value outside RETRIEVABLE_STAGES can never be
 returned by a search. Document frontmatter had drifted far from the enum ("GENERAL",
-"PREGNANCY,POSTPARTUM", free-text Vietnamese such as "THAI KỲ; SAU SINH"), leaving 193 of 936 source
-documents permanently invisible to the assistant.
+"PREGNANCY,POSTPARTUM", free-text Vietnamese such as "THAI KỲ; SAU SINH"), leaving 125 of the 557
+documents that declare a stage permanently invisible to the assistant.
 
 app/rag/chunker.py now normalises at ingest time, but rows written before that change still carry the
 old values. This script rewrites them in place - no re-embedding, no re-ingestion, only the stage

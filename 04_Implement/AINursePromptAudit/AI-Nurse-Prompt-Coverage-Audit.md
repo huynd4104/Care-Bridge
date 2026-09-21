@@ -145,7 +145,7 @@ Khi ngưỡng lọc chỉ là `0.20` ([rag_chat_service.py:109-112](../../05_Dev
 
 **Khắc phục:** cho phép "nếu không có đoạn nào trực tiếp trả lời, nói rõ tài liệu chưa đề cập" thay vì bắt buộc trích dẫn bằng mọi giá.
 
-### C5. 🔴 NGHIÊM TRỌNG — ~34% tài liệu đã ingest KHÔNG BAO GIỜ truy xuất được (lỗi taxonomy `stage`)
+### C5. 🔴 NGHIÊM TRỌNG — ~19% chunk đã ingest KHÔNG BAO GIỜ truy xuất được (lỗi taxonomy `stage`)
 
 `searchable_stages(stage)` chỉ trả về `[stage, "ALL", *_EXTRA_SEARCH_STAGES]` ([vector_store.py:61-65](../../05_Development/CareBridgeAITriageService/app/rag/vector_store.py#L61-L65)), tức tập stage truy xuất được **chỉ gồm**: `PRECONCEPTION`, `PREGNANCY`, `POSTPARTUM`, `ALL`, `BABY_CARE` (riêng `BABY_CARE` chỉ từ `POSTPARTUM`).
 
@@ -156,11 +156,13 @@ Nhưng `chunker` lấy `stage` **nguyên văn từ frontmatter tài liệu** ([c
 | `ALL` | 313 | ✅ mọi stage |
 | `PREGNANCY` / `POSTPARTUM` / `PRECONCEPTION` | 307 | ✅ đúng stage |
 | `BABY_CARE` | 123 | ⚠️ **CHỈ** từ `POSTPARTUM` — mẹ `PREGNANCY` không với tới |
-| **Giá trị lạ, không nằm trong tập truy xuất** | **193** | ❌ **KHÔNG BAO GIỜ** |
+| **Giá trị lạ, không nằm trong tập truy xuất** | **125** | ❌ **KHÔNG BAO GIỜ** |
 
-193 file "mồ côi" gồm: `GENERAL` (70), `PRECONCEPTION,PREGNANCY` (7, chuỗi có dấu phẩy — lưu nguyên văn nên không khớp gì), `REPRODUCTIVE_HEALTH` (6), `PREGNANCY,POSTPARTUM` (5), `CARE_FACILITY` (5), và hàng chục giá trị **tiếng Việt tự do** như `"THAI KỲ; SAU SINH; SỨC KHỎE TÂM THẦN CHU SINH"`, `"MỌI GIAI ĐOẠN; MÔI TRƯỜNG SỐNG"`, `"THAI_KY; CHUYEN_DA; SAU_SINH"`.
+125 file "mồ côi" gồm: `GENERAL`, `PRECONCEPTION,PREGNANCY` (chuỗi có dấu phẩy — lưu nguyên văn nên không khớp gì), `REPRODUCTIVE_HEALTH`, `PREGNANCY,POSTPARTUM`, `CARE_FACILITY`, `MENOPAUSE`, `OLDER_ADULTS`, và hàng chục giá trị **tiếng Việt tự do** như `"THAI KỲ; SAU SINH; SỨC KHỎE TÂM THẦN CHU SINH"`, `"MỌI GIAI ĐOẠN; MÔI TRƯỜNG SỐNG"`, `"THAI_KY; CHUYEN_DA; SAU_SINH"`.
 
-**Tổng cộng với người dùng `stage=PREGNANCY` (mặc định): 193 + 123 = 316 / 936 file (~34%) là vô hình.**
+*(Xem đính chính số liệu ở mục G3: các con số ban đầu 936/193 là do `grep` đếm nhầm.)*
+
+**Đo trên database thật: 13.894 / 74.596 chunk (~19%) không truy xuất được.**
 
 **Hậu quả trực tiếp:** đây chính là nguyên nhân gốc khiến hệ thống hay trả "chưa tìm thấy tài liệu cẩm nang y tế chính thống" cho câu hỏi **hoàn toàn hợp lệ** — kho tài liệu có nội dung, nhưng filter `stage` chặn mất. Hội đồng hỏi một câu về trẻ sơ sinh hoặc sức khỏe tâm thần chu sinh là gặp ngay.
 
@@ -364,16 +366,24 @@ Theo đúng quy tắc của `implement-flow.md` ("chỉ đánh 🟢 khi test th�
 
 ### G3. Hiệu quả đo được của C5
 
-**Trên file nguồn** (`data/raw_documents`, 936 file có frontmatter `stage`) — 193 file mang stage sai từ vựng, sau thay đổi:
+**Trên file nguồn** (`data/raw_documents`, 988 file `.md`):
 
 ```
-  74 file ĐƯỢC CỨU    — từ vựng nhận diện được là thai sản
-                        (THAI_KY; SAU_SINH, CHUYEN_DA; SAU_SINH, Trẻ em, pregnancy...)
- 119 file GIỮ NGUYÊN  — từ vựng KHÔNG thuộc thai sản, cố ý không truy xuất được
-                        (GENERAL 70, REPRODUCTIVE_HEALTH 6, CARE_FACILITY 5, MENOPAUSE 2...)
+ 557 file CÓ khai báo `stage` trong frontmatter
+      432 file  stage đã hợp lệ sẵn
+      125 file  stage SAI từ vựng:
+            26 file  ĐƯỢC CỨU   — nhận diện được là thai sản
+                                  (THAI_KY; SAU_SINH, CHUYEN_DA; SAU_SINH, Trẻ em, pregnancy...)
+            99 file  GIỮ NGUYÊN — KHÔNG thuộc thai sản, cố ý không truy xuất được
+                                  (GENERAL, REPRODUCTIVE_HEALTH, MENOPAUSE, OLDER_ADULTS...)
+
+ 431 file KHÔNG khai báo `stage` -> đi qua `infer_stage_and_topic()`,
+                                    luôn cho ra giá trị hợp lệ nên vẫn truy xuất được bình thường
 ```
 
-⚠️ **Cố ý KHÔNG đưa con số "193 → 0".** Việc ép cả 193 file thành `ALL` sẽ kéo tài liệu ngoài phạm vi vào mọi lượt truy xuất — xem phân tích nội dung ngay bên dưới.
+⚠️ **Cố ý KHÔNG ép 125 file này thành `ALL`.** Làm vậy sẽ kéo tài liệu ngoài phạm vi vào mọi lượt truy xuất — xem phân tích nội dung ngay bên dưới.
+
+> 📌 **Đính chính số liệu:** bản đầu của báo cáo này ghi "936 file có frontmatter `stage`, 193 file sai từ vựng". Con số đó **sai** vì được đếm bằng `grep '^stage:'` nên bắt nhầm cả chữ `stage:` nằm trong thân tài liệu. Đếm lại bằng bộ phân tích frontmatter thật cho kết quả **557 file khai báo, 125 file sai từ vựng** như trên.
 
 **Trên database thật** (đã chạy `--dry-run`):
 

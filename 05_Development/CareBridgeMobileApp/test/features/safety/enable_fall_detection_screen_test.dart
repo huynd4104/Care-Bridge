@@ -207,5 +207,161 @@ void main() {
         expect(find.text('Chưa có người thân'), findsNothing);
       },
     );
+
+    testWidgets(
+      'when auto family alert is off, turning on location sharing shows requirement dialog and cancelling keeps it off',
+      (tester) async {
+        final fakeCareGroupService = _FakeCareGroupService(
+          groups: [
+            const CareGroup(id: 'g1', groupName: 'Gia đình nhỏ', memberCount: 2),
+          ],
+        );
+        final fakeSafetyService = _FakeSafetyService(
+          config: const SafetyConfig(
+            fallDetectionEnabled: false,
+            sensitivityLevel: 'MEDIUM',
+            emergencyAutoAlert: false,
+            locationSharingEnabled: false,
+            countdownSeconds: 30,
+            sensorPermissionGranted: false,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EnableFallDetectionScreen(
+              careGroupService: fakeCareGroupService,
+              safetyService: fakeSafetyService,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final locationSwitchFinder = find.byKey(const Key('location-sharing-switch'));
+        expect(locationSwitchFinder, findsOneWidget);
+
+        // Tap the location switch to turn it ON
+        await tester.ensureVisible(locationSwitchFinder);
+        await tester.tap(locationSwitchFinder);
+        await tester.pumpAndSettle();
+
+        // Dialog should be shown
+        expect(find.text('Yêu cầu báo người thân'), findsOneWidget);
+        expect(
+          find.textContaining('Để chia sẻ vị trí khi xảy ra sự cố ngã'),
+          findsOneWidget,
+        );
+
+        // Tap 'Để sau'
+        await tester.tap(find.byKey(const Key('require-auto-family-alert-cancel-button')));
+        await tester.pumpAndSettle();
+
+        // Location switch remains false
+        final locationSwitch = tester.widget<SwitchListTile>(locationSwitchFinder);
+        expect(locationSwitch.value, isFalse);
+
+        final autoSwitch = tester.widget<Switch>(find.byKey(const Key('auto-family-alert-switch')));
+        expect(autoSwitch.value, isFalse);
+      },
+    );
+
+    testWidgets(
+      'when auto family alert is off and user has no family, confirming requirement dialog shows no-family modal',
+      (tester) async {
+        final fakeCareGroupService = _FakeCareGroupService(
+          groups: [
+            const CareGroup(id: 'g1', groupName: 'Gia đình nhỏ', memberCount: 1),
+          ],
+        );
+        final fakeSafetyService = _FakeSafetyService(
+          config: const SafetyConfig(
+            fallDetectionEnabled: false,
+            sensitivityLevel: 'MEDIUM',
+            emergencyAutoAlert: false,
+            locationSharingEnabled: false,
+            countdownSeconds: 30,
+            sensorPermissionGranted: false,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EnableFallDetectionScreen(
+              careGroupService: fakeCareGroupService,
+              safetyService: fakeSafetyService,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final locationSwitchFinder = find.byKey(const Key('location-sharing-switch'));
+        await tester.ensureVisible(locationSwitchFinder);
+        await tester.tap(locationSwitchFinder);
+        await tester.pumpAndSettle();
+
+        // Tap 'Bật tính năng'
+        await tester.tap(find.byKey(const Key('require-auto-family-alert-confirm-button')));
+        await tester.pumpAndSettle();
+
+        // Shows no family member dialog because user has no family
+        expect(find.text('Chưa có người thân'), findsOneWidget);
+
+        final locationSwitch = tester.widget<SwitchListTile>(locationSwitchFinder);
+        expect(locationSwitch.value, isFalse);
+
+        final autoSwitch = tester.widget<Switch>(find.byKey(const Key('auto-family-alert-switch')));
+        expect(autoSwitch.value, isFalse);
+      },
+    );
+
+    testWidgets(
+      'turning off auto family alert automatically turns off location sharing',
+      (tester) async {
+        final fakeCareGroupService = _FakeCareGroupService(
+          groups: [
+            const CareGroup(id: 'g1', groupName: 'Gia đình nhỏ', memberCount: 2),
+          ],
+        );
+        final fakeSafetyService = _FakeSafetyService(
+          config: const SafetyConfig(
+            fallDetectionEnabled: false,
+            sensitivityLevel: 'MEDIUM',
+            emergencyAutoAlert: true,
+            locationSharingEnabled: true,
+            countdownSeconds: 30,
+            sensorPermissionGranted: false,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EnableFallDetectionScreen(
+              careGroupService: fakeCareGroupService,
+              safetyService: fakeSafetyService,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final autoSwitchFinder = find.byKey(const Key('auto-family-alert-switch'));
+        final locationSwitchFinder = find.byKey(const Key('location-sharing-switch'));
+
+        expect(tester.widget<Switch>(autoSwitchFinder).value, isTrue);
+        expect(tester.widget<SwitchListTile>(locationSwitchFinder).value, isTrue);
+
+        // Turn off auto family alert
+        await tester.ensureVisible(autoSwitchFinder);
+        await tester.tap(autoSwitchFinder);
+        await tester.pumpAndSettle();
+
+        // Both switches should now be false
+        expect(tester.widget<Switch>(autoSwitchFinder).value, isFalse);
+        expect(tester.widget<SwitchListTile>(locationSwitchFinder).value, isFalse);
+        expect(
+          find.text('Đã tắt chia sẻ vị trí do bạn đã tắt tính năng tự động báo người thân.'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }
