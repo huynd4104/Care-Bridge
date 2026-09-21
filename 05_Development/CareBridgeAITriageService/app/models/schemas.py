@@ -155,6 +155,7 @@ class BatchIngestResponse(BaseModel):
     total_files_processed: int
     total_chunks_created: int
     processed_files: List[str]
+    skipped_files: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
 
 

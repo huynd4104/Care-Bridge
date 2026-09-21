@@ -58,31 +58,45 @@ class GeminiClient:
                 m for m in FALLBACK_EMBEDDING_MODELS if m != GEMINI_SETTINGS.embedding_model
             ]
             for model_name in models_to_try:
-                try:
-                    import asyncio
+                import asyncio
+                import re
+                max_retries = 4
+                for attempt in range(max_retries):
+                    try:
+                        def _call():
+                            return self._client.models.embed_content(
+                                model=model_name,
+                                contents=text,
+                                config=types.EmbedContentConfig(
+                                    output_dimensionality=GEMINI_SETTINGS.embedding_dimension
+                                ),
+                            )
 
-                    def _call():
-                        return self._client.models.embed_content(
-                            model=model_name,
-                            contents=text,
-                            config=types.EmbedContentConfig(
-                                output_dimensionality=GEMINI_SETTINGS.embedding_dimension
-                            ),
-                        )
-
-                    response = await asyncio.wait_for(asyncio.to_thread(_call), timeout=GEMINI_SETTINGS.timeout_seconds)
-                    if hasattr(response, "embeddings") and response.embeddings:
-                        return response.embeddings[0].values
-                    if hasattr(response, "embedding") and response.embedding:
-                        return response.embedding.values
-                except Exception as e:
-                    logger.debug(f"Embedding model {model_name} notice ({e}), trying next fallback...")
+                        response = await asyncio.wait_for(asyncio.to_thread(_call), timeout=GEMINI_SETTINGS.timeout_seconds)
+                        if hasattr(response, "embeddings") and response.embeddings:
+                            return response.embeddings[0].values
+                        if hasattr(response, "embedding") and response.embedding:
+                            return response.embedding.values
+                    except Exception as e:
+                        err_msg = str(e)
+                        if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "Too Many Requests" in err_msg) and attempt < max_retries - 1:
+                            wait_sec = 5.0 * (attempt + 1)
+                            m_delay = re.search(r"retry in ([0-9]+(?:\.[0-9]+)?)s", err_msg)
+                            if m_delay:
+                                wait_sec = max(float(m_delay.group(1)) + 0.5, wait_sec)
+                            logger.warning(
+                                f"Rate limit (429) on {model_name}. Waiting {wait_sec:.1f}s before retry (attempt {attempt+1}/{max_retries})..."
+                            )
+                            await asyncio.sleep(wait_sec)
+                            continue
+                        logger.debug(f"Embedding model {model_name} notice ({e}), trying next fallback...")
+                        break
 
         # Fallback deterministic pseudo-embedding for testing without live API key
         return self._mock_embedding(text)
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Generate vector embeddings for a list of text chunks."""
+        """Generate vector embeddings for a list of text chunks with batching, throttling, and auto-retry."""
         if not texts:
             return []
 
@@ -90,32 +104,75 @@ class GeminiClient:
             models_to_try = [GEMINI_SETTINGS.embedding_model] + [
                 m for m in FALLBACK_EMBEDDING_MODELS if m != GEMINI_SETTINGS.embedding_model
             ]
+            batch_size = 32
+
             for model_name in models_to_try:
                 try:
                     import asyncio
+                    import re
                     embeddings = []
-                    for i in range(0, len(texts), 16):
-                        batch = texts[i : i + 16]
+                    failed = False
 
-                        def _call_batch(b=batch):
-                            return self._client.models.embed_content(
-                                model=model_name,
-                                contents=b,
-                                config=types.EmbedContentConfig(
-                                    output_dimensionality=GEMINI_SETTINGS.embedding_dimension
-                                ),
-                            )
+                    for i in range(0, len(texts), batch_size):
+                        batch = texts[i : i + batch_size]
+                        # In google.genai, each text must be wrapped in types.Content to generate individual embeddings
+                        batch_contents = [types.Content(parts=[types.Part.from_text(text=t)]) for t in batch]
 
-                        response = await asyncio.wait_for(asyncio.to_thread(_call_batch), timeout=GEMINI_SETTINGS.timeout_seconds)
-                        if hasattr(response, "embeddings") and response.embeddings:
-                            embeddings.extend([e.values for e in response.embeddings])
-                        elif hasattr(response, "embedding") and response.embedding:
-                            embeddings.append(response.embedding.values)
-                    if len(embeddings) == len(texts):
+                        max_retries = 5
+                        batch_success = False
+                        for attempt in range(max_retries):
+                            try:
+                                def _call_batch(contents=batch_contents):
+                                    return self._client.models.embed_content(
+                                        model=model_name,
+                                        contents=contents,
+                                        config=types.EmbedContentConfig(
+                                            output_dimensionality=GEMINI_SETTINGS.embedding_dimension
+                                        ),
+                                    )
+
+                                response = await asyncio.wait_for(
+                                    asyncio.to_thread(_call_batch),
+                                    timeout=GEMINI_SETTINGS.timeout_seconds,
+                                )
+                                if hasattr(response, "embeddings") and response.embeddings:
+                                    embeddings.extend([e.values for e in response.embeddings])
+                                    batch_success = True
+                                    break
+                                elif hasattr(response, "embedding") and response.embedding:
+                                    embeddings.append(response.embedding.values)
+                                    batch_success = True
+                                    break
+                            except Exception as e:
+                                err_msg = str(e)
+                                if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "Too Many Requests" in err_msg) and attempt < max_retries - 1:
+                                    wait_sec = 6.0 * (attempt + 1)
+                                    m_delay = re.search(r"retry in ([0-9]+(?:\.[0-9]+)?)s", err_msg)
+                                    if m_delay:
+                                        wait_sec = max(float(m_delay.group(1)) + 1.0, wait_sec)
+                                    logger.warning(
+                                        f"Rate limit (429) on {model_name} (batch {i//batch_size + 1}). "
+                                        f"Waiting {wait_sec:.1f}s before retry (attempt {attempt+1}/{max_retries})..."
+                                    )
+                                    await asyncio.sleep(wait_sec)
+                                    continue
+                                logger.warning(f"Batch embedding error on {model_name} (batch {i//batch_size + 1}): {e}")
+                                break
+
+                        if not batch_success:
+                            failed = True
+                            break
+
+                        # Gentle throttle between batches to prevent triggering RPM rate limits
+                        if i + batch_size < len(texts):
+                            await asyncio.sleep(1.5)
+
+                    if not failed and len(embeddings) == len(texts):
                         return embeddings
                 except Exception as e:
                     logger.debug(f"Batch embedding model {model_name} notice ({e}), trying next fallback...")
 
+        logger.warning("All live embedding models failed or rate-limited; falling back to offline deterministic embeddings.")
         return [self._mock_embedding(t) for t in texts]
 
     async def generate_response(

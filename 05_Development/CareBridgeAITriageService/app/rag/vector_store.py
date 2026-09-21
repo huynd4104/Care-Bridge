@@ -243,6 +243,29 @@ class PgVectorStore:
 
         return count
 
+    async def get_existing_titles(self, session: Optional[AsyncSession] = None) -> set[str]:
+        """Return set of distinct document titles already stored in pgvector or cache."""
+        async def _fetch(s: AsyncSession) -> set[str]:
+            stmt = select(MaternalKnowledgeChunk.title).distinct()
+            res = await s.execute(stmt)
+            return set(res.scalars().all())
+
+        db_titles: set[str] = set()
+        if session is not None:
+            try:
+                db_titles = await _fetch(session)
+            except Exception as e:
+                logger.debug(f"Could not fetch existing titles from session: {e}")
+        else:
+            try:
+                async with AsyncSessionLocal() as db:
+                    db_titles = await _fetch(db)
+            except Exception as e:
+                logger.debug(f"Could not fetch existing titles from DB: {e}")
+
+        cache_titles = {c["title"] for c in self._local_cache if "title" in c}
+        return db_titles | cache_titles
+
     async def list_chunks(
         self,
         stage: Optional[str] = None,
