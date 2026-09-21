@@ -431,10 +431,11 @@ public class RecommendationService implements RecommendationConsentCleanup {
 
             // (5) Phân loại vào danh sách Candidate:
             // - Nhóm Targeted: Bài viết có tag mục tiêu và có ít nhất 1 tag trùng khớp với người mẹ (matched.size() > 0)
-            // - Nhóm Fallback: Bài viết theo tuần thai thông thường (không chứa bất kỳ tag cá nhân hóa rec-* nào)
+            // - Nhóm Fallback: Bài viết theo tuần thai/giai đoạn thông thường (không chứa tag nhạy cảm)
+            boolean hasSensitiveTag = allRec.stream().anyMatch(RecommendationConstants::isSensitiveRecommendationTag);
             if (validTargeted && !matched.isEmpty()) {
                 targeted.add(candidate(item, matched.size()));
-            } else if (allRec.isEmpty()) {
+            } else if (!hasSensitiveTag) {
                 fallback.add(candidate(item, 0));
             }
         }

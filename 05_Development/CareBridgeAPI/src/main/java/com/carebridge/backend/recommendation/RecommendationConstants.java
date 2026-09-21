@@ -205,6 +205,24 @@ public final class RecommendationConstants {
         };
     }
 
+    public static final Set<String> SENSITIVE_REPRODUCTIVE_SLUGS = Set.of(
+            "rec-reproductive-prior-pregnancy-loss",
+            "rec-reproductive-recurrent-pregnancy-loss",
+            "rec-reproductive-prior-stillbirth",
+            "rec-reproductive-prior-preterm-birth",
+            "rec-reproductive-ectopic-pregnancy",
+            "rec-reproductive-preeclampsia",
+            "rec-reproductive-gestational-diabetes"
+    );
+
+    public static boolean isSensitiveRecommendationTag(String slug) {
+        if (slug == null) return false;
+        return slug.startsWith("rec-condition-")
+                || slug.startsWith("rec-sti-")
+                || "rec-lifestyle-substance-use".equals(slug)
+                || SENSITIVE_REPRODUCTIVE_SLUGS.contains(slug);
+    }
+
     /** Mirrors md5('RECOMMENDATION_TAG_CATALOG_V1:' || slug)::uuid in the seed migration. */
     public static UUID catalogIdFor(String slug) {
         try {
