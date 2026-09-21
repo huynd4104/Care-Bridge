@@ -194,6 +194,8 @@ public interface ContentRepository extends JpaRepository<ContentItem, UUID> {
 
     long countByAssignedExpertIdAndStatus(UUID assignedExpertId, ContentStatus status);
 
+    long countByAssignedExpertIdAndStatusAndType(UUID assignedExpertId, ContentStatus status, ContentType type);
+
     @Query("SELECT c.assignedExpertId, COUNT(c) FROM ContentItem c " +
            "WHERE c.status = :status AND c.assignedExpertId IN :expertIds " +
            "GROUP BY c.assignedExpertId")

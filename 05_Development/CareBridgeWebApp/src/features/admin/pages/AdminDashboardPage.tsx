@@ -5,7 +5,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { searchUsers } from '../services/adminUserApi';
 import { searchAuditLogs } from '../services/auditLogApi';
 import { fetchSystemConfiguration, type SystemConfiguration } from '../../aiRuleManagement/services/systemConfigurationApi';
-import { fetchStaffContentList, fetchAdminChecklistTemplates } from '../../contentManagement/services/contentApi';
 
 // Models
 import {
@@ -47,10 +46,8 @@ function getDashboardErrorMessage(error: unknown): string {
 /* ------------------------------------------------------------------ */
 function AdminTaskStatusPanel({
   lockedAccounts,
-  pendingContent,
 }: {
   lockedAccounts: number;
-  pendingContent: number;
 }) {
   const navigate = useNavigate();
 
@@ -58,8 +55,8 @@ function AdminTaskStatusPanel({
     {
       // The in-app appeal queue was retired; users now reach support directly, so
       // what the admin needs to see is the locked accounts themselves.
-      title: 'Tài khoản đang bị khóa',
-      detail: 'Tài khoản bị khóa, chờ chăm sóc khách hàng xác minh và mở lại',
+      title: 'Xử lý tài khoản người dùng đang bị khóa',
+      detail: 'Danh sách người dùng vi phạm bị khóa tạm thời hoặc vĩnh viễn cần rà soát',
       count: lockedAccounts,
       unit: 'tài khoản',
       icon: 'lock_person',
@@ -67,17 +64,6 @@ function AdminTaskStatusPanel({
       badge: lockedAccounts > 0 ? `${lockedAccounts} đang khóa` : 'Bình thường',
       badgeTone: lockedAccounts > 0 ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-300',
       path: '/admin/users?locked=true',
-    },
-    {
-      title: 'Duyệt nội dung y tế chờ xuất bản',
-      detail: 'Bài viết chuyên môn & bộ kiểm tra checklist chờ xuất bản',
-      count: pendingContent,
-      unit: 'bài/checklist',
-      icon: 'fact_check',
-      iconTone: 'bg-emerald-100 text-emerald-700',
-      badge: pendingContent > 0 ? `${pendingContent} bài chờ` : 'Hoàn thành',
-      badgeTone: pendingContent > 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-600 border-slate-300',
-      path: '/admin/content-approval-queue',
     },
   ];
 
@@ -161,7 +147,6 @@ export default function AdminDashboardPage() {
   // Stats & State
   const [totalUsers, setTotalUsers] = useState<number>(0);
   const [lockedUsersCount, setLockedUsersCount] = useState<number>(0);
-  const [pendingContentCount, setPendingContentCount] = useState<number>(0);
   const [recentAuditLogs, setRecentAuditLogs] = useState<AuditLogEntry[]>([]);
   const [totalAuditLogs, setTotalAuditLogs] = useState<number>(0);
   const [systemConfig, setSystemConfig] = useState<SystemConfiguration | null>(null);
@@ -177,15 +162,11 @@ export default function AdminDashboardPage() {
       const [
         usersRes,
         lockedUsersRes,
-        contentRes,
-        checklistRes,
         auditLogsRes,
         systemConfigRes,
       ] = await Promise.allSettled([
         searchUsers({ page: 0, size: 1 }),
         searchUsers({ locked: true, page: 0, size: 1 }),
-        fetchStaffContentList({ status: 'PENDING_REVIEW', size: 1 }),
-        fetchAdminChecklistTemplates({ status: 'PENDING_REVIEW', size: 1 }),
         searchAuditLogs({ page: 0, size: 5 }),
         fetchSystemConfiguration(),
       ]);
@@ -196,15 +177,6 @@ export default function AdminDashboardPage() {
       if (lockedUsersRes.status === 'fulfilled') {
         setLockedUsersCount(lockedUsersRes.value.totalElements);
       }
-
-      let contentCount = 0;
-      if (contentRes.status === 'fulfilled') {
-        contentCount += contentRes.value.totalElements ?? 0;
-      }
-      if (checklistRes.status === 'fulfilled') {
-        contentCount += checklistRes.value.totalElements ?? 0;
-      }
-      setPendingContentCount(contentCount);
 
       if (auditLogsRes.status === 'fulfilled') {
         setRecentAuditLogs(auditLogsRes.value.content);
@@ -326,20 +298,20 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* KPI 2: Medical Content Approval */}
+            {/* KPI 2: System Audit Logs */}
             <div
-              onClick={() => navigate('/admin/content-approval-queue')}
+              onClick={() => navigate('/admin/audit-logs')}
               className="bg-surface rounded-2xl p-6 shadow-sm border border-outline-variant/60 flex items-center justify-between cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
             >
               <div>
-                <div className="text-[13px] text-outline font-semibold mb-1">Duyệt Nội dung Y tế</div>
-                <div className="text-[28px] font-bold text-[#10b981] leading-tight">
-                  {formatNumber(pendingContentCount)}
+                <div className="text-[13px] text-outline font-semibold mb-1">Nhật ký Hoạt động</div>
+                <div className="text-[28px] font-bold text-primary leading-tight">
+                  {formatNumber(totalAuditLogs)}
                 </div>
-                <div className="text-xs text-outline mt-1">Bài viết & bộ kiểm tra chờ xuất bản</div>
+                <div className="text-xs text-outline mt-1">Lịch sử sự kiện & kiểm toán hệ thống</div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-2xl text-[#10b981]">fact_check</span>
+              <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-2xl text-purple-700">receipt_long</span>
               </div>
             </div>
 
@@ -390,7 +362,6 @@ export default function AdminDashboardPage() {
 
               <AdminTaskStatusPanel
                 lockedAccounts={lockedUsersCount}
-                pendingContent={pendingContentCount}
               />
             </div>
 

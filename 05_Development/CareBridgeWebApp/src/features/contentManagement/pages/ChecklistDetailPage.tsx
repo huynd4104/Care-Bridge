@@ -120,7 +120,7 @@ export default function ChecklistDetailPage() {
         if (isExpert) {
           navigate('/expert/content-approval');
         } else {
-          navigate('/admin/content-approval-queue');
+          navigate(-1);
         }
       }, 1000);
     } catch (err: unknown) {
@@ -285,11 +285,6 @@ export default function ChecklistDetailPage() {
             <span aria-hidden="true" className="material-symbols-outlined text-base">rate_review</span>
             Thẩm định nội dung
           </button>
-        ) : isSystemAdmin ? (
-          <button type="button" className="inline-flex items-center gap-1 font-semibold text-primary cursor-pointer hover:underline border-0 bg-transparent p-0" onClick={() => navigate('/admin/content-approval-queue')}>
-            <span aria-hidden="true" className="material-symbols-outlined text-base">rate_review</span>
-            Hàng đợi phê duyệt
-          </button>
         ) : canManage ? (
           <button type="button" aria-label="Checklist" className="inline-flex items-center gap-1 font-semibold text-primary cursor-pointer hover:underline border-0 bg-transparent p-0" onClick={() => navigate('/content/checklists')}>
             <span aria-hidden="true" className="material-symbols-outlined text-base">checklist</span>
@@ -308,13 +303,12 @@ export default function ChecklistDetailPage() {
         aria-label="Quay lại"
         onClick={() => {
           if (isExpert) navigate('/expert/content-approval');
-          else if (isSystemAdmin) navigate('/admin/content-approval-queue');
           else navigate(-1);
         }}
         className="mb-6 inline-flex items-center gap-2 py-2 px-5 rounded-full border border-outline-variant bg-surface text-sm font-semibold text-on-surface-variant shadow-sm hover:bg-surface-container-low cursor-pointer transition-colors"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-lg">arrow_back</span>
-        {isExpert || isSystemAdmin ? 'Quay lại hàng đợi' : 'Quay lại'}
+        {isExpert ? 'Quay lại hàng đợi' : 'Quay lại'}
       </button>
 
       {decisionSuccess && (

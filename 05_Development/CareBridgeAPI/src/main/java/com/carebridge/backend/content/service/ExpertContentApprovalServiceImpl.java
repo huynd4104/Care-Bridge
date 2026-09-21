@@ -7,6 +7,7 @@ import com.carebridge.backend.content.dto.request.ContentDecisionRequest;
 import com.carebridge.backend.content.dto.request.ReassignContentRequest;
 import com.carebridge.backend.content.dto.response.ChecklistTemplateDecisionResponse;
 import com.carebridge.backend.content.dto.response.ContentDecisionResponse;
+import com.carebridge.backend.content.dto.response.ExpertApprovalSummaryResponse;
 import com.carebridge.backend.content.dto.response.ExpertContentApprovalQueueItem;
 import com.carebridge.backend.content.entity.ChecklistTemplate;
 import com.carebridge.backend.content.entity.ChecklistTemplateStatus;
@@ -108,6 +109,36 @@ public class ExpertContentApprovalServiceImpl implements ExpertContentApprovalSe
         List<ExpertContentApprovalQueueItem> pagedList = start >= allItems.size() ? List.of() : allItems.subList(start, end);
 
         return new PageImpl<>(pagedList, pageable, allItems.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ExpertApprovalSummaryResponse getSummary(ContentStage stage, String keyword, Principal principal) {
+        UUID expertId = SecurityUtils.requireCurrentUserId(principal);
+        String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
+
+        long articleCount;
+        long faqCount;
+        long checklistCount;
+
+        if (stage == null && normalizedKeyword == null) {
+            articleCount = contentRepository.countByAssignedExpertIdAndStatusAndType(
+                    expertId, ContentStatus.PENDING_REVIEW, ContentType.ARTICLE);
+            faqCount = contentRepository.countByAssignedExpertIdAndStatusAndType(
+                    expertId, ContentStatus.PENDING_REVIEW, ContentType.FAQ);
+            checklistCount = checklistTemplateRepository.countByAssignedExpertIdAndStatus(
+                    expertId, ChecklistTemplateStatus.PENDING_REVIEW);
+        } else {
+            articleCount = contentRepository.findByExpertFilters(
+                    expertId, ContentStatus.PENDING_REVIEW, ContentType.ARTICLE, stage, normalizedKeyword, Pageable.unpaged()).getTotalElements();
+            faqCount = contentRepository.findByExpertFilters(
+                    expertId, ContentStatus.PENDING_REVIEW, ContentType.FAQ, stage, normalizedKeyword, Pageable.unpaged()).getTotalElements();
+            checklistCount = checklistTemplateRepository.findByExpertFilters(
+                    expertId, ChecklistTemplateStatus.PENDING_REVIEW, stage, normalizedKeyword, Pageable.unpaged()).getTotalElements();
+        }
+
+        long total = articleCount + faqCount + checklistCount;
+        return new ExpertApprovalSummaryResponse(total, articleCount, faqCount, checklistCount);
     }
 
     @Override
