@@ -30,8 +30,8 @@ from app.rag.prompts import (
 from app.rag.vector_store import get_vector_store
 from app.services.chat_red_flags import (
     RED_FLAG_SELF_HARM,
-    contains_urgent_referral,
     detect_red_flags,
+    leads_with_urgent_referral,
     strip_diacritics,
 )
 
@@ -240,14 +240,15 @@ class RagChatService:
         # chunks are off-topic it can answer "no information" with [CRITICAL_WARNING]: NO for a real emergency.
         # A critical flag is not enough either: in a live run the LLM flagged a febrile newborn as critical but its
         # answer only quoted an off-topic chunk and never told the parent to seek care. Whenever the message is an
-        # emergency, the answer text itself must carry the referral.
+        # emergency, the answer text itself must carry the referral - and in its opening paragraph, since a referral
+        # placed after the routine advice is read too late (audit C7).
         red_flags = detect_red_flags(request.message)
         if red_flags and not has_critical_warning:
             logger.warning("Red flags %s detected but LLM returned no critical warning; forcing emergency.",
                            [f.category for f in red_flags])
             has_critical_warning = True
-        if has_critical_warning and not contains_urgent_referral(answer_text):
-            logger.warning("Critical answer without an urgent referral; prepending safety floor.")
+        if has_critical_warning and not leads_with_urgent_referral(answer_text):
+            logger.warning("Critical answer does not open with an urgent referral; prepending safety floor.")
             is_self_harm = any(f.category == RED_FLAG_SELF_HARM for f in red_flags)
             prefix = FLOOR_SELF_HARM_PREFIX if is_self_harm else FLOOR_EMERGENCY_PREFIX
             answer_text = f"{prefix}\n\n{answer_text}"

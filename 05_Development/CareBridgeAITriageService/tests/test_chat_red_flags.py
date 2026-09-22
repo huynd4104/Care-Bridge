@@ -12,6 +12,7 @@ from app.services.chat_red_flags import (
     RED_FLAG_SELF_HARM,
     contains_urgent_referral,
     detect_red_flags,
+    leads_with_urgent_referral,
     strip_diacritics,
 )
 from app.services.rag_chat_service import (
@@ -226,3 +227,60 @@ async def test_critical_answer_with_referral_is_not_prefixed():
 ])
 def test_contains_urgent_referral(answer, expected):
     assert contains_urgent_referral(answer) is expected
+
+
+class _LlmCriticalReferralBuried:
+    """Audit C7: the referral is present but only after two paragraphs of routine advice."""
+
+    async def generate_response(self, *args, **kwargs):
+        return ("Sau sinh mẹ nên ăn đủ chất, uống nhiều nước và nghỉ ngơi hợp lý để cơ thể hồi phục.\n\n"
+                "Mẹ có thể bổ sung sắt theo hướng dẫn và ăn thêm rau xanh, thịt đỏ.\n\n"
+                "Nếu máu ra nhiều, hãy gọi cấp cứu 115 ngay.\n"
+                "[CRITICAL_WARNING]: YES\n[NEED_EXPERT_CONSULTATION]: YES\n[GỢI Ý CÂU HỎI]:\n- Câu hỏi khác?")
+
+
+@pytest.mark.asyncio
+async def test_critical_answer_with_buried_referral_gets_safety_floor_first():
+    service = _llm_service()
+    service.gemini = _LlmCriticalReferralBuried()
+    result = await service.chat(RagChatRequest(
+        message="Em sinh được 3 ngày, máu ra ồ ạt ướt đẫm băng vệ sinh trong 1 tiếng", stage=MaternalStage.POSTPARTUM,
+    ))
+    assert result.has_critical_warning is True
+    assert result.answer.startswith(FLOOR_EMERGENCY_PREFIX)
+    assert "gọi cấp cứu 115 ngay" in result.answer  # the model's own text is kept, just no longer first
+
+
+@pytest.mark.parametrize("answer,expected", [
+    ("Hãy gọi cấp cứu 115 ngay.\n\nSau đó mẹ nghỉ ngơi.", True),
+    ("Mẹ ơi, em hiểu mẹ đang rất lo. Mẹ cần đến ngay cơ sở y tế gần nhất.\n\nChi tiết thêm...", True),
+    ("\n\n  \nCần nhập viện để theo dõi.", True),  # leading blank lines are not the opening paragraph
+    ("Mẹ nên ăn đủ chất.\n\nNếu ra máu nhiều, hãy gọi 115.", False),
+    ("Tình trạng này không cần cấp cứu.\n\nGọi 115 nếu nặng hơn.", False),
+    ("Mẹ nên ăn đủ chất. " * 40 + "Gọi 115 ngay.", False),  # one huge paragraph: referral past the opening
+    ("", False),
+    # Live probe 2026-09-22: greeting-only first paragraph, referral right after it
+    ("Chào mẹ,\n\nMẹ hãy báo người thân và gọi cấp cứu 115 ngay trong hôm nay.\n\nTheo tài liệu...", True),
+    ("Chào mẹ,\n\nMẹ nên ăn đủ chất.\n\nGọi 115 nếu nặng.", False),
+])
+def test_leads_with_urgent_referral(answer, expected):
+    assert leads_with_urgent_referral(answer) is expected
+
+
+@pytest.mark.parametrize("message", [
+    "Tôi mệt mỏi quá, tôi muốn biến mất khỏi cuộc đời này.",  # live probe 2026-09-22: was not flagged
+    "Em chỉ muốn biến mất thôi",
+    "Sinh con xong em thấy mình không muốn tồn tại nữa",
+    "Em muốn biến mất các cảm xúc này, mệt lắm rồi",  # generic word after "biến mất" must stay flagged
+])
+def test_disappearing_wishes_are_self_harm(message):
+    assert RED_FLAG_SELF_HARM in _categories(message)
+
+
+@pytest.mark.parametrize("message", [
+    "Sau sinh em muốn biến mất vết rạn ở bụng thì làm sao?",
+    "Làm thế nào để vết nám biến mất khi đang cho con bú?",
+    "Em muốn biến mất vết thâm sau sinh",
+])
+def test_cosmetic_disappearing_is_not_self_harm(message):
+    assert RED_FLAG_SELF_HARM not in _categories(message)

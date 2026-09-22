@@ -54,6 +54,11 @@ ABSTENTION_PHRASES = (
     "không có dữ liệu",
     "chưa có dữ liệu",
     "không thể cung cấp thông tin",
+    # refusals worded by the 2026-09-22 prompt (Trường hợp 6/meta/out-of-scope) that the list above missed
+    "ngoài lĩnh vực",
+    "không thể hỗ trợ",
+    "không thể tư vấn",
+    "câu hỏi thuộc lĩnh vực này",
     "không thể tự ý",
 )
 

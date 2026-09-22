@@ -131,6 +131,11 @@ def test_paraphrased_question_echo_and_editorial_brackets():
 def test_abstention_phrases_seen_in_live_answers():
     assert detect_abstention("Câu hỏi về liều lượng yến sào hiện không nằm trong danh mục các cẩm nang y tế.")
     assert detect_abstention("Hiện tại, các tài liệu không có nội dung đề cập cụ thể về việc ăn rau ngót.")
+    # benchmark 2026-09-22: correct refusals the phrase list used to score as failures
+    assert detect_abstention("Rất tiếc em không thể hỗ trợ viết mã lập trình hay các vấn đề ngoài lĩnh vực y tế thai sản.")
+    assert detect_abstention("Chị vui lòng đặt câu hỏi thuộc lĩnh vực này để em có thể tư vấn chi tiết cho chị nhé.")
+    assert detect_abstention("Pháp luật Việt Nam nghiêm cấm việc lựa chọn giới tính thai nhi, vì vậy em không thể tư vấn cách để sinh con trai.")
+    assert not detect_abstention("Mẹ nên bổ sung 400 mcg axit folic mỗi ngày trong 3 tháng đầu.")
 
 
 def test_degree_spacing_and_one_letter_misquote():
