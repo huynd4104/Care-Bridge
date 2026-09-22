@@ -23,6 +23,8 @@ spring:
 
   flyway:
     enabled: true
+    baseline-on-migrate: ${SPRING_FLYWAY_BASELINE_ON_MIGRATE:true}
+    baseline-version: ${SPRING_FLYWAY_BASELINE_VERSION:0}
     clean-disabled: true
     out-of-order: false
     validate-on-migrate: false

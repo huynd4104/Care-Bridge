@@ -139,6 +139,32 @@ class CommunityService {
     return LikeToggleResult.fromJson(json['data'] as Map<String, dynamic>);
   }
 
+  // UC-54: Create a new question
+  Future<void> createQuestion({
+    required String title,
+    required String body,
+    required String topicId,
+    required String stage,
+    required String urgency,
+    required bool isAnonymous,
+    List<String> imageUrls = const [],
+    int? pregnancyWeek,
+    int? babyAgeMonths,
+  }) async {
+    final request = <String, dynamic>{
+      'title': title,
+      'body': body,
+      'topicId': topicId,
+      'stage': stage,
+      'urgency': urgency,
+      'isAnonymous': isAnonymous,
+      'imageUrls': imageUrls,
+      'pregnancyWeek': ?pregnancyWeek,
+      'babyAgeMonths': ?babyAgeMonths,
+    };
+    await apiPost('/api/v1/community/questions', request);
+  }
+
   // UC-55: Edit an existing question
   Future<void> editQuestion(
     String questionId, {

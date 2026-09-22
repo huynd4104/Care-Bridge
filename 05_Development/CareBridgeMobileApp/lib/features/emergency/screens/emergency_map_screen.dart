@@ -2680,9 +2680,8 @@ class _EmergencyMapScreenState extends State<EmergencyMapScreen> {
               [
                 if (facility.address?.isNotEmpty == true) facility.address!,
                 _distance(facility),
-                '${facility.sourceLabel} · ${facility.verificationLabel}',
               ].join('\n'),
-              maxLines: 4,
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
             trailing: IconButton.filledTonal(

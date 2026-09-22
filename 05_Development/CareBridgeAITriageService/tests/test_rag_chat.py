@@ -69,8 +69,16 @@ async def test_rag_chat_detects_emergency_intent():
     assert any("115" in fu or "Bệnh viện" in fu for fu in result.suggested_followups)
 
 
+@live_dataset
 @pytest.mark.asyncio
 async def test_rag_chat_multi_turn_conversation():
+    """Asserts on live retrieval quality, so it needs a working embedding quota.
+
+    It used to run by default and pass even when every API key was exhausted, because embed_text then
+    silently returned a pseudo-embedding and the search still produced rows - unrelated ones. Now that
+    an exhausted quota raises, this test fails honestly instead, so it is opt-in like the other live
+    checks in this file.
+    """
     service = RagChatService()
     # Turn 2: User asks follow-up with implicit reference ("Nó có nguy hiểm không?")
     request = RagChatRequest(
@@ -137,4 +145,56 @@ def test_clean_latex_and_math_artifacts():
     assert "≤ 5.1" in cleaned
     assert "≈ 10" in cleaned
     assert "± 2" in cleaned
+
+
+def test_strip_boilerplate_greeting():
+    service = RagChatService()
+
+    # Case 1: Standard boilerplate with "Chào chị, em là CareBridge AI Nurse Assistant..."
+    raw_1 = (
+        "Chào chị, em là CareBridge AI Nurse Assistant - Trợ lý Điều dưỡng Y tế ảo chuyên sâu về Chăm sóc Sức khỏe Mẹ bầu và Trẻ sơ sinh. "
+        "Chúc mừng chị đang ở tuần thứ 10 của thai kỳ!\n\n"
+        "[CRITICAL_WARNING]: NO\n"
+        "[NEED_EXPERT_CONSULTATION]: NO\n"
+        "[GỢI Ý CÂU HỎI]:\n- Câu hỏi 1?"
+    )
+    ans_1, crit_1, need_1, oos_1, fu_1 = service._extract_llm_flags_and_followups(raw_1)
+    assert "CareBridge AI Nurse Assistant" not in ans_1
+    assert "Trợ lý Điều dưỡng Y tế ảo" not in ans_1
+    assert "Chào chị" in ans_1
+    assert "Chúc mừng chị đang ở tuần thứ 10" in ans_1
+    assert crit_1 is False
+    assert need_1 is False
+    assert len(fu_1) == 1
+
+    # Case 2: Boilerplate with "Chào mẹ bầu, tôi là CareBridge AI Nurse Assistant..."
+    raw_2 = (
+        "Chào mẹ bầu, tôi là CareBridge AI Nurse Assistant — Trợ lý Điều dưỡng Y tế ảo chuyên sâu về Chăm sóc Sức khỏe Mẹ bầu và Trẻ sơ sinh.\n\n"
+        "Về việc bổ sung axit folic trước khi mang thai, mẹ nên lưu ý...\n\n"
+        "[CRITICAL_WARNING]: NO\n"
+        "[NEED_EXPERT_CONSULTATION]: NO"
+    )
+    ans_2, crit_2, need_2, oos_2, fu_2 = service._extract_llm_flags_and_followups(raw_2)
+    assert "CareBridge AI Nurse Assistant" not in ans_2
+    assert "Chào mẹ bầu" in ans_2
+    assert "Về việc bổ sung axit folic" in ans_2
+
+    # Case 3: Already natural greeting "Chào mẹ, để bổ sung axit folic..."
+    raw_3 = "Chào mẹ, để bổ sung axit folic đúng cách trước khi mang thai, mẹ cần lưu ý:"
+    ans_3, _, _, _, _ = service._extract_llm_flags_and_followups(raw_3)
+    assert ans_3 == "Chào mẹ, để bổ sung axit folic đúng cách trước khi mang thai, mẹ cần lưu ý:"
+
+
+def test_build_rag_chat_prompt_instructions():
+    from app.rag.prompts import build_rag_chat_prompt
+    prompt = build_rag_chat_prompt(
+        user_message="Bổ sung axit folic & vi chất thế nào trước khi mang thai?",
+        context_chunks=[{"title": "Cẩm nang dinh dưỡng", "source": "Bộ Y Tế", "content": "Liều khuyến nghị 400-600 mcg."}],
+        stage="PRECONCEPTION",
+    )
+    # Check that strict grounding and anti-hallucination instructions are present
+    assert "PARAPHRASE TRUNG THỰC" in prompt
+    assert "TUYỆT ĐỐI KHÔNG lặp lại câu chào giới thiệu bản thân" in prompt
+    assert "BẮT BUỘC GHI NO" in prompt
+
 

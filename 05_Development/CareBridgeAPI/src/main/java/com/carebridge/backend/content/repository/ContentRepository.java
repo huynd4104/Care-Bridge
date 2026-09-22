@@ -84,7 +84,20 @@ public interface ContentRepository extends JpaRepository<ContentItem, UUID> {
                      JOIN community_topics ct ON ct.id = cit.topic_id
                     WHERE cit.content_item_id = c.content_item_id
                       AND ct.type = 'TAG'
-                      AND ct.slug LIKE 'rec-%'
+                      AND (
+                          ct.slug LIKE 'rec-condition-%'
+                          OR ct.slug LIKE 'rec-sti-%'
+                          OR ct.slug = 'rec-lifestyle-substance-use'
+                          OR ct.slug IN (
+                              'rec-reproductive-prior-pregnancy-loss',
+                              'rec-reproductive-recurrent-pregnancy-loss',
+                              'rec-reproductive-prior-stillbirth',
+                              'rec-reproductive-prior-preterm-birth',
+                              'rec-reproductive-ectopic-pregnancy',
+                              'rec-reproductive-preeclampsia',
+                              'rec-reproductive-gestational-diabetes'
+                          )
+                      )
                )
              ORDER BY c.recommendation_priority DESC,
                       CASE WHEN c.eligible_from_week IS NULL AND c.eligible_to_week IS NULL THEN 1 ELSE 0 END ASC,
@@ -193,6 +206,8 @@ public interface ContentRepository extends JpaRepository<ContentItem, UUID> {
             Pageable pageable);
 
     long countByAssignedExpertIdAndStatus(UUID assignedExpertId, ContentStatus status);
+
+    long countByAssignedExpertIdAndStatusAndType(UUID assignedExpertId, ContentStatus status, ContentType type);
 
     @Query("SELECT c.assignedExpertId, COUNT(c) FROM ContentItem c " +
            "WHERE c.status = :status AND c.assignedExpertId IN :expertIds " +

@@ -1,0 +1,260 @@
+# Tài liệu đã loại khỏi kho tri thức AI Nurse vì KHÔNG thuộc chăm sóc mẹ & bé.
+# Cột chunks = số chunk trong DB tại thời điểm loại (2026-09-22). Xoá/khôi phục bằng scripts/prune_off_domain_documents.py
+# D1: Xã hội/chính sách không y khoa: bạo lực giới, luật bình đẳng giới, người cao tuổi, báo cáo dân số, di cư
+# D2: Giáo dục giới tính học đường, SRHR vị thành niên, infographic SRHR theo quốc gia
+# D3: Sức khỏe môi trường, độc chất, thiên tai, khủng bố sinh học
+# D4: Bệnh mạn tính/bệnh lý người lớn không gắn với thai kỳ (ĐTĐ típ 1/2 và biến chứng, THA, bại liệt, bệnh di truyền...)
+# D5: Ung thư và bệnh lý ngoài thai sản: vú, buồng trứng, tử cung, âm hộ, nam khoa, mãn kinh, phẫu thuật thẩm mỹ
+# D6: Tâm thần người lớn/người cao tuổi và quản trị hệ thống sức khỏe tâm thần (không phải chu sinh)
+# D7: Hành chính/lịch sử bệnh viện, chất lượng bệnh viện, bảng kiểm IPC, chính sách thuế thực phẩm, số liệu thống kê, tài liệu kỹ thuật chẩn đoán hình ảnh, bản tiếng Ả Rập
+group	file	title	chunks
+D1	20210301_final_srb_factsheet_eng_1.md	Mất cân bằng tỷ số giới tính khi sinh tại Việt Nam: xu hướng và khác biệt	23
+D1	20210630_final_fertilityreport_vn_0.md	Thực trạng và các yếu tố tác động đến mức sinh tại Việt Nam	249
+D1	CVA.VN_.25.6.1.md	We were included, our needs were seen - Cash assistance for older persons affected by Typhoon Yagi in Viet Nam	65
+D1	DHR_Harassment_sexual_harassment_abuse_of_authority.md	Chính sách về quấy rối, quấy rối tình dục và lạm dụng quyền hạn	29
+D1	EVAWC_Mid-term_review_report_final.md	Mid-Term Review Report - Elimination of Violence against Women and Children in Viet Nam 2021-2025 Programme	408
+D1	Factsheet_EN_1.md	Project Results Factsheets - Leave No One Behind: Innovative Interventions to Reduce Maternal Mortality in Ethnic Minority Regions of Viet Nam	23
+D1	GBV_case_management_0.md	Interagency Gender-Based Violence Case Management Guidelines	742
+D1	Gender_Factsheet_Eng_1.md	Phòng ngừa và ứng phó bạo lực trên cơ sở giới tại Việt Nam	26
+D1	Migration_Main_PaperENGFINAL.md	Internal Migration: Opportunities and challenges for socio-economic development in Viet Nam	294
+D1	WHO_2002_Lua_chon_Dao_duc_Cham_soc_Dai_han_Cong_bang.md	WHO 2002 — Lựa chọn đạo đức trong chăm sóc dài hạn: công bằng đòi hỏi điều gì?	434
+D1	WHO_Europe_2023_Thuc_day_van_dong_va_dinh_duong_lanh_manh_cho_nguoi_cao_tuoi_FULLTEXT.md	Who Europe 2023 Thuc Day Van Dong Va Dinh Duong Lanh Manh Cho Nguoi Cao Tuoi Fulltext	198
+D1	en_-_vccihcm_report_-_market_mapping_on_elderly_care_service.md	Market Outlook for Elderly Care Service in Vietnam (2021)	447
+D1	factsheet_en.md	Policy Options for the Revision of the Law on Gender Equality in Relation to Gender-Based Violence and Harmful Practices	90
+D1	final_-_eng_-_gel_policy_options.md	Proposal on Policy Recommendations for the Amendment to the Gender Equality Law Regarding Gender-Based Violence and Harmful Practices	364
+D1	nguoi_cao_tuoi_eg_report_21.2.md	Older Persons in Viet Nam: An Analysis of the Population Change and Family Planning Survey 2021	131
+D1	policy_brief_-_inclusion_of_op_in_drr_unfpa_eng_final.md	Community-based disaster risk management on inclusion of older people	75
+D1	policy_brief_on_economic_cost_of_vaw_-_eng.md	Policy Brief on Economic Cost of Violence Against Women	66
+D1	policy_brief_on_gel_-_eng.md	Tóm lược chính sách về bình đẳng giới (Hà Nội, 2021)	47
+D1	swp2024-vn_final_sua_9.7.md	Cộng đồng gắn kết, sợi dây hy vọng - Báo cáo Tình trạng Dân số Thế giới 2024	1005
+D1	swp25-layout-en-v250609-web_0.md	The Real Fertility Crisis: The Pursuit of Reproductive Agency in a Changing World - State of World Population 2025	789
+D1	unfpa_2_distribution_en_7.11.md	Phân bố dân số cao tuổi	4
+D2	Advancing_the_“sexual”_in_sexual_and_reproductive_health_and_rights_a_global_health,_gender_equality_and_human.md	Advancing the “sexual” in sexual and reproductive health and rights: a global health, gender equality and human rights imperative	22
+D2	BYT_truyen_thong_suc_khoe_sinh_san_vi_thanh_nien_2022.md	Hướng dẫn truyền thông trực tiếp về chăm sóc sức khỏe sinh sản vị thành niên	219
+D2	Generating_research_and_evidence_for_impact_sexual_and_reproductive_health_and_rights.md	Nghiên cứu và bằng chứng trong sức khỏe, quyền tình dục và sinh sản	26
+D2	Health_education_for_young_people_Approaches_and_methods_NBK7118.md	Health education for young people: Approaches and methods	177
+D2	MCH_hoi_thao_suc_khoe_vi_thanh_nien.md	Mch Hoi Thao Suc Khoe Vi Thanh Nien	4
+D2	MCH_hoi_thao_vi_thanh_nien_suc_khoe_toan_dien.md	Mch Hoi Thao Vi Thanh Nien Suc Khoe Toan Dien	5
+D2	MCH_tam_ly_tuoi_day_thi.md	Mch Tam Ly Tuoi Day Thi	13
+D2	MCH_tang_truong_chieu_cao_tuoi_day_thi.md	Mch Tang Truong Chieu Cao Tuoi Day Thi	11
+D2	MedlinePlus_Phat_trien_tuoi_vi_thanh_nien.md	Medlineplus Phat Trien Tuoi Vi Thanh Nien	4
+D2	Puberty.md	Dậy thì	2
+D2	Research_capacity_for_sexual_and_reproductive_health_and_rights.md	Năng lực nghiên cứu về sức khỏe và quyền tình dục, sinh sản	24
+D2	Sexual_and_reproductive_health_and_rights_in_emergencies.md	Sức khỏe và quyền tình dục, sinh sản trong tình huống khẩn cấp	14
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Senegal_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot - Senegal 2021	56
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Seychelles_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot - Seychelles 2021	55
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Slovakia_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot - Slovakia 2021	59
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Slovenia_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot - Slovenia 2021	59
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Spain_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot - Spain 2021	59
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Sudan_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot - Sudan 2021	56
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Sweden_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot - Sweden 2021	56
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Tonga_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Tonga (2021)	63
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Tunisia_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Tunisia 2021	63
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Turkey_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Turkey 2021	61
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Turkmenistan_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Turkmenistan (2021)	63
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Tuvalu_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Tuvalu (2021)	63
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Uganda_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Uganda (2021)	64
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Ukraine_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Ukraine (2021)	64
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Uruguay_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Uruguay 2021	62
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Uzbekistan_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Uzbekistan (2021)	64
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Vanuatu_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Vanuatu 2021	61
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Yemen_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Yemen 2021	62
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Zambia_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Zambia 2021	63
+D2	Sexual_and_reproductive_health_and_rights_infographic_snapshot_Zimbabwe_2021.md	Sexual and Reproductive Health and Rights Infographic Snapshot: Zimbabwe (2021)	64
+D2	TAI_LIEU_TAP_HUAN_GIAO_DUC_GIOI_TINH_final.md	Tài liệu tập huấn giáo dục giới tính - tình dục toàn diện và kỹ năng sống trong trường học	1071
+D2	TaiLieu_GiaoDuc_SKSS_SucKhoeTinhDuc_Quyen1.md	Tài liệu giáo dục sức khỏe sinh sản, sức khỏe tình dục và phòng HIV - Quyển 1	1
+D2	Teen_Sexual_Health.md	Sức khỏe tình dục ở thanh thiếu niên	9
+D2	The_Sexual_History_NBK329.md	Khai thác tiền sử tình dục — chương tài liệu lâm sàng	142
+D2	The_Sexualization_of_Menstruation_On_Rape,_Tampons,_and_Prostitutes_NBK565624.md	The Sexualization of Menstruation: On Rape, Tampons, and Prostitutes	67
+D2	UNFPA_CT_BACHHH_21.11.Final_.md	Hướng dẫn thực hiện khung chương trình giáo dục giới tính, tình dục toàn diện trong Chương trình Giáo dục phổ thông 2018 cho học sinh khuyết tật học hòa nhập cấp trung học	482
+D2	UNFPA_sach_GTTDTD_RUOT_BINH_FINAL_25_12_25_(1).md	Hướng dẫn giáo dục giới tính & tình dục toàn diện trong Chương trình Giáo dục phổ thông 2018 cho học sinh khuyết tật học hòa nhập cấp trung học	1705
+D2	UNFPA_sach_Training_5.11_-_FINAL.md	Tài liệu hướng dẫn tập huấn cho đoàn viên thanh niên về chăm sóc sức khỏe sinh sản, sức khỏe tình dục và phòng tránh bạo lực trên cơ sở giới trong bối cảnh thảm họa tự nhiên	348
+D2	WHO_2001_Dao_tao_Ky_nang_Tu_van_Suc_khoe_Sinh_san_Vi_thanh_nien.md	Đào tạo kỹ năng tư vấn tình dục và sức khỏe sinh sản vị thành niên — hướng dẫn người điều phối	531
+D2	WHO_Ky_nang_Suc_khoe_Giao_duc_Dua_tren_Ky_nang_Truong_hoc.md	WHO — Kỹ năng sức khỏe: giáo dục sức khỏe dựa trên kỹ năng và kỹ năng sống trong trường học	623
+D2	WHO_recommendations_on_adolescent_sexual_and_reproductive_health_and_rights.md	WHO Recommendations on Adolescent Sexual and Reproductive Health and Rights (2018)	400
+D3	MedlinePlus_Amiang_Phoi_nhiem_va_benh_phoi.md	Medlineplus Amiang Phoi Nhiem Va Benh Phoi	3
+D3	MedlinePlus_Asen_Phoi_nhiem_va_tac_hai.md	Medlineplus Asen Phoi Nhiem Va Tac Hai	3
+D3	MedlinePlus_Benh_dau_mua_Thong_tin_nguon_lich_su.md	Bệnh đậu mùa: thông tin dịch tễ và triệu chứng trong bài nguồn	4
+D3	MedlinePlus_Bien_doi_khi_hau_va_suc_khoe.md	Medlineplus Bien Doi Khi Hau Va Suc Khoe	4
+D3	MedlinePlus_Dien_tu_truong_va_suc_khoe.md	Medlineplus Dien Tu Truong Va Suc Khoe	5
+D3	MedlinePlus_Nam_moc_Nha_o_Va_Suc_khoe.md	Medlineplus Nam Moc Nha O Va Suc Khoe	2
+D3	MedlinePlus_Ngo_doc_Nguon_phoi_nhiem_phong_ngua.md	Ngộ độc: nguồn phơi nhiễm và phòng ngừa	2
+D3	MedlinePlus_Ngo_doc_khi_Carbon_monoxide_CO.md	Medlineplus Ngo Doc Khi Carbon Monoxide Co	4
+D3	MedlinePlus_Nuoc_uong_Nguon_xu_ly_va_chat_luong.md	Medlineplus Nuoc Uong Nguon Xu Ly Va Chat Luong	3
+D3	MedlinePlus_O_nhiem_khong_khi_ngoai_troi.md	Medlineplus O Nhiem Khong Khi Ngoai Troi	3
+D3	MedlinePlus_O_nhiem_khong_khi_trong_nha.md	Medlineplus O Nhiem Khong Khi Trong Nha	4
+D3	MedlinePlus_O_nhiem_nguon_nuoc_va_bao_ve_nguon_nuoc.md	Medlineplus O Nhiem Nguon Nuoc Va Bao Ve Nguon Nuoc	3
+D3	MedlinePlus_Ozon_Tang_binh_luu_va_Mat_dat.md	Medlineplus Ozon Tang Binh Luu Va Mat Dat	3
+D3	MedlinePlus_Phong_ve_sinh_hoc_va_khung_bo_sinh_hoc.md	Phòng vệ sinh học và khủng bố sinh học	2
+D3	MedlinePlus_Radon_Phoi_nhiem_va_Nguy_co_ung_thu_phoi.md	Medlineplus Radon Phoi Nhiem Va Nguy Co Ung Thu Phoi	6
+D3	MedlinePlus_San_pham_hoa_chat_gia_dung_An_toan.md	Medlineplus San Pham Hoa Chat Gia Dung An Toan	4
+D3	MedlinePlus_Suc_khoe_moi_truong_Tong_quan.md	Medlineplus Suc Khoe Moi Truong Tong Quan	2
+D3	MedlinePlus_Thuoc_bao_ve_thuc_vat_va_su_dung_an_toan.md	Thuốc bảo vệ thực vật và sử dụng an toàn	2
+D3	MedlinePlus_Tieng_on_Nguy_co_Giam_thinh_luc.md	Medlineplus Tieng On Nguy Co Giam Thinh Luc	4
+D3	MedlinePlus_Tran_dau_va_tac_dong_suc_khoe.md	Tràn dầu và tác động đến sức khỏe	1
+D3	VNCDC_ung_pho_y_te_bao_Yagi_mua_lu_2024.md	Vncdc Ung Pho Y Te Bao Yagi Mua Lu 2024	6
+D3	VNCDC_xu_ly_nuoc_sinh_hoat_mua_mua_bao.md	Vncdc Xu Ly Nuoc Sinh Hoat Mua Mua Bao	12
+D4	Diabetes_Type_1.md	Đái tháo đường type 1	2
+D4	MEDLINEPLUS_Blood_Clots_CareBridge.md	Cục máu đông và huyết khối	5
+D4	MEDLINEPLUS_Blood_Glucose_CareBridge.md	Đường huyết (Blood Glucose)	5
+D4	MEDLINEPLUS_Blood_Pressure_Medicines_CareBridge.md	Thuốc điều trị tăng huyết áp	4
+D4	MEDLINEPLUS_Diabetes_Complications_CareBridge.md	Biến chứng của đái tháo đường	4
+D4	MEDLINEPLUS_Diabetes_Medicines_CareBridge.md	Thuốc điều trị đái tháo đường	5
+D4	MEDLINEPLUS_Diabetes_Type_2_CareBridge.md	Đái tháo đường típ 2	6
+D4	MEDLINEPLUS_Diabetic_Eye_Problems_CareBridge.md	Các vấn đề về mắt do đái tháo đường	8
+D4	MEDLINEPLUS_Diabetic_Foot_CareBridge.md	Bàn chân đái tháo đường	4
+D4	MEDLINEPLUS_Diabetic_Heart_Disease_CareBridge.md	Bệnh tim liên quan đái tháo đường	4
+D4	MEDLINEPLUS_Diabetic_Kidney_Problems_CareBridge.md	Tổn thương thận do đái tháo đường	2
+D4	MEDLINEPLUS_Diabetic_Nerve_Problems_CareBridge.md	Tổn thương thần kinh do đái tháo đường	2
+D4	MEDLINEPLUS_High_Blood_Pressure_CareBridge.md	Tăng huyết áp	4
+D4	MEDLINEPLUS_How_to_Prevent_Diabetes_CareBridge.md	Cách phòng ngừa đái tháo đường típ 2	4
+D4	MEDLINEPLUS_How_to_Prevent_High_Blood_Pressure_CareBridge.md	Cách phòng ngừa tăng huyết áp	10
+D4	MEDLINEPLUS_Hyperglycemia_CareBridge.md	Tăng đường huyết (Hyperglycemia)	8
+D4	MEDLINEPLUS_Metabolic_Syndrome_CareBridge.md	Hội chứng chuyển hóa	4
+D4	MEDLINEPLUS_Parathyroid_Disorders_CareBridge.md	Rối loạn tuyến cận giáp	2
+D4	MEDLINEPLUS_Polio_and_Post-Polio_Syndrome_CareBridge.md	Bệnh bại liệt và hội chứng sau bại liệt	9
+D4	MEDLINEPLUS_Prediabetes_CareBridge.md	Tiền đái tháo đường (Prediabetes)	5
+D4	MEDLINEPLUS_Pulmonary_Hypertension_CareBridge.md	Tăng áp phổi	6
+D4	MEDLINEPLUS_Thyroid_Cancer_CareBridge.md	Ung thư tuyến giáp	3
+D4	MedlinePlus_Body_Lice.md	Chấy rận trên thân thể: lây truyền, triệu chứng và xử trí	3
+D4	MedlinePlus_Cystic_Fibrosis.md	Bệnh xơ nang (CF): di truyền, triệu chứng và điều trị	2
+D4	MedlinePlus_Hemochromatosis.md	Bệnh ứ sắt (hemochromatosis)	2
+D4	MedlinePlus_Pubic_Lice.md	Rận mu: đường lây, triệu chứng, điều trị và phòng lây	3
+D4	MedlinePlus_Steatotic_Liver_Disease.md	Bệnh gan nhiễm mỡ: thể liên quan chuyển hóa và rượu	6
+D4	MedlinePlus_Wilson_Disease.md	Bệnh Wilson: tích tụ đồng, biểu hiện và điều trị suốt đời	2
+D4	TuDu_ca_bien_chung_ban_chan_dai_thao_duong.md	Tudu Ca Bien Chung Ban Chan Dai Thao Duong	3
+D5	BYT_cham_soc_phu_nu_tien_man_kinh_man_kinh_2024.md	Hướng dẫn Quốc gia chăm sóc sức khỏe phụ nữ tuổi tiền mãn kinh, mãn kinh	61
+D5	MCH_hoi_thao_du_phong_ung_thu_vu_co_tu_cung_2026.md	Mch Hoi Thao Du Phong Ung Thu Vu Co Tu Cung 2026	8
+D5	MedlinePlus_Breast_Cancer.md	Ung thư vú: phân loại, dấu hiệu, chẩn đoán và điều trị	7
+D5	MedlinePlus_Breast_Diseases.md	Các bệnh và thay đổi ở vú: biểu hiện, chẩn đoán và điều trị	4
+D5	MedlinePlus_Breast_Reconstruction.md	Tái tạo vú sau phẫu thuật cắt bỏ vú	2
+D5	MedlinePlus_Enlarged_Prostate_(BPH).md	Phì đại tuyến tiền liệt lành tính (BPH)	9
+D5	MedlinePlus_Erectile_Dysfunction.md	Rối loạn cương dương	1
+D5	MedlinePlus_Hormone_Therapy_for_Menopause.md	Liệu pháp hormone thời kỳ mãn kinh: chỉ định, chống chỉ định và nguy cơ	3
+D5	MedlinePlus_Mammography.md	Chụp X-quang tuyến vú (mammography): sàng lọc và chẩn đoán	5
+D5	MedlinePlus_Mastectomy.md	Phẫu thuật cắt vú: các loại phẫu thuật và điều trị phối hợp	3
+D5	MedlinePlus_Menopause.md	Mãn kinh: dấu hiệu, ảnh hưởng sức khỏe và các lựa chọn điều trị	7
+D5	MedlinePlus_Ovarian_Cancer.md	Ung thư buồng trứng: loại bệnh, nguy cơ, triệu chứng, chẩn đoán và điều trị	4
+D5	MedlinePlus_Penis_Disorders.md	Các bệnh lý và rối loạn ở dương vật	1
+D5	MedlinePlus_Prostate_Cancer.md	Ung thư tuyến tiền liệt: triệu chứng, chẩn đoán, điều trị	6
+D5	MedlinePlus_Prostate_Cancer_Screening.md	Sàng lọc ung thư tuyến tiền liệt: lợi ích và nguy cơ	5
+D5	MedlinePlus_Prostate_Diseases.md	Bệnh lý tuyến tiền liệt: các dạng bệnh, triệu chứng và chẩn đoán	6
+D5	MedlinePlus_Sexual_Problems_in_Men.md	Các vấn đề về chức năng tình dục ở nam giới	1
+D5	MedlinePlus_Song_chung_voi_ung_thu.md	Sống chung với ung thư: thích nghi, giao tiếp và chăm sóc sau điều trị	6
+D5	MedlinePlus_Testicular_Cancer.md	Ung thư tinh hoàn: yếu tố nguy cơ, triệu chứng, chẩn đoán và điều trị	3
+D5	MedlinePlus_Testicular_Disorders.md	Các vấn đề ở tinh hoàn	1
+D5	MedlinePlus_Uterine_Cancer.md	Ung thư tử cung: ung thư nội mạc tử cung, sarcoma và điều trị	4
+D5	MedlinePlus_Vaginal_Cancer.md	Ung thư âm đạo: yếu tố nguy cơ, dấu hiệu, chẩn đoán và điều trị	2
+D5	MedlinePlus_Vulvar_Cancer.md	Ung thư âm hộ: triệu chứng, yếu tố nguy cơ, chẩn đoán và điều trị	2
+D5	TuDu_du_phong_loang_xuong_sau_man_kinh.md	Tudu Du Phong Loang Xuong Sau Man Kinh	8
+D5	TuDu_nang_nguc_bang_tui_don_cham_soc_bien_chung.md	Tudu Nang Nguc Bang Tui Don Cham Soc Bien Chung	5
+D5	TuDu_tien_man_kinh_man_kinh_trieu_chung_kham.md	Tudu Tien Man Kinh Man Kinh Trieu Chung Kham	6
+D6	AHRQ_2015_Nhap_vien_Roi_loan_Tam_than_Su_dung_chat_Nguoi_lon_My_2012.md	AHRQ 2015 — Nhập viện liên quan rối loạn tâm thần và sử dụng chất ở người lớn Hoa Kỳ: dữ liệu 2012	72
+D6	MedlinePlus_ADHD_Roi_loan_tang_dong_giam_chu_y.md	Rối loạn tăng động giảm chú ý (ADHD)	7
+D6	MedlinePlus_Benh_Alzheimer.md	Bệnh Alzheimer: triệu chứng, yếu tố nguy cơ và chăm sóc	5
+D6	MedlinePlus_Roi_loan_am_anh_cuong_che_OCD.md	Rối loạn ám ảnh cưỡng chế (OCD)	7
+D6	MedlinePlus_Roi_loan_an_uong.md	Rối loạn ăn uống: nhận biết, biến chứng, đánh giá và điều trị	9
+D6	MedlinePlus_Roi_loan_cam_xuc_theo_mua.md	Rối loạn cảm xúc theo mùa: triệu chứng, yếu tố liên quan và điều trị	3
+D6	MedlinePlus_Roi_loan_luong_cuc.md	Rối loạn lưỡng cực: các thể, triệu chứng, chẩn đoán và điều trị	8
+D6	MedlinePlus_Roi_loan_stress_sau_sang_chan_PTSD.md	Medlineplus Roi Loan Stress Sau Sang Chan Ptsd	10
+D6	MedlinePlus_Roi_loan_tam_than_tong_quan.md	Medlineplus Roi Loan Tam Than Tong Quan	7
+D6	MedlinePlus_Sa_sut_tri_tue.md	Sa sút trí tuệ: thể bệnh, dấu hiệu, đánh giá và hỗ trợ	7
+D6	MedlinePlus_Sang.md	Sảng: biểu hiện, nguyên nhân, chẩn đoán và điều trị	6
+D6	MedlinePlus_Suc_khoe_tam_than_nguoi_cao_tuoi.md	Sức khỏe tâm thần người cao tuổi: yếu tố ảnh hưởng và dấu hiệu cảnh báo	5
+D6	MedlinePlus_Tam_than_phan_liet.md	Tâm thần phân liệt	3
+D6	MedlinePlus_Tram_cam_o_thanh_thieu_nien.md	Trầm cảm ở thanh thiếu niên: triệu chứng, đánh giá, điều trị và cảnh báo tự tử	9
+D6	MedlinePlus_Tu_tu_Nguy_co_Dau_hieu_Can_thiep.md	Tự tử: nguy cơ, dấu hiệu cảnh báo và năm bước hỗ trợ người có ý nghĩ tự tử	8
+D6	MedlinePlus_Ung_pho_tam_ly_sau_tham_hoa.md	Medlineplus Ung Pho Tam Ly Sau Tham Hoa	4
+D6	WHO_2007_Lien_bang_Nga_Cai_cach_Suc_khoe_tam_than_Hoa_nhap_va_Phuc_hoi.md	Who 2007 Lien Bang Nga Cai Cach Suc Khoe Tam Than Hoa Nhap Va Phuc Hoi	74
+D6	WHO_2014_Tich_hop_Cham_soc_Roi_loan_Tam_than_va_Benh_Man_tinh.md	Tích hợp ứng phó rối loạn tâm thần và các bệnh mạn tính khác trong hệ thống y tế	207
+D6	WHO_2024_Khung_Van_hanh_Tich_hop_SKTT_Suc_khoe_Nao_va_Su_dung_Chat.md	Khung vận hành tích hợp sức khỏe tâm thần, sức khỏe não và sử dụng chất	171
+D6	WHO_2026_Nhan_luc_suc_khoe_tam_than_cham_soc_cong_dong_tich_hop.md	WHO EMRO 2026: Nhân lực cho chăm sóc sức khỏe tâm thần tích hợp dựa vào cộng đồng	15
+D6	WHO_EMRO_2010_2015_Chien_luoc_SKTT_Ba_me_Tre_em_Vi_thanh_nien.md	WHO EMRO 2010–2015: Thách thức và định hướng sức khỏe tâm thần bà mẹ, trẻ em và vị thành niên	11
+D6	WHO_EMRO_2011_Atlas_Nguon_luc_Suc_khoe_Tam_than_Tre_em_Vi_thanh_nien_Ba_me.md	Atlas nguồn lực sức khỏe tâm thần trẻ em, vị thành niên và bà mẹ tại Đông Địa Trung Hải	166
+D6	WHO_EMRO_2017_Tham_van_tich_hop_suc_khoe_tam_than_vao_y_te_co_so.md	WHO EMRO 2017: Hội nghị chuyên gia về tích hợp sức khỏe tâm thần vào chăm sóc sức khỏe ban đầu	13
+D6	WHO_EMRO_2018_Tich_hop_suc_khoe_tam_than_vao_y_te_co_so.md	Tích hợp sức khỏe tâm thần vào y tế cơ sở: tường thuật WHO EMRO 2018	7
+D6	WHO_EMRO_2023_Bo_cong_cu_Giam_sat_Danh_gia_SKTT_Y_te_co_so_Phan_4.md	WHO EMRO 2023 — Bộ công cụ giám sát và đánh giá tích hợp sức khỏe tâm thần vào y tế cơ sở, phần 4	70
+D6	WHO_EMRO_2023_Boi_canh_Tich_hop_Cham_soc_Suc_khoe_tam_than_Y_te_co_so.md	WHO EMRO 2023 — Bối cảnh tích hợp chăm sóc sức khỏe tâm thần vào y tế cơ sở (Phần 1)	237
+D6	WHO_EMRO_2023_Cong_cu_Tich_hop_Suc_khoe_tam_than_vao_Y_te_Co_so_Phan_3.md	WHO EMRO 2023 — Bộ công cụ tích hợp sức khỏe tâm thần vào y tế cơ sở, phần 3	695
+D6	WHO_EMRO_2023_Danh_gia_Muc_do_San_sang_Tich_hop_Suc_khoe_tam_than.md	WHO EMRO 2023 — Đánh giá mức độ sẵn sàng tích hợp sức khỏe tâm thần ở y tế cơ sở	126
+D6	WHO_EMRO_2023_Tich_hop_SKTT_Y_te_Co_so_Phan_1_Boi_canh.md	Tích hợp sức khỏe tâm thần vào y tế cơ sở — Phần 1: bối cảnh tích hợp	236
+D6	WHO_EMRO_2023_Tich_hop_SKTT_Y_te_Co_so_Phan_2_Danh_gia_San_sang.md	Tích hợp sức khỏe tâm thần vào y tế cơ sở — Phần 2: đánh giá mức độ sẵn sàng	125
+D6	WHO_EMRO_2023_Tich_hop_SKTT_Y_te_Co_so_Tom_tat_Dieu_hanh.md	Tích hợp sức khỏe tâm thần vào y tế cơ sở — Tóm tắt điều hành	82
+D6	WHO_EMRO_2023_Tom_tat_Tich_hop_Suc_khoe_tam_than_vao_Y_te_co_so.md	WHO EMRO 2023 — Tóm tắt tích hợp sức khỏe tâm thần vào y tế cơ sở	85
+D6	WHO_Tich_hop_Cham_soc_Suc_khoe_Tam_than_va_HIV.md	Tích hợp can thiệp sức khỏe tâm thần và HIV: những điểm cần cân nhắc	427
+D6	WHO_WONCA_2008_Goc_nhin_Toan_cau_Tich_hop_Suc_khoe_Tam_than_Y_te_Co_so.md	Tích hợp sức khỏe tâm thần vào chăm sóc ban đầu: góc nhìn toàn cầu	1033
+D6	WHO_WPRO_2005_Ngheo_Doi_Gioi_va_Chuong_trinh_Suc_khoe_Tam_than.md	Lồng ghép nghèo đói và giới vào chương trình y tế: học phần sức khỏe tâm thần	467
+D7	10_WHO_2006_Giao_tiep_trong_nghien_cuu_thuc_dia.md	WHO/TDR 2006: kỹ năng giao tiếp để thu thập thông tin chất lượng trong nghiên cứu thực địa	1
+D7	17_WHO_TDR_Giao_tiep_trong_nghien_cuu_thuc_dia.md	WHO/TDR: kỹ năng giao tiếp thực hành trong nghiên cứu thực địa	1
+D7	BYT_dieu_duong_cham_soc_nguoi_benh_benh_vien_2011_archive.md	Byt Dieu Duong Cham Soc Nguoi Benh Benh Vien 2011 Archive	19
+D7	BYT_dieu_kien_co_so_dieu_tri_thuoc_khang_HIV_2011_archive.md	Byt Dieu Kien Co So Dieu Tri Thuoc Khang Hiv 2011 Archive	8
+D7	BYT_dinh_duong_tiet_che_benh_vien_2011_archive.md	Byt Dinh Duong Tiet Che Benh Vien 2011 Archive	6
+D7	BYT_su_dung_thuoc_co_so_y_te_co_giuong_benh_2011_archive.md	Byt Su Dung Thuoc Co So Y Te Co Giuong Benh 2011 Archive	12
+D7	Family_planning_a_global_handbook_for_providers_2011_update_evidence-based_guidance_developed_through_worldwid.md	تنظيم الأسرة - الكتيب العالمي لمقدمي الخدمة	1
+D7	TuDu_16_thanh_tuu_y_khoa_Viet_Nam_2020_ban_luu.md	Tudu 16 Thanh Tuu Y Khoa Viet Nam 2020 Ban Luu	7
+D7	TuDu_50_nam_tu_hao_vuon_minh_cung_thanh_pho.md	Tudu 50 Nam Tu Hao Vuon Minh Cung Thanh Pho	2
+D7	TuDu_RTAC_quan_ly_chat_luong_ho_tro_sinh_san.md	Tudu Rtac Quan Ly Chat Luong Ho Tro Sinh San	6
+D7	TuDu_RTAC_quan_ly_chat_luong_ho_tro_sinh_san_lich_su.md	Tudu Rtac Quan Ly Chat Luong Ho Tro Sinh San Lich Su	6
+D7	TuDu_RTAC_tieu_chuan_chat_luong_ho_tro_sinh_san.md	Tudu Rtac Tieu Chuan Chat Luong Ho Tro Sinh San	6
+D7	TuDu_RTAC_tieu_chuan_ho_tro_sinh_san_lich_su.md	Tudu Rtac Tieu Chuan Ho Tro Sinh San Lich Su	6
+D7	TuDu_bao_cao_chat_luong_benh_vien_2020_ban_luu.md	Tudu Bao Cao Chat Luong Benh Vien 2020 Ban Luu	8
+D7	TuDu_bay_thap_ky_hinh_thanh_phat_trien_1937_2008.md	Tudu Bay Thap Ky Hinh Thanh Phat Trien 1937 2008	7
+D7	TuDu_chat_luong_benh_vien_nam_2020.md	Tudu Chat Luong Benh Vien Nam 2020	8
+D7	TuDu_chuan_quan_ly_chat_luong_RTAC_ho_tro_sinh_san.md	Tudu Chuan Quan Ly Chat Luong Rtac Ho Tro Sinh San	6
+D7	TuDu_danh_gia_chat_luong_benh_vien_2020.md	Tudu Danh Gia Chat Luong Benh Vien 2020	10
+D7	TuDu_danh_gia_chat_luong_benh_vien_2020_ban_luu.md	Tudu Danh Gia Chat Luong Benh Vien 2020 Ban Luu	8
+D7	TuDu_danh_gia_chat_luong_benh_vien_nam_2020.md	Tudu Danh Gia Chat Luong Benh Vien Nam 2020	8
+D7	TuDu_dinh_huong_phat_trien_chuyen_khoa_san_phu.md	Tudu Dinh Huong Phat Trien Chuyen Khoa San Phu	12
+D7	TuDu_dinh_huong_phat_trien_chuyen_khoa_san_phu_khoa.md	Tudu Dinh Huong Phat Trien Chuyen Khoa San Phu Khoa	12
+D7	TuDu_kham_phu_khoa_theo_doan_cho_nhan_vien_nu.md	Tudu Kham Phu Khoa Theo Doan Cho Nhan Vien Nu	3
+D7	TuDu_khoa_kiem_soat_nhiem_khuan_nhiem_vu.md	Tudu Khoa Kiem Soat Nhiem Khuan Nhiem Vu	2
+D7	TuDu_ky_thuat_phong_lab_IVF.md	Tudu Ky Thuat Phong Lab Ivf	2
+D7	TuDu_ky_thuat_y_khoa_noi_bat_trong_lich_su_benh_vien.md	Tudu Ky Thuat Y Khoa Noi Bat Trong Lich Su Benh Vien	3
+D7	TuDu_lich_su_bay_thap_ky_1937_2008.md	Tudu Lich Su Bay Thap Ky 1937 2008	7
+D7	TuDu_lich_su_benh_vien_1937_2008.md	Tudu Lich Su Benh Vien 1937 2008	8
+D7	TuDu_lich_su_benh_vien_1937_2008_cham_soc_me_tre.md	Tudu Lich Su Benh Vien 1937 2008 Cham Soc Me Tre	7
+D7	TuDu_lich_su_cac_moc_IVF_1995_2023.md	Tudu Lich Su Cac Moc Ivf 1995 2023	11
+D7	TuDu_lich_su_ky_thuat_IVF_1995_2023.md	Tudu Lich Su Ky Thuat Ivf 1995 2023	10
+D7	TuDu_lich_su_ky_thuat_san_phu_khoa.md	Tudu Lich Su Ky Thuat San Phu Khoa	3
+D7	TuDu_lich_su_nua_the_ky_phat_trien.md	Tudu Lich Su Nua The Ky Phat Trien	5
+D7	TuDu_lich_su_phat_trien_IVF_va_em_be_thu_tinh_ong_nghiem.md	Tudu Lich Su Phat Trien Ivf Va Em Be Thu Tinh Ong Nghiem	9
+D7	TuDu_lich_su_phat_trien_nua_the_ky.md	Tudu Lich Su Phat Trien Nua The Ky	5
+D7	TuDu_lich_su_tam_thap_ky.md	Tudu Lich Su Tam Thap Ky	5
+D7	TuDu_lich_su_thu_tinh_ong_nghiem_cac_moc_ky_thuat.md	Tudu Lich Su Thu Tinh Ong Nghiem Cac Moc Ky Thuat	10
+D7	TuDu_lich_su_va_thanh_tuu_thu_tinh_ong_nghiem.md	Tudu Lich Su Va Thanh Tuu Thu Tinh Ong Nghiem	9
+D7	TuDu_nhung_ky_thuat_chuyen_mon_lich_su.md	Tudu Nhung Ky Thuat Chuyen Mon Lich Su	3
+D7	TuDu_nua_the_ky_phat_trien_chuyen_mon.md	Tudu Nua The Ky Phat Trien Chuyen Mon	5
+D7	TuDu_phat_trien_chuyen_khoa_san_phu_khoa_chuyen_sau.md	Tudu Phat Trien Chuyen Khoa San Phu Khoa Chuyen Sau	12
+D7	TuDu_phat_trien_chuyen_khoa_sau_2020_2025.md	Tudu Phat Trien Chuyen Khoa Sau 2020 2025	12
+D7	TuDu_phat_trien_chuyen_sau_san_phu_khoa_giai_doan_2020_2025.md	Tudu Phat Trien Chuyen Sau San Phu Khoa Giai Doan 2020 2025	12
+D7	TuDu_tam_nhin_su_mang_gia_tri_cot_loi.md	Tudu Tam Nhin Su Mang Gia Tri Cot Loi	1
+D7	TuDu_tam_thap_ky_xay_dung_va_phat_trien.md	Tudu Tam Thap Ky Xay Dung Va Phat Trien	5
+D7	TuDu_thanh_tuu_chuyen_mon_lich_su.md	Tudu Thanh Tuu Chuyen Mon Lich Su	3
+D7	TuDu_thanh_tuu_chuyen_mon_tieu_bieu.md	Tudu Thanh Tuu Chuyen Mon Tieu Bieu	3
+D7	TuDu_thanh_tuu_ky_thuat_chuyen_mon_lich_su.md	Tudu Thanh Tuu Ky Thuat Chuyen Mon Lich Su	3
+D7	TuDu_tieu_chuan_hoa_thong_tin_thu_vien_y_hoc_2009(1).md	Tudu Tieu Chuan Hoa Thong Tin Thu Vien Y Hoc 2009(1)	13
+D7	TuDu_tieu_chuan_hoa_thong_tin_thu_vien_y_hoc_2009.md	Tudu Tieu Chuan Hoa Thong Tin Thu Vien Y Hoc 2009	13
+D7	TuDu_ton_vinh_16_thanh_tuu_y_khoa_Viet_Nam_2020.md	Tudu Ton Vinh 16 Thanh Tuu Y Khoa Viet Nam 2020	6
+D7	VNCDC_bao_cao_phan_ung_sau_tiem_chung_2018_2020.md	Vncdc Bao Cao Phan Ung Sau Tiem Chung 2018 2020	3
+D7	VNCDC_dich_benh_chua_ro_nguyen_nhan_Congo_2024.md	Vncdc Dich Benh Chua Ro Nguyen Nhan Congo 2024	5
+D7	VNCDC_kien_truc_du_lieu_y_te_du_phong_2024.md	Vncdc Kien Truc Du Lieu Y Te Du Phong 2024	13
+D7	VNCDC_phan_ung_sau_tiem_chung_2018_2019.md	Vncdc Phan Ung Sau Tiem Chung 2018 2019	3
+D7	VNCDC_phan_ung_sau_tiem_chung_bao_cao_2018_2019.md	Vncdc Phan Ung Sau Tiem Chung Bao Cao 2018 2019	3
+D7	VNCDC_phan_ung_sau_tiem_chung_so_lieu_2018_2019.md	Vncdc Phan Ung Sau Tiem Chung So Lieu 2018 2019	3
+D7	VNCDC_phan_ung_sau_tiem_chung_so_lieu_2018_2020.md	Vncdc Phan Ung Sau Tiem Chung So Lieu 2018 2020	3
+D7	WHO_2011_Thanh_phan_co_ban_va_cong_cu_danh_gia_chuong_trinh_kiem_soat_nhiem_khuan_FULLTEXT.md	Who 2011 Thanh Phan Co Ban Va Cong Cu Danh Gia Chuong Trinh Kiem Soat Nhiem Khuan Fulltext	124
+D7	WHO_2018_Khung_danh_gia_kiem_soat_nhiem_khuan_tai_co_so_y_te_IPCAF_FULLTEXT.md	Who 2018 Khung Danh Gia Kiem Soat Nhiem Khuan Tai Co So Y Te Ipcaf Fulltext	65
+D7	WHO_2022_Chinh_sach_tai_khoa_thuc_day_che_do_an_lanh_manh_POLICY_BRIEF_FULLTEXT.md	Who 2022 Chinh Sach Tai Khoa Thuc Day Che Do An Lanh Manh Policy Brief Fulltext	98
+D7	WHO_2023_Bang_kiem_kiem_soat_nhiem_khuan_tuyen_chuyen_sau_FULLTEXT.md	Who 2023 Bang Kiem Kiem Soat Nhiem Khuan Tuyen Chuyen Sau Fulltext	36
+D7	WHO_2023_Bang_kiem_kiem_soat_nhiem_khuan_tuyen_thu_cap_FULLTEXT.md	Who 2023 Bang Kiem Kiem Soat Nhiem Khuan Tuyen Thu Cap Fulltext	32
+D7	WHO_2023_Bang_kiem_kiem_soat_nhiem_khuan_tuyen_y_te_co_so_FULLTEXT.md	Who 2023 Bang Kiem Kiem Soat Nhiem Khuan Tuyen Y Te Co So Fulltext	30
+D7	WHO_2024_Huong_dan_chinh_sach_tai_khoa_thuc_day_an_uong_lanh_manh_FULLTEXT.md	Who 2024 Huong Dan Chinh Sach Tai Khoa Thuc Day An Uong Lanh Manh Fulltext	462
+D7	WHO_2026_Cong_cu_danh_gia_dao_tao_khang_khang_sinh_va_kiem_soat_nhiem_khuan_dieu_duong_ho_sinh_FULLTEXT.md	Who 2026 Cong Cu Danh Gia Dao Tao Khang Khang Sinh Va Kiem Soat Nhiem Khuan Dieu Duong Ho Sinh Fulltext	100
+D7	WHO_EMHJ_2019_Hoi_thao_che_do_an_lanh_manh_loai_bo_trans_fat_FULLTEXT.md	Who Emhj 2019 Hoi Thao Che Do An Lanh Manh Loai Bo Trans Fat Fulltext	15
+D7	WHO_EMHJ_2023_Tuan_thu_kiem_soat_nhiem_khuan_nha_si_Bo_Tay_Jerusalem_FULLTEXT.md	Who Emhj 2023 Tuan Thu Kiem Soat Nhiem Khuan Nha Si Bo Tay Jerusalem Fulltext	46
+D7	WHO_Europe_2025_Thue_thuc_pham_de_thuc_day_che_do_an_lanh_manh_FULLTEXT.md	Who Europe 2025 Thue Thuc Pham De Thuc Day Che Do An Lanh Manh Fulltext	59
+D7	WHO_SEARO_2017_Huong_dan_chinh_sach_thuc_pham_cho_che_do_an_lanh_manh_FULLTEXT.md	Who Searo 2017 Huong Dan Chinh Sach Thuc Pham Cho Che Do An Lanh Manh Fulltext	105
+D7	WHO_SEARO_2018_Nhan_dinh_duong_thuc_pham_thuc_day_an_uong_lanh_manh_FULLTEXT.md	Who Searo 2018 Nhan Dinh Duong Thuc Pham Thuc Day An Uong Lanh Manh Fulltext	122
+D7	WHO_SEARO_2026_Doi_tac_cong_tu_hoat_dong_the_luc_va_an_uong_lanh_manh_FULLTEXT.md	Who Searo 2026 Doi Tac Cong Tu Hoat Dong The Luc Va An Uong Lanh Manh Fulltext	30
+D7	WHO_radiographic_technique_2003_lien_quan_thai_ky.md	WHO Manual of Diagnostic Imaging 2003 - Radiographic Technique and Projections	245
+D7	WHO_ultrasound_environmental_health_criteria_1982.md	WHO Environmental Health Criteria 22: Ultrasound - 1982	988

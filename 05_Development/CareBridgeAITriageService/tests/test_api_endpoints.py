@@ -1,5 +1,7 @@
 """Tests for FastAPI HTTP endpoints."""
 
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
@@ -63,7 +65,14 @@ def test_chat_message_endpoint():
     assert "disclaimer" in data
 
 
+@pytest.mark.skipif(
+    os.getenv("RUN_REAL_INGESTION_TESTS") != "1",
+    reason="Re-ingests data/raw_documents into the configured database and calls the embedding API. "
+           "Set RUN_REAL_INGESTION_TESTS=1 to opt in.",
+)
 def test_sync_directory_endpoint():
+    # 2026-09-22: running plain `pytest` re-embedded 136 documents into the real knowledge base through this test
+    # and overwrote documents that share a title. Mutating real data must be opt-in.
     response = client.post("/api/v1/documents/sync-directory", headers=AUTH_HEADERS)
     assert response.status_code == 200
     data = response.json()

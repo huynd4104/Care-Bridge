@@ -106,6 +106,7 @@ from app.models.schemas import (
     SourceCitation,
     TriageRiskStatus,
 )
+from app.core.gemini import EmbeddingUnavailableError
 from app.rag.vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
@@ -235,13 +236,23 @@ class MetricsScreeningService:
         risk_factors.extend(sleep_factors)
 
         # 11. RAG Retrieval for matching medical guidelines (Lớp 2 AI RAG)
+        # Citations are supporting evidence, not the triage decision: the risk status above comes from
+        # deterministic clinical thresholds. An embedding outage must therefore never block or delay an
+        # emergency result - it only costs the user the reference links.
         query = self._build_retrieval_query(request, risk_factors)
-        rag_results = await self.vector_store.similarity_search(
-            query=query,
-            stage=current_stage.value if current_stage else "PREGNANCY",
-            top_k=3,
-            session=session,
-        )
+        try:
+            rag_results = await self.vector_store.similarity_search(
+                query=query,
+                stage=current_stage.value if current_stage else "PREGNANCY",
+                top_k=3,
+                session=session,
+            )
+        except EmbeddingUnavailableError:
+            logger.warning(
+                "Embedding unavailable during metrics screening; returning the deterministic triage "
+                "result without supporting citations."
+            )
+            rag_results = []
 
         citations = [
             SourceCitation(

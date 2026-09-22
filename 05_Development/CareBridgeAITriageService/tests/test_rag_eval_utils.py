@@ -131,6 +131,12 @@ def test_paraphrased_question_echo_and_editorial_brackets():
 def test_abstention_phrases_seen_in_live_answers():
     assert detect_abstention("Câu hỏi về liều lượng yến sào hiện không nằm trong danh mục các cẩm nang y tế.")
     assert detect_abstention("Hiện tại, các tài liệu không có nội dung đề cập cụ thể về việc ăn rau ngót.")
+    # benchmark 2026-09-22: correct refusals the phrase list used to score as failures
+    assert detect_abstention("Rất tiếc em không thể hỗ trợ viết mã lập trình hay các vấn đề ngoài lĩnh vực y tế thai sản.")
+    assert detect_abstention("Chị vui lòng đặt câu hỏi thuộc lĩnh vực này để em có thể tư vấn chi tiết cho chị nhé.")
+    assert detect_abstention("Pháp luật Việt Nam nghiêm cấm việc lựa chọn giới tính thai nhi, vì vậy em không thể tư vấn cách để sinh con trai.")
+    assert detect_abstention("Chị vui lòng đặt các câu hỏi liên quan đến lĩnh vực thai sản, chăm sóc mẹ bầu và trẻ sơ sinh nhé.")
+    assert not detect_abstention("Mẹ nên bổ sung 400 mcg axit folic mỗi ngày trong 3 tháng đầu.")
 
 
 def test_degree_spacing_and_one_letter_misquote():
@@ -156,10 +162,18 @@ def test_detect_abstention():
     assert not detect_abstention("Mẹ nên uống 400 mcg axit folic mỗi ngày.")
 
 
-def test_offline_fallback_marker_matches_gemini_client_text():
-    source = (PROJECT_ROOT / "app" / "core" / "gemini.py").read_text(encoding="utf-8")
+def test_offline_fallback_marker_matches_service_outage_text():
+    """The benchmark detects an outage by this marker, so it must stay in sync with the service."""
+    source = (PROJECT_ROOT / "app" / "services" / "rag_chat_service.py").read_text(encoding="utf-8")
     assert OFFLINE_FALLBACK_MARKER in source
-    assert is_offline_fallback(f"Chào mẹ, {OFFLINE_FALLBACK_MARKER}, mẹ cần chú ý...")
+    assert is_offline_fallback(f"{OFFLINE_FALLBACK_MARKER} nên chưa thể tra cứu cẩm nang y tế...")
+
+
+def test_gemini_client_no_longer_fabricates_an_offline_answer():
+    """An outage must never be answered with hard-coded medical advice shipped next to real citations."""
+    source = (PROJECT_ROOT / "app" / "core" / "gemini.py").read_text(encoding="utf-8")
+    assert "bổ sung đầy đủ vi chất" not in source
+    assert "GeminiUnavailableError" in source
 
 
 def test_wilson_ci():

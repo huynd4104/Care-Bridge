@@ -109,7 +109,7 @@ export default function ContentDetailPage() {
         if (isExpert) {
           navigate('/expert/content-approval');
         } else {
-          navigate('/admin/content-approval-queue');
+          navigate(-1);
         }
       }, 1000);
     } catch (err: unknown) {
@@ -242,8 +242,6 @@ export default function ContentDetailPage() {
       <div className="flex items-center gap-2 text-[13px] text-outline mb-4">
         {isExpert ? (
           <span className="cursor-pointer hover:underline text-primary" onClick={() => navigate('/expert/content-approval')}>Thẩm định nội dung</span>
-        ) : isSystemAdmin ? (
-          <span className="cursor-pointer hover:underline text-primary" onClick={() => navigate('/admin/content-approval-queue')}>Hàng đợi phê duyệt</span>
         ) : canManage ? (
           <span className="cursor-pointer hover:underline text-primary" onClick={() => navigate(typeListPath)}>{typeLabel}</span>
         ) : (
@@ -257,13 +255,12 @@ export default function ContentDetailPage() {
       <button
         onClick={() => {
           if (isExpert) navigate('/expert/content-approval');
-          else if (isSystemAdmin) navigate('/admin/content-approval-queue');
           else navigate(-1);
         }}
         className="inline-flex items-center gap-1.5 py-2 px-5 rounded-full border border-outline-variant bg-transparent text-primary text-sm font-semibold cursor-pointer mb-6 hover:bg-surface-container-low transition-colors"
       >
         <span className="material-symbols-outlined text-lg">arrow_back</span>
-        {isExpert || isSystemAdmin ? 'Quay lại hàng đợi' : 'Quay lại'}
+        {isExpert ? 'Quay lại hàng đợi' : 'Quay lại'}
       </button>
 
       {decisionSuccess && (

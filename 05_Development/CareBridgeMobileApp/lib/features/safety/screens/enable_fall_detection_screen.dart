@@ -126,6 +126,31 @@ class _EnableFallDetectionScreenState extends State<EnableFallDetectionScreen> {
       return;
     }
 
+    if (!_autoFamilyAlert) {
+      final shouldEnable = await _showRequireAutoFamilyAlertDialog();
+      if (shouldEnable != true) {
+        setState(() {
+          _shareLocation = false;
+          _locationPermissionGranted = false;
+        });
+        return;
+      }
+
+      final hasFamily = await _checkHasFamilyMember();
+      if (!mounted) return;
+      if (!hasFamily) {
+        setState(() {
+          _autoFamilyAlert = false;
+          _shareLocation = false;
+          _locationPermissionGranted = false;
+        });
+        await _showNoFamilyMemberDialog();
+        return;
+      }
+
+      setState(() => _autoFamilyAlert = true);
+    }
+
     setState(() => _shareLocation = true);
     final position = await _permissionService.readConsentedLocation();
     if (!mounted) return;
@@ -148,7 +173,22 @@ class _EnableFallDetectionScreenState extends State<EnableFallDetectionScreen> {
 
   Future<void> _onAutoFamilyAlertChanged(bool value) async {
     if (!value) {
-      setState(() => _autoFamilyAlert = false);
+      setState(() {
+        _autoFamilyAlert = false;
+        if (_shareLocation) {
+          _shareLocation = false;
+          _locationPermissionGranted = false;
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Đã tắt chia sẻ vị trí do bạn đã tắt tính năng tự động báo người thân.',
+            ),
+          ),
+        );
+      }
       return;
     }
 
@@ -156,11 +196,97 @@ class _EnableFallDetectionScreenState extends State<EnableFallDetectionScreen> {
     if (!mounted) return;
 
     if (!hasFamily) {
-      setState(() => _autoFamilyAlert = false);
+      setState(() {
+        _autoFamilyAlert = false;
+        _shareLocation = false;
+      });
       await _showNoFamilyMemberDialog();
     } else {
       setState(() => _autoFamilyAlert = true);
     }
+  }
+
+  Future<bool?> _showRequireAutoFamilyAlertDialog() async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: _surfaceContainerLowest,
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.notification_important_outlined,
+                  color: _primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Yêu cầu báo người thân',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Để chia sẻ vị trí khi xảy ra sự cố ngã, bạn cần bật tính năng "Tự động báo người thân".\n\nBạn có muốn bật tính năng "Tự động báo người thân" ngay bây giờ không?',
+            style: TextStyle(
+              fontSize: 14,
+              color: _onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              key: const Key('require-auto-family-alert-cancel-button'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text(
+                'Để sau',
+                style: TextStyle(
+                  color: _onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            FilledButton(
+              key: const Key('require-auto-family-alert-confirm-button'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text(
+                'Bật tính năng',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _showNoFamilyMemberDialog() async {
@@ -307,11 +433,25 @@ class _EnableFallDetectionScreenState extends State<EnableFallDetectionScreen> {
       );
       return;
     }
+    if (_shareLocation && !_autoFamilyAlert) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cần bật "Tự động báo người thân" để chia sẻ vị trí khi có cảnh báo.',
+          ),
+          backgroundColor: _error,
+        ),
+      );
+      return;
+    }
     if (_autoFamilyAlert) {
       final hasFamily = await _checkHasFamilyMember();
       if (!mounted) return;
       if (!hasFamily) {
-        setState(() => _autoFamilyAlert = false);
+        setState(() {
+          _autoFamilyAlert = false;
+          _shareLocation = false;
+        });
         await _showNoFamilyMemberDialog();
         return;
       }
@@ -673,6 +813,7 @@ class _EnableFallDetectionScreenState extends State<EnableFallDetectionScreen> {
               Material(
                 color: Colors.transparent,
                 child: SwitchListTile(
+                  key: const Key('location-sharing-switch'),
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Chia sẻ vị trí khi có cảnh báo'),
                   subtitle: const Text(

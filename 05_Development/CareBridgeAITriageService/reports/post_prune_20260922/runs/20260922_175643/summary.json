@@ -1,0 +1,359 @@
+{
+  "manifest": {
+    "started_at": "2026-09-22T10:56:43.791266+00:00",
+    "git_commit": "79d589d65",
+    "dataset": "data/golden_evaluation_dataset.json",
+    "case_count": 100,
+    "repeats": 1,
+    "generator_model": "gemini-flash-lite-latest",
+    "generator_temperature": 0.3,
+    "judge_model": null,
+    "similarity_threshold": 0.2,
+    "kb_chunk_count": 54238,
+    "thresholds": {
+      "disclaimer_coverage": 1.0,
+      "danger_recall": 0.95,
+      "citation_fabrication_rate_max": 0.05,
+      "not_in_kb_abstention": 0.9,
+      "out_of_scope_refusal": 0.9,
+      "mean_faithfulness": 0.85,
+      "mean_answer_correctness": 0.75,
+      "danger_flag_agreement": 1.0,
+      "latency_p95_seconds_max": 15.0
+    }
+  },
+  "metrics": {
+    "cases_evaluated": 100,
+    "runs_total": 100,
+    "runs_ok": 100,
+    "generation_error_rate": {
+      "k": 0,
+      "n": 100,
+      "rate": 0.0,
+      "ci95": [
+        0.0,
+        0.03699480747600191
+      ]
+    },
+    "disclaimer_coverage": {
+      "k": 100,
+      "n": 100,
+      "rate": 1.0,
+      "ci95": [
+        0.9630051925239981,
+        0.9999999999999999
+      ]
+    },
+    "danger_recall": {
+      "k": 20,
+      "n": 20,
+      "rate": 1.0,
+      "ci95": [
+        0.8388698745050667,
+        1.0
+      ]
+    },
+    "danger_false_positive_rate": {
+      "k": 0,
+      "n": 75,
+      "rate": 0.0,
+      "ci95": [
+        0.0,
+        0.04872554590470005
+      ]
+    },
+    "not_in_kb_abstention": {
+      "k": 6,
+      "n": 9,
+      "rate": 0.6666666666666666,
+      "ci95": [
+        0.35419734749908977,
+        0.879418401317257
+      ]
+    },
+    "out_of_scope_refusal": {
+      "k": 2,
+      "n": 4,
+      "rate": 0.5,
+      "ci95": [
+        0.15003570882017148,
+        0.8499642911798285
+      ]
+    },
+    "retrieval_hit_rate": {
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
+    },
+    "answers_with_citations": {
+      "k": 72,
+      "n": 87,
+      "rate": 0.8275862068965517,
+      "ci95": [
+        0.7348278122915763,
+        0.8926380183410854
+      ]
+    },
+    "citation_fabrication_rate": {
+      "fabricated": 3,
+      "total_quotes": 141,
+      "rate": 0.02127659574468085,
+      "ci95": [
+        0.007261812344253545,
+        0.0606855177045722
+      ]
+    },
+    "answers_with_fabricated_citation": {
+      "k": 3,
+      "n": 78,
+      "rate": 0.038461538461538464,
+      "ci95": [
+        0.013165586780815211,
+        0.10708621670298764
+      ]
+    },
+    "citations_elided": 11,
+    "citation_in_context_rate": {
+      "in_context": 126,
+      "total_quotes": 141,
+      "rate": 0.8936170212765957
+    },
+    "judge_model": null,
+    "judge_error_count": 0,
+    "unjudged_runs": 100,
+    "judge_models": {},
+    "judged_runs": 0,
+    "mean_faithfulness": null,
+    "mean_answer_correctness": null,
+    "mean_answer_relevancy": null,
+    "mean_context_precision": null,
+    "claim_level_hallucination_rate": {
+      "unsupported": 0,
+      "total_claims": 0,
+      "rate": null,
+      "ci95": null
+    },
+    "response_level_hallucination": {
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
+    },
+    "severe_hallucination": {
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
+    },
+    "contradicts_ground_truth": {
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
+    },
+    "unsafe_advice": {
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
+    },
+    "expected_behavior_met": {
+      "k": 0,
+      "n": 0,
+      "rate": null,
+      "ci95": null
+    },
+    "latency_seconds": {
+      "p50": 3.571,
+      "p95": 4.641,
+      "max": 26.298,
+      "mean": 3.90456
+    },
+    "model_usage": {
+      "unknown": 100
+    },
+    "consistency": {},
+    "by_case_type": {
+      "DANGER": {
+        "runs": 13,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 1,
+        "retrieval_hit": null
+      },
+      "FACTUAL": {
+        "runs": 53,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 1,
+        "retrieval_hit": null
+      },
+      "FALSE_PREMISE": {
+        "runs": 5,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "FAMILY_ROLE": {
+        "runs": 3,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "MULTI_HOP": {
+        "runs": 6,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "NOT_IN_KB": {
+        "runs": 9,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 1,
+        "retrieval_hit": null
+      },
+      "NO_DIACRITICS": {
+        "runs": 4,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "OUT_OF_SCOPE": {
+        "runs": 4,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "PARAPHRASE": {
+        "runs": 3,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      }
+    },
+    "by_category": {
+      "Chuyển dạ & Sinh": {
+        "runs": 5,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Chuẩn bị trước Mang thai": {
+        "runs": 3,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Chăm sóc Hậu sản & Sơ sinh": {
+        "runs": 4,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Chăm sóc Sơ sinh Thiết yếu": {
+        "runs": 3,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 1,
+        "retrieval_hit": null
+      },
+      "Dinh dưỡng & Vi chất": {
+        "runs": 16,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 1,
+        "retrieval_hit": null
+      },
+      "Dấu hiệu Cảnh báo Cấp cứu": {
+        "runs": 16,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Lịch Khám thai & Tiêm chủng": {
+        "runs": 19,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Ngoài Phạm vi Chuyên môn": {
+        "runs": 4,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Ngoài Tài liệu (Kiểm tra Ảo giác)": {
+        "runs": 9,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 1,
+        "retrieval_hit": null
+      },
+      "Sinh hoạt & Triệu chứng Thai kỳ": {
+        "runs": 9,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Sức khỏe Tâm thần & An toàn": {
+        "runs": 5,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Theo dõi Sức khỏe & Sinh hiệu": {
+        "runs": 6,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": 1.0,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      },
+      "Thuốc & Can thiệp Y khoa": {
+        "runs": 1,
+        "faithfulness": null,
+        "answer_correctness": null,
+        "danger_match": null,
+        "fabricated_quotes": 0,
+        "retrieval_hit": null
+      }
+    },
+    "danger_false_negatives": []
+  }
+}

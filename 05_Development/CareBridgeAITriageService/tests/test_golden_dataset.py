@@ -47,6 +47,8 @@ def test_case_schema(case):
         assert case["evidence_quotes"] == []
     else:
         assert case["evidence_quotes"], "answerable cases must cite at least one verbatim quote"
+        # The case-level pointer must not go stale when evidence is remapped (it did after the 2026-09-22 prune).
+        assert case["source_file"] in {e["source_file"] for e in case["evidence_quotes"]}
 
 
 @pytest.mark.parametrize(
@@ -74,7 +76,11 @@ def test_paraphrase_links_point_to_existing_cases():
 
 
 def test_validator_rejects_fabricated_ground_truth():
-    """Regression: the old TC-NEWBORN-01 claimed '60-90 phút' skin-to-skin, which the WHO 2009 file does not say."""
-    who_2009 = CORPUS["01_cham_soc_so_sinh_den_het_tuan_dau_doi_who_2009.md"]
+    """Regression: the old TC-NEWBORN-01 claimed '60-90 phút' skin-to-skin, which the WHO 2009 guide does not say.
+
+    The original file (01_cham_soc_so_sinh_den_het_tuan_dau_doi_who_2009.md) was removed from the corpus on
+    2026-09-22; the same WHO 2009 guide is present as WHO_cham_soc_so_sinh_den_7_ngay_2009.md.
+    """
+    who_2009 = CORPUS["WHO_cham_soc_so_sinh_den_7_ngay_2009.md"]
     assert not quote_in_text("da kề da ít nhất 60 đến 90 phút", who_2009)
-    assert quote_in_text("Trẻ khỏe cần được đặt da kề da liên tục với mẹ", who_2009)
+    assert quote_in_text("Đặt trẻ nằm sấp da kề da trên bụng/ngực mẹ, phủ lưng bằng chăn và đội mũ.", who_2009)

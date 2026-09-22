@@ -49,10 +49,24 @@ class IngestionService:
         self,
         file_path: Path | str,
         session: Optional[AsyncSession] = None,
+        existing_titles: Optional[set[str]] = None,
     ) -> int:
         """Process a single document file from filesystem into pgvector."""
         path = Path(file_path)
         logger.info(f"Processing file for vector ingestion: {path.name}")
+
+        if existing_titles is not None:
+            import frontmatter
+            try:
+                post = frontmatter.load(path)
+                meta_title = (post.metadata or {}).get("title")
+            except Exception:
+                meta_title = None
+            candidate_title = meta_title or path.stem.replace("_", " ").title()
+            if candidate_title in existing_titles:
+                logger.info(f"Skipping already ingested document: '{candidate_title}' ({path.name})")
+                return 0
+
         chunks = self.chunker.chunk_file(path)
         if not chunks:
             logger.warning(f"No text extracted from {path.name}")
@@ -66,6 +80,7 @@ class IngestionService:
         self,
         dir_path: Path | str = RAW_DOCS_DIR,
         session: Optional[AsyncSession] = None,
+        skip_existing: bool = True,
     ) -> BatchIngestResponse:
         """Scan directory and batch ingest all supported documents (PDF, DOCX, MD, TXT)."""
         folder = Path(dir_path)
@@ -75,23 +90,36 @@ class IngestionService:
                 total_files_processed=0,
                 total_chunks_created=0,
                 processed_files=[],
+                skipped_files=[],
                 errors=[f"Thư mục không tồn tại: {folder}"],
             )
 
         supported_extensions = {".md", ".markdown", ".pdf", ".docx", ".txt"}
         files = [f for f in sorted(folder.iterdir()) if f.suffix.lower() in supported_extensions]
 
+        existing_titles: Optional[set[str]] = None
+        if skip_existing:
+            existing_titles = await self.vector_store.get_existing_titles(session=session)
+            if existing_titles:
+                logger.info(f"Found {len(existing_titles)} existing document titles in database. Skipping duplicates.")
+
         total_chunks = 0
         processed_files: List[str] = []
+        skipped_files: List[str] = []
         errors: List[str] = []
 
-        for f in files:
+        total_files = len(files)
+        for idx, f in enumerate(files, 1):
             try:
-                count = await self.ingest_file(f, session=session)
-                total_chunks += count
-                processed_files.append(f.name)
+                count = await self.ingest_file(f, session=session, existing_titles=existing_titles)
+                if count > 0:
+                    total_chunks += count
+                    processed_files.append(f.name)
+                    logger.info(f"[{idx}/{total_files}] ✓ Đã nạp: {f.name} (+{count} chunks, Tổng: {total_chunks})")
+                else:
+                    skipped_files.append(f.name)
             except Exception as e:
-                logger.error(f"Error ingesting file {f.name}: {e}")
+                logger.error(f"[{idx}/{total_files}] ✗ Lỗi khi nạp file {f.name}: {e}")
                 errors.append(f"{f.name}: {str(e)}")
 
         return BatchIngestResponse(
@@ -99,6 +127,7 @@ class IngestionService:
             total_files_processed=len(processed_files),
             total_chunks_created=total_chunks,
             processed_files=processed_files,
+            skipped_files=skipped_files,
             errors=errors,
         )
 

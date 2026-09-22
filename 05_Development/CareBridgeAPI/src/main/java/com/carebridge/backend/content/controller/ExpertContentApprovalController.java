@@ -4,6 +4,7 @@ import com.carebridge.backend.common.response.ApiResponse;
 import com.carebridge.backend.content.dto.request.ContentDecisionRequest;
 import com.carebridge.backend.content.dto.response.ChecklistTemplateDecisionResponse;
 import com.carebridge.backend.content.dto.response.ContentDecisionResponse;
+import com.carebridge.backend.content.dto.response.ExpertApprovalSummaryResponse;
 import com.carebridge.backend.content.dto.response.ExpertContentApprovalQueueItem;
 import com.carebridge.backend.content.entity.ContentStage;
 import com.carebridge.backend.content.entity.ContentType;
@@ -32,6 +33,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class ExpertContentApprovalController {
 
     private final ExpertContentApprovalService expertContentApprovalService;
+
+    @GetMapping("/summary")
+    public ResponseEntity<ApiResponse<ExpertApprovalSummaryResponse>> getSummary(
+            @RequestParam(required = false) ContentStage stage,
+            @RequestParam(required = false) String keyword,
+            Principal principal) {
+        ExpertApprovalSummaryResponse summary = expertContentApprovalService.getSummary(stage, keyword, principal);
+        return ResponseEntity.ok(ApiResponse.success(summary, "Lấy thông tin tổng hợp thẩm định thành công"));
+    }
 
     @GetMapping("/queue")
     public ResponseEntity<ApiResponse<Page<ExpertContentApprovalQueueItem>>> getQueue(

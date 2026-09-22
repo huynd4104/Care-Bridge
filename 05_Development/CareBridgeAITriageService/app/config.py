@@ -40,12 +40,27 @@ class DatabaseSettings(BaseModel):
 
 class GeminiSettings(BaseModel):
     api_key: str = os.getenv("GEMINI_API_KEY", "")
+    api_keys_raw: str = os.getenv("GEMINI_API_KEYS", "")
     model: str = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
     embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-2")
     embedding_dimension: int = 768
     temperature: float = float(os.getenv("GEMINI_TEMPERATURE", "0.3"))
     timeout_seconds: float = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "15.0"))
     enabled: bool = os.getenv("GEMINI_ENABLED", "true").lower() in ("true", "1", "yes")
+
+    @property
+    def api_keys(self) -> list[str]:
+        keys: list[str] = []
+        raw_combined = f"{self.api_keys_raw},{self.api_key}"
+        for k in raw_combined.split(","):
+            k_clean = k.strip()
+            if k_clean and k_clean not in keys:
+                keys.append(k_clean)
+        return keys
+
+    @property
+    def primary_api_key(self) -> str:
+        return self.api_keys[0] if self.api_keys else ""
 
 
 class SecuritySettings(BaseModel):

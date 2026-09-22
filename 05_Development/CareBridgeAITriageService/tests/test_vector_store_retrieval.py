@@ -14,8 +14,14 @@ from app.rag.vector_store import (
 
 def test_postpartum_stage_can_reach_newborn_documents():
     assert "BABY_CARE" in searchable_stages("POSTPARTUM")
-    assert searchable_stages("PREGNANCY") == ["PREGNANCY", "ALL"]
     assert searchable_stages("ALL") is None and searchable_stages(None) is None
+
+
+def test_pregnancy_stage_can_reach_newborn_documents():
+    """Mothers prepare for newborn care before birth; pinning BABY_CARE to POSTPARTUM hid 123 documents."""
+    stages = searchable_stages("PREGNANCY")
+    assert stages is not None
+    assert set(stages) == {"PREGNANCY", "ALL", "BABY_CARE"}
 
 
 def test_contains_word_uses_whole_words():

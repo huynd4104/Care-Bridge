@@ -100,7 +100,13 @@ class ChatMessage(BaseModel):
 
 
 class RagChatRequest(BaseModel):
-    message: str = Field(description="Câu hỏi hoặc chia sẻ của mẹ bầu hoặc người thân")
+    # No min_length on purpose: an empty or whitespace-only message is answered by RagChatService with a
+    # friendly request for clarification. Rejecting "" at the schema while accepting " " would return a
+    # raw 422 for one and a helpful Vietnamese answer for the other, for the same user action.
+    message: str = Field(
+        max_length=4000,
+        description="Câu hỏi hoặc chia sẻ của mẹ bầu hoặc người thân (tối đa 4000 ký tự)",
+    )
     stage: MaternalStage = Field(default=MaternalStage.PREGNANCY, description="Giai đoạn của người dùng")
     gestational_age_weeks: Optional[int] = Field(default=None, description="Tuần thai hiện tại (chỉ áp dụng cho MOTHER)")
     user_role: Optional[str] = Field(default="MOTHER", description="Role của người dùng: MOTHER hoặc FAMILY")
@@ -155,6 +161,7 @@ class BatchIngestResponse(BaseModel):
     total_files_processed: int
     total_chunks_created: int
     processed_files: List[str]
+    skipped_files: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
 
 

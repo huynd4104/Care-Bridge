@@ -282,12 +282,25 @@ class _InstanceProxy:
 def _title_of(source_file: str, cache: Dict[str, str]) -> Optional[str]:
     if source_file not in cache:
         path = RAW_DOCUMENTS_DIR / source_file
-        cache[source_file] = str(frontmatter.load(path).get("title", "")).strip() if path.exists() else ""
+        cache[source_file] = _document_title(path) if path.exists() else ""
     return cache[source_file] or None
 
 
+def _document_title(path: Path) -> str:
+    """The title the ingestion stored for this file (DocumentChunker._chunk_markdown rules), so it matches the DB.
+
+    A few source files have malformed YAML frontmatter; ingestion falls back to the file stem for those, and so must
+    this - otherwise one bad file crashes the whole benchmark.
+    """
+    try:
+        title = frontmatter.load(path).get("title")
+    except Exception:
+        title = None
+    return str(title or path.stem.replace("_", " ").title()).strip()
+
+
 def load_corpus_titles() -> List[str]:
-    return [str(frontmatter.load(p).get("title", "")).strip() for p in sorted(RAW_DOCUMENTS_DIR.glob("*.md"))]
+    return [_document_title(p) for p in sorted(RAW_DOCUMENTS_DIR.glob("*.md"))]
 
 
 def score_citations(record: dict, corpus: Dict[str, str], corpus_titles: List[str], question: str = "") -> None:

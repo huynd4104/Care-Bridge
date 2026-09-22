@@ -128,14 +128,16 @@ class _LoginScreenState extends State<LoginScreen> {
       phone = '+84${phone.substring(1)}';
     }
 
-    if (!RegExp(r'^\+84[35789]\d{8}$').hasMatch(phone)) {
-      setState(
-        () => _errorMessage =
-            'Vui lòng nhập số điện thoại hợp lệ vào ô bên trên để đăng nhập SMS (ví dụ: +84912345678 hoặc 0912345678).',
-      );
+    if (RegExp(r'^\+84[35789]\d{8}$').hasMatch(phone)) {
+      _navigateToPhoneVerification(phone);
       return;
     }
 
+    _showPhoneInputBottomSheet();
+  }
+
+  void _navigateToPhoneVerification(String phone) {
+    if (!mounted) return;
     setState(() => _errorMessage = null);
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -144,6 +146,113 @@ class _LoginScreenState extends State<LoginScreen> {
           authService: widget.authService ?? AuthService.instance,
         ),
       ),
+    );
+  }
+
+  void _showPhoneInputBottomSheet() {
+    setState(() => _errorMessage = null);
+    final phoneCtrl = TextEditingController(
+      text: RegExp(r'^[0-9+]+$').hasMatch(_emailCtrl.text.trim())
+          ? _emailCtrl.text.trim()
+          : '',
+    );
+    String? sheetError;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void submitPhone() {
+              String input = phoneCtrl.text.trim();
+              if (input.startsWith('0') && input.length == 10) {
+                input = '+84${input.substring(1)}';
+              }
+              if (!RegExp(r'^\+84[35789]\d{8}$').hasMatch(input)) {
+                setSheetState(() {
+                  sheetError =
+                      'Vui lòng nhập số điện thoại hợp lệ (ví dụ: 0912345678 hoặc +84912345678).';
+                });
+                return;
+              }
+              _emailCtrl.text = input;
+              Navigator.of(sheetContext).pop();
+              _navigateToPhoneVerification(input);
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AuthPalette.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AuthPalette.line,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Đăng nhập qua SMS OTP',
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AuthPalette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Nhập số điện thoại để nhận mã xác thực một lần (OTP).',
+                      style: TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 13,
+                        color: AuthPalette.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    AuthTextField(
+                      key: const Key('sms-phone-input-field'),
+                      controller: phoneCtrl,
+                      label: 'Số điện thoại',
+                      hint: '0912345678 hoặc +84912345678',
+                      keyboardType: TextInputType.phone,
+                      errorText: sheetError,
+                      textInputAction: TextInputAction.done,
+                      onChanged: (_) {
+                        if (sheetError != null) {
+                          setSheetState(() => sheetError = null);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    AuthPrimaryButton(
+                      buttonKey: const Key('sms-phone-submit-button'),
+                      label: 'Gửi mã xác thực OTP',
+                      onPressed: submitPhone,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

@@ -75,7 +75,6 @@ import ManageTopicsPage from '../../features/contentManagement/pages/ManageTopic
 import CreateContentPage from '../../features/contentManagement/pages/CreateContentPage';
 import EditContentPage from '../../features/contentManagement/pages/EditContentPage';
 import ContentVersionHistoryPage from '../../features/contentManagement/pages/ContentVersionHistoryPage';
-import ContentApprovalQueuePage from '../../features/contentManagement/pages/ContentApprovalQueuePage';
 import PregnancyExerciseListPage from '../../features/contentManagement/pages/PregnancyExerciseListPage';
 import PregnancyExerciseDetailPage from '../../features/contentManagement/pages/PregnancyExerciseDetailPage';
 import CreatePregnancyExercisePage from '../../features/contentManagement/pages/CreatePregnancyExercisePage';
@@ -174,13 +173,6 @@ export const router = createBrowserRouter([
               { path: '/admin/experts/:expertProfileId', element: <ExpertDetailPage /> },
               { path: '/admin/expert-verification-queue', element: <ExpertVerificationQueuePage /> },
               { path: '/admin/consultation-calls', element: <ConsultationCallListPage /> },
-              { path: '/admin/content-approval-queue', element: <ContentApprovalQueuePage /> },
-              // Read-only review routes for the approval queue's "Xem chi tiết" links — System Admin
-              // lacks CONTENT_ADMIN, so it cannot use /content/:id or /content/checklists/:id directly
-              // (those are gated to CONTENT_ADMIN below); ContentDetailPage/ChecklistDetailPage already
-              // hide all write actions when the viewer lacks CONTENT_ADMIN (see canManage in each page).
-              { path: '/admin/content-review/:id', element: <ContentDetailPage /> },
-              { path: '/admin/content-review/checklists/:id', element: <ChecklistDetailPage /> },
               { path: '/admin/notifications', element: <NotificationCenterPage /> },
               { path: '/admin/posture-configs', element: <PostureConfigListPage /> },
               { path: '/admin/posture-configs/new', element: <EditPostureConfigPage /> },

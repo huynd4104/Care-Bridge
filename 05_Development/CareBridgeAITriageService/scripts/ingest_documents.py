@@ -32,7 +32,24 @@ async def main():
         default=None,
         help="Single PDF, DOCX, Markdown, or TXT document to ingest",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Force re-ingestion of documents even if they already exist in database",
+    )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        default=False,
+        help="Use deterministic offline embeddings without calling Gemini API (0s latency, no quota limit)",
+    )
     args = parser.parse_args()
+
+    if args.offline:
+        from app.config import GEMINI_SETTINGS
+        GEMINI_SETTINGS.enabled = False
+        logger.info("Chế độ OFFLINE được kích hoạt: Sử dụng thuật toán vector nội bộ, không gọi Gemini API.")
 
     service = get_ingestion_service()
 
@@ -49,16 +66,18 @@ async def main():
         print("=" * 60 + "\n")
     else:
         target_dir = Path(args.dir)
-        logger.info(f"Starting ingestion from directory: {target_dir}")
-        result = await service.ingest_directory(target_dir)
+        logger.info(f"Starting ingestion from directory: {target_dir} (skip_existing={not args.force})")
+        result = await service.ingest_directory(target_dir, skip_existing=not args.force)
 
         print("\n" + "=" * 60)
         print("           KẾT QUẢ NẠP TÀI LIỆU VÀO VECTOR DB")
         print("=" * 60)
         print(f"Trạng thái: {'Thành công' if result.success else 'Có lỗi'}")
-        print(f"Tổng số file đã xử lý: {result.total_files_processed}")
+        print(f"Tổng số file mới đã nạp: {result.total_files_processed}")
+        print(f"Tổng số file bỏ qua (đã có sẵn): {len(result.skipped_files)}")
         print(f"Tổng số chunks đã tạo & lưu Vector: {result.total_chunks_created}")
-        print(f"Danh sách file: {', '.join(result.processed_files)}")
+        if result.processed_files:
+            print(f"Danh sách file mới: {', '.join(result.processed_files[:10])}{'...' if len(result.processed_files) > 10 else ''}")
         if result.errors:
             print(f"Lỗi: {result.errors}")
         print("=" * 60 + "\n")

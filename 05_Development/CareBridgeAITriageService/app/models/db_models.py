@@ -16,11 +16,11 @@ class MaternalKnowledgeChunk(Base):
     __tablename__ = "maternal_knowledge_chunks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    stage: Mapped[str] = mapped_column(String(50), nullable=False, default="ALL", index=True)
-    topic: Mapped[str] = mapped_column(String(100), nullable=False, default="GENERAL", index=True)
-    source: Mapped[str] = mapped_column(String(255), nullable=False)
-    section: Mapped[str] = mapped_column(String(255), nullable=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    stage: Mapped[str] = mapped_column(Text, nullable=False, default="ALL", index=True)
+    topic: Mapped[str] = mapped_column(Text, nullable=False, default="GENERAL", index=True)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    section: Mapped[str] = mapped_column(Text, nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, default=0)
     embedding = mapped_column(Vector(768), nullable=True)

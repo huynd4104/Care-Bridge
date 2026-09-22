@@ -1950,15 +1950,6 @@ extension _MotherHomeRecommendationView on _MotherHomeScreenState {
                 'Hiện có một số nội dung phù hợp. Bạn có thể xem thêm trong thư viện.',
             onBrowse: () => context.push('/content'),
           ),
-        if (response != null &&
-            response.coverageStatus == 'EMPTY' &&
-            _babyRecommendations.isEmpty)
-          _RecommendationCoverageNotice(
-            key: const Key('mother-home-recommendation-empty-coverage'),
-            message:
-                'Chưa có bài viết phù hợp; hãy xem toàn bộ thư viện nội dung.',
-            onBrowse: () => context.push('/content'),
-          ),
         if (_recommendationLoading) ...[
           const SizedBox(height: 8),
           const LinearProgressIndicator(

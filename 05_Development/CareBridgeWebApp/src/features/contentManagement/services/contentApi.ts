@@ -438,6 +438,28 @@ export async function importContentBatch(data: {
   return res.data.data;
 }
 
+export interface ExpertApprovalSummary {
+  all: number;
+  article: number;
+  faq: number;
+  checklist: number;
+}
+
+export async function fetchExpertApprovalSummary(params?: {
+  stage?: ContentStage;
+  keyword?: string;
+}): Promise<ExpertApprovalSummary> {
+  const queryParams: Record<string, string> = {};
+  if (params?.stage) queryParams.stage = params.stage;
+  if (params?.keyword?.trim()) queryParams.keyword = params.keyword.trim();
+
+  const res = await apiClient.get<ApiResponse<ExpertApprovalSummary>>(
+    '/api/v1/expert/content-approval/summary',
+    { params: queryParams },
+  );
+  return res.data.data;
+}
+
 export async function fetchExpertApprovalQueue(params?: {
   type?: ContentType;
   stage?: ContentStage;

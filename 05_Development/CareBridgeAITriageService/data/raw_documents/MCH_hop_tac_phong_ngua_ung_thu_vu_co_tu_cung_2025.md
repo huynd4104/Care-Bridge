@@ -1,0 +1,27 @@
+﻿---
+title: "Bản ghi nhớ hợp tác xây dựng chương trình phòng chống ung thư vú và cổ tử cung (2025)"
+stage: ALL
+topic: HEALTH_MONITORING
+document_type: RESEARCH
+source: "https://mch.moh.gov.vn/thong-tin-hoat-dong/le-ky-ban-ghi-nho-xay-dung-ke-hoach-hanh-dong-quoc-gia-ve-phong-chong-ung-thu-vu-va-ung-thu-co-tu-cung.html"
+organization: "Cục Bà mẹ và Trẻ em - Bộ Y tế"
+section: "Kế hoạch xây dựng hướng dẫn sàng lọc và phòng chống ung thư ở phụ nữ"
+---
+
+
+# Bản ghi nhớ hợp tác xây dựng chương trình phòng chống ung thư vú và cổ tử cung (2025)
+
+
+> Loại nguồn: tin hoạt động/chương trình y tế công cộng công bố 22/07/2025, không phải hướng dẫn tầm soát cá nhân hay phác đồ điều trị. Các số liệu khảo sát và mục tiêu kế hoạch cần giữ nguyên mốc thời gian, nhóm dân số, không xem là số liệu hiện hành.
+
+
+Hà Nội, Việt Nam – Ngày 22 tháng 7 năm 2025 – Trong khuôn khổ thúc đẩy các hoạt động chăm sóc sức khỏe phụ nữ, Cục Bà mẹ và Trẻ em, Bộ Y tế và Công ty Roche Việt Nam (Pharma và Diagnostics) tổ chức Lễ ký kết Bản ghi nhớ (MOU) phối hợp xây dựng và triển khai Kế hoạch Hành động Quốc gia về Phòng chống Ung thư Vú và Ung thư Cổ tử cung.
+Tham dự lễ ký kết có TS. BS. Nguyễn Tri Thức, Thứ trưởng Bộ Y tế; Ngài Aldo De Luca, Phó Đại sứ toàn quyền, Đại sứ quán Thụy Sĩ tại Việt Nam, ThS. BS. Đinh Anh Tuấn, Cục trưởng Cục Bà mẹ và Trẻ em, ông Lennor Carrillo - Tổng Giám đốc Roche Pharma Việt Nam, ông Ricky He - Tổng Giám đốc Roche Diagnostics Việt Nam, cùng đại diện các đơn vị thuộc Bộ Y tế, bệnh viện, viện nghiên cứu và các cơ quan thông tấn báo chí.
+Tại Việt Nam, ung thư vú và ung thư cổ tử cung là gánh nặng bệnh tật kép ảnh hưởng nặng nề đối với sức khỏe phụ nữ và toàn xã hội. Ung thư vú là bệnh ung thư phổ biến hàng đầu ở phụ nữ trên thế giới và tại Việt Nam. Theo thống kê từ GLOBOCAN năm 2022, mỗi năm Việt Nam ghi nhận khoảng 24.600 ca mới mắc và hơn 10.000 ca tử vong do ung thư vú. Đồng thời, Việt Nam cũng ghi nhận hơn 4.600 ca mắc mới và hơn 2.500 ca tử vong do ung thư cổ tử cung. Gánh nặng bệnh tật này không chỉ dừng lại ở mỗi cá nhân mà còn tạo ra áp lực nặng nề từ kinh tế tới an sinh cho nhiều gia đình và toàn xã hội.
+Phát biểu tại sự kiện, ThS.BS. Đinh Anh Tuấn, Cục trưởng Cục Bà mẹ và Trẻ em nhấn mạnh: “Cục Bà mẹ và Trẻ em nhận thức rõ tính cấp thiết của việc xây dựng một kế hoạch hành động mang tầm quốc gia, nhằm nâng cao hiệu quả sàng lọc, chẩn đoán, điều trị và quản lý bệnh ung thư vú và ung thư cổ tử cung. Lễ ký kết hôm nay là bước khởi đầu quan trọng, đánh dấu sự hợp tác giữa
+các bên trong nỗ lực xây dựng, hoàn thiện Kế hoạch. Chúng tôi tin tưởng rằng khi Kế hoạch được ban hành, đó chính là nền tảng chuyên môn vững chắc và là kim chỉ nam cho các hoạt động phối hợp liên ngành, huy động nguồn lực, nâng cao năng lực hệ thống y tế, từ đó đảm bảo mọi phụ nữ trên toàn quốc được tiếp cận dịch vụ chăm sóc sức khỏe kịp thời, công bằng”.
+Trong lĩnh vực ung thư vú, hợp tác sẽ tập trung vào việc hỗ trợ xây dựng và phổ biến Kế hoạch hành động quốc gia về ung thư vú, ung thư cổ tử cung; xây dựng hướng dẫn chuyên môn về sàng lọc ung thư vú dựa trên bằng chứng khoa học, sau đó tiến hành thí điểm tại một địa phương để đánh giá khả năng ứng dụng thực tế. Đây sẽ là tiền đề quan trọng để nhân rộng đến các tỉnh/ thành phố khác.
+"Là một công ty hàng đầu thế giới trong lĩnh vực chăm sóc sức khỏe với cam kết mạnh mẽ trong việc cải thiện sức khỏe phụ nữ, Roche Pharma Việt Nam vinh dự được đồng hành cùng Việt Nam từ năm 2013 trong công tác cải thiện việc phát hiện sớm ung thư vú và tăng cường tiếp cận các liệu pháp điều trị tiên tiến cho người bệnh. Chúng tôi vô cùng tự hào được tiếp tục đồng hành và nâng tầm quan hệ hợp tác này lên một tầm cao mới cùng Bộ Y tế thông qua chương trình xây dựng Kế hoạch Hành động Quốc gia về phòng chống ung thư vú một cách toàn diện.", ông Lennor Carrillo, Tổng Giám đốc Roche Pharma Việt Nam chia sẻ.
+Đối với ung thư cổ tử cung, Roche Diagnostics Việt Nam, sẽ tiếp tục đồng hành Cục Bà mẹ và Trẻ em thúc đẩy các hoạt động về sàng lọc và chẩn đoán ung thư cổ tử cung dựa trên nền tảng bằng chứng khoa học, đồng thời tiếp tục đồng hành triển khai Đề án Tư vấn và cung cấp dịch vụ chăm sóc sức khỏe sinh sản cho công nhân lao động tại các khu công nghiệp, khu chế xuất.
+Ông Ricky He, Tổng Giám đốc Roche Diagnostics Việt Nam, khẳng định: "Roche cam kết đồng hành cùng ngành Y tế thực hiện mục tiêu loại trừ ung thư cổ tử cung tại Việt Nam, một căn bệnh hoàn toàn có thể phòng ngừa và điều trị hiệu quả nếu được phát hiện sớm, thông qua việc đóng góp kiến thức chuyên môn từ toàn cầu và khu vực vào việc xây dựng Kế hoạch Hành động Quốc gia. Chúng tôi tin rằng khi khoa học kết hợp chặt chẽ với các chương trình hợp tác và đầu tư bền vững vào hệ thống y tế, có thể tạo ra những tác động thực tiễn trong công cuộc cải thiện chăm sóc sức khỏe phụ nữ Việt Nam.”
+Chương trình hợp tác giữa Cục Bà mẹ và Trẻ em – Bộ Y tế và Công ty Roche Việt Nam (Pharma & Diagnostics) thể hiện tầm nhìn chung: đảm bảo mọi phụ nữ Việt Nam có quyền tiếp cận dịch vụ sàng lọc, chẩn đoán và điều trị ung thư vú và ung thư cổ tử cung một cách kịp thời, hiệu quả và chất lượng. Thông qua hợp tác này, hai bên đang từng bước thiết lập nền tảng cho một Kế hoạch hành động quốc gia mang tính toàn diện, dựa trên bằng chứng khoa học, hướng đến tác động dài hạn, bền vững, góp phần cải thiện sức khỏe cộng đồng và an sinh xã hội.

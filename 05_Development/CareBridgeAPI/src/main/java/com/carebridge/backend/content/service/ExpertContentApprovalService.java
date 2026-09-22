@@ -4,6 +4,7 @@ import com.carebridge.backend.content.dto.request.ContentDecisionRequest;
 import com.carebridge.backend.content.dto.request.ReassignContentRequest;
 import com.carebridge.backend.content.dto.response.ChecklistTemplateDecisionResponse;
 import com.carebridge.backend.content.dto.response.ContentDecisionResponse;
+import com.carebridge.backend.content.dto.response.ExpertApprovalSummaryResponse;
 import com.carebridge.backend.content.dto.response.ExpertContentApprovalQueueItem;
 import com.carebridge.backend.content.entity.ContentStage;
 import com.carebridge.backend.content.entity.ContentType;
@@ -16,6 +17,8 @@ public interface ExpertContentApprovalService {
 
     Page<ExpertContentApprovalQueueItem> getAssignedQueue(
             ContentType type, ContentStage stage, String keyword, Pageable pageable, Principal principal);
+
+    ExpertApprovalSummaryResponse getSummary(ContentStage stage, String keyword, Principal principal);
 
     ContentDecisionResponse decideContent(UUID id, ContentDecisionRequest request, Principal principal);
 

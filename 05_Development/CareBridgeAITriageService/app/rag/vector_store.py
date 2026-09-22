@@ -29,10 +29,35 @@ DENSE_CANDIDATES = 80
 # Newborn documents are ingested with stage BABY_CARE, but chat users are only ever PRECONCEPTION /
 # PREGNANCY / POSTPARTUM. A mother asking about her newborn is in the POSTPARTUM stage, so that stage
 # must also search BABY_CARE; otherwise those documents can never be retrieved.
-_EXTRA_SEARCH_STAGES = {"POSTPARTUM": ("BABY_CARE",)}
+# PREGNANCY searches it too: mothers routinely prepare for newborn care before giving birth
+# ("trẻ sơ sinh vàng da có sao không?"), and pinning those 123 documents to POSTPARTUM made the
+# assistant answer "chưa tìm thấy tài liệu" to a perfectly valid question.
+_EXTRA_SEARCH_STAGES = {
+    "POSTPARTUM": ("BABY_CARE",),
+    "PREGNANCY": ("BABY_CARE",),
+}
 
 
 MAX_CHUNKS_PER_DOCUMENT = 2
+
+# Words that carry no retrieval signal. Module level because RagChatService reuses them to decide
+# whether a follow-up question is specific enough to search on its own, and the two must not drift.
+GENERAL_STOPWORDS = frozenset({
+    "là", "và", "của", "cho", "các", "những", "được", "có", "trong",
+    "để", "khi", "ở", "gì", "thế", "nào", "ạ", "nhé", "với", "từ",
+    "ra", "vào", "thì", "cần", "nên", "hãy", "bị", "do", "về",
+    "cách", "theo", "dõi", "tại", "nhà", "làm", "sao", "bao", "nhiêu",
+    "rất", "nhiều", "ít", "hết", "cũng", "đều", "đã", "đang", "sẽ",
+    "phải", "mà", "này", "đó", "kia", "lên", "xuống", "lại", "qua",
+    "sau", "trước", "giữa", "xin", "giúp", "biết", "thấy", "ai", "đâu",
+    "mỗi", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười",
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "tỉ", "triệu", "nghìn", "k", "ngàn",
+})
+
+# Domain filler words that occur in almost every maternal document.
+DOMAIN_FILLERS = frozenset({
+    "mẹ", "bầu", "thai", "tuần", "tháng", "em", "bé", "con", "mình", "người", "nhà", "hỏi", "chào",
+})
 
 # Stopwords whose accent-folded form is also a meaningful word (năm/nằm, đâu/đau, để/đẻ, thế/thể, ra máu...):
 # never dropped from a query typed without diacritics.
@@ -243,6 +268,29 @@ class PgVectorStore:
 
         return count
 
+    async def get_existing_titles(self, session: Optional[AsyncSession] = None) -> set[str]:
+        """Return set of distinct document titles already stored in pgvector or cache."""
+        async def _fetch(s: AsyncSession) -> set[str]:
+            stmt = select(MaternalKnowledgeChunk.title).distinct()
+            res = await s.execute(stmt)
+            return set(res.scalars().all())
+
+        db_titles: set[str] = set()
+        if session is not None:
+            try:
+                db_titles = await _fetch(session)
+            except Exception as e:
+                logger.debug(f"Could not fetch existing titles from session: {e}")
+        else:
+            try:
+                async with AsyncSessionLocal() as db:
+                    db_titles = await _fetch(db)
+            except Exception as e:
+                logger.debug(f"Could not fetch existing titles from DB: {e}")
+
+        cache_titles = {c["title"] for c in self._local_cache if "title" in c}
+        return db_titles | cache_titles
+
     async def list_chunks(
         self,
         stage: Optional[str] = None,
@@ -383,20 +431,8 @@ class PgVectorStore:
         # (folding inside SQL with translate() took ~20 s per query on the hosted database).
         typed_unaccented = _is_unaccented(query)
 
-        general_stopwords = {
-            "là", "và", "của", "cho", "các", "những", "được", "có", "trong",
-            "để", "khi", "ở", "gì", "thế", "nào", "ạ", "nhé", "với", "từ",
-            "ra", "vào", "thì", "cần", "nên", "hãy", "bị", "do", "về",
-            "cách", "theo", "dõi", "tại", "nhà", "làm", "sao", "bao", "nhiêu",
-            "rất", "nhiều", "ít", "hết", "cũng", "đều", "đã", "đang", "sẽ",
-            "phải", "mà", "này", "đó", "kia", "lên", "xuống", "lại", "qua",
-            "sau", "trước", "giữa", "xin", "giúp", "biết", "thấy", "ai", "đâu",
-            "mỗi", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười",
-            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "tỉ", "triệu", "nghìn", "k", "ngàn",
-        }
-        
-        # Domain filler words that occur in almost every maternal doc
-        domain_fillers = {"mẹ", "bầu", "thai", "tuần", "tháng", "em", "bé", "con", "mình", "người", "nhà", "hỏi", "chào"}
+        general_stopwords = set(GENERAL_STOPWORDS)
+        domain_fillers = set(DOMAIN_FILLERS)
 
         if typed_unaccented:
             # "moi ngay uong bao nhieu" must drop its fillers too, or they take the few keyword slots sent to
