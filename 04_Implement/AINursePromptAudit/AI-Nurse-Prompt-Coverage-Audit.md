@@ -664,7 +664,7 @@ TỔNG: 188 passed, 23 skipped
 | Disclaimer | 96/96 | **100/100** |
 | Bắt đúng ca cấp cứu (danger recall) | 16/16 | **20/20** |
 | Báo động giả | 1/75 | **0/75** |
-| Trích dẫn bịa (quote không có trong kho) | 3/154 (1,9%) | 3/141 (2,1%) theo máy → **0 bịa nội dung y khoa** khi đọc tay (**) |
+| Trích dẫn không khớp nguyên văn | 3/154 (1,9%) | 3/141 (2,1%) theo máy; đọc tay không thấy nội dung y khoa bị thay đổi ở lần chạy này (**) |
 | Từ chối câu ngoài phạm vi | 4/4 | 2/4 theo heuristic cũ → **4/4** sau khi sửa heuristic (*) |
 | Từ chối câu "không có trong kho" | 9/9 | 6/9 theo heuristic cũ → **7/9** (*), 2 ca còn lại xem dưới |
 
@@ -680,11 +680,59 @@ Hai ca NOT_IN_KB còn lại (*rau ngót*, *mướp đắng*) **không phải b�
 - Chạy `--no-judge` nên **không** có faithfulness/correctness (lần 19/09 do chấm tay). 1 lần chạy/câu, chưa đo độ ổn định.
 
 **Việc còn lại (cần bạn quyết định hoặc ngoài phạm vi service này):**
-1. **Cập nhật golden dataset** (`source_file`, nhãn NOT_IN_KB) theo kho hiện tại, rồi chạy benchmark có judge để có faithfulness/correctness.
-2. **#14 — `conversation_history` giả mạo:** cần backend Java dựng lại lịch sử từ DB thay vì tin client gửi lên. Đây là thay đổi hợp đồng API giữa 2 service, nên làm theo quy trình TDS/Test-Spec riêng.
+1. ~~Cập nhật golden dataset~~ → ✅ **Đã làm ở phiên 3, xem G6.** Còn lại: chạy benchmark **có judge** để có faithfulness/correctness.
+2. **#14 — `conversation_history` giả mạo:** ✅ **Đã có TDS + Test-Spec (Draft), chờ duyệt — xem G6.2.** Chưa code.
 3. **Các nhóm tài liệu chưa xoá** ở G3d (phụ khoa tổng quát, giám sát tử vong mẹ, KHHGĐ cấp chương trình): quyết định giữ hay loại. Nếu loại, chỉ cần thêm dòng vào `data/off_domain_manifest.tsv` rồi chạy lại script.
 4. **3 file frontmatter YAML lỗi** (`MedlinePlus_Infertility.md`, `MedlinePlus_Male_Infertility.md`, `MedlinePlus_Pelvic_Pain.md`): đang được nạp với tiêu đề lấy từ tên file. Nên sửa frontmatter (nhiều khả năng là dấu `:` trong title chưa đặt trong ngoặc kép).
 5. **2 cặp file trùng tiêu đề** (*WHO/IDF: Diabetes Action Now*, *WHO 2025: hướng dẫn chương trình đào tạo nhân viên y tế cộng đồng*): ingestion thay thế theo tiêu đề nên file này ghi đè file kia khi nạp lẻ. Nên đổi tên một bản hoặc xoá bản trùng.
 6. Backup `reports/backups/off_domain_prune_20260922_173143.jsonl.gz` chỉ nằm trên máy này (không commit). Giữ lại cho tới khi chắc chắn không cần khôi phục.
 7. ⚠️ **Commit việc xoá 250 file cùng lúc với DB.** DB đã xoá, nhưng việc xoá file mới ở working tree. Nếu `git checkout -- .`/đổi branch trước khi commit, 250 file sẽ quay lại mà DB không có. Lần chạy `sync-directory`/`ingest` tiếp theo sẽ **nạp lại đúng những tài liệu vừa loại**.
-8. **Quy trình:** các sửa logic ở phiên 2 (`leads_with_urgent_referral`, pattern tự hại, cụm từ từ chối của benchmark) được làm **trực tiếp theo báo cáo audit này**, **không** có cặp TDS + Test-Spec riêng như `implement-flow.md` yêu cầu (giống cách phiên 1 đã làm với C1–C5). Nếu cần đúng quy trình cho hồ sơ bảo vệ, nên bổ sung spec hồi tố.
+8. **Quy trình:** (áp dụng cả phiên 3: viết lại golden dataset và heuristic `ABSTENTION_PHRASES`) các sửa logic ở phiên 2 (`leads_with_urgent_referral`, pattern tự hại, cụm từ từ chối của benchmark) được làm **trực tiếp theo báo cáo audit này**, **không** có cặp TDS + Test-Spec riêng như `implement-flow.md` yêu cầu (giống cách phiên 1 đã làm với C1–C5). Nếu cần đúng quy trình cho hồ sơ bảo vệ, nên bổ sung spec hồi tố.
+
+
+## G6. PHIÊN 3 (2026-09-22) — Golden dataset v2 và spec cho #14
+
+### G6.1 Golden dataset xây lại theo kho hiện tại
+
+**Vấn đề:** 100/100 `source_file` của golden v1 trỏ tới 15 file đã bị xoá ở commit `99ccdda4e`. 166/193 quote nằm trong 7 file, trong đó **5 file là bản tóm tắt do nhóm tự viết** (42–109 dòng, nguồn ghi chung chung "Bộ Y Tế & WHO") và **không có bản tương đương** trong kho. Theo quyết định của chủ dự án: **không khôi phục file nào, xây lại golden theo kho hiện tại**.
+
+**Cách làm:**
+- Quote có bản gần như nguyên văn trong kho (QĐ 1139, các khuyến nghị WHO về ANC/chuyển dạ) → trỏ sang file hiện có (17 case tự động + phần lớn quote của 73 case sửa tay). Chỉ nhận quote **khớp nguyên văn**; loại 3 đề xuất tự động sai nghĩa.
+- Case dựa vào 5 file tự viết → tìm evidence mới trong tài liệu chính thống đang có (Bộ Y tế, WHO, MedlinePlus, Viện Dinh dưỡng, Từ Dũ) và **viết lại ground truth chỉ theo những gì tài liệu nói**.
+- Mỗi case có trường `notes` ghi lý do thay đổi; `review_status` = `AI_REBUILT_…` / `AI_REMAPPED_…`. Bản v1 còn nguyên trong lịch sử git.
+
+**Kết quả:** 206 quote từ 42 file, **100% khớp nguyên văn**; `source_file` cấp case và `expected_topics` của 73 case xây lại cũng được cập nhật theo ground truth mới (thêm assert chống lỗi trỏ file cũ trong `test_case_schema`) (`test_golden_dataset.py`: **317 passed**, trước là 197 failed / 108 passed). Toàn bộ 10 file test của service: **505 passed, 23 skipped, 0 failed**; `count(*)`/`max(id)` của bảng tri thức giống hệt trước/sau (54.238 / 523821).
+
+⚠️ **4 case thay đổi NỘI DUNG Y KHOA — cần bác sĩ trong nhóm xem lại:**
+
+| Case | Ground truth cũ (từ file tự viết) | Ground truth mới (theo tài liệu chính thống trong kho) |
+|---|---|---|
+| TC-DANGER-03, TC-DANGER-07, TC-MONITOR-04 | Đếm cử động thai: "<4 lần/2 giờ", uống nước mát/sữa ngọt, nằm nghiêng trái, đếm lại 1 giờ, chạy NST | WHO 2016 **không khuyến nghị** đếm thường quy theo biểu đồ cho mọi thai phụ; mẹ cần nhận biết cử động thai ở tam cá nguyệt ba và **báo ngay khi thai máy giảm**; thai máy giảm trước 37 tuần cần được đánh giá tại cơ sở sản khoa |
+| TC-MONITOR-01 | Ngưỡng đường huyết mục tiêu ADA (≤5,1 / ≤7,8 / ≤6,7 mmol/L) | WHO 2025: mục tiêu **phải cá thể hóa**, không áp một ngưỡng cứng |
+
+Ngoài ra **25 case** bỏ các chi tiết chỉ có trong file tự viết (VD: "VAT 1 từ 20 tuần", "EPDS ≥13", "DHA 200–300 mg", màu sản dịch theo ngày, quy trình đo huyết áp tại nhà). Ground truth mới ghi rõ "tài liệu hiện có không nêu…" để kiểm tra model **không bịa** chi tiết đó.
+
+**Nhãn NOT_IN_KB:** TC-NOKB-02 (rau ngót) chuyển sang FACTUAL vì Viện Dinh dưỡng 2012 trả lời trực tiếp; TC-NOKB-08 (mướp đắng) và -09 (sinh con trai) giữ NOT_IN_KB, `absent_terms` được thu hẹp (kho chỉ nhắc trong một công thức món ăn / một mẹo dân gian bị bác bỏ).
+
+**🔴 Khoảng trống nội dung kho (phát hiện khi xây lại):** sau khi xoá 5 file tự viết, kho **không còn hướng dẫn dễ hiểu cho người mẹ** về: cách tự theo dõi cử động thai tại nhà, diễn tiến sản dịch theo ngày, cách tự đo huyết áp tại nhà, ngưỡng đường huyết tự theo dõi, chăm sóc vết khâu tầng sinh môn/vết mổ tại nhà. Nếu cần AI trả lời các chủ đề này, phải bổ sung **tài liệu chính thống** (không dùng lại bản tự viết không rõ nguồn). Riêng câu về cử động thai trong `BYT_huong_dan_chan_doan_dieu_tri_san_phu_khoa_2015.md` ("từ 23 giờ trở đi cử động thai dưới 12 lần trong 2 giờ") có dấu hiệu **lỗi OCR** về số, cần đối chiếu bản gốc.
+
+**Benchmark với golden v2** (`reports/golden_v2_20260922/`, `--no-judge`, kho 54.238 chunk). ⚠️ Đây là **mốc đo mới trên kho hiện tại**, KHÔNG phải so sánh trước/sau — so sánh trước/sau sạch là không còn làm được vì kho, prompt và golden đều đã đổi (xem G5):
+
+| Chỉ số | Kết quả |
+|---|---|
+| Lỗi sinh / disclaimer | 0/100 / 100/100 |
+| Bắt đúng ca cấp cứu / báo động giả | 20/20 / 0/75 |
+| **Truy xuất trúng file chứa evidence (lần đầu đo được)** | **39/88 (44%)** |
+| Câu trả lời có trích dẫn | 79/88 |
+| Trích dẫn không khớp nguyên văn | máy đánh dấu 7/152; đọc tay: **2/152 (1,3%) là trích dẫn sai — dưới ngưỡng 5%**: TC-POST-03 đổi "vết khâu **có thể nhiễm trùng** và bục" (WHO) thành "**có mủ** và bục" — tức là thay đổi nội dung lâm sàng được gán cho WHO; TC-VAR-07 ghép hai mục riêng của Bộ Y tế thành một câu trích. 5 cái còn lại là văn bản thật nhưng khớp chưa trọn (header trang PDF, xuống dòng) hoặc câu từ chối của chính model |
+| Từ chối ngoài phạm vi / không có trong kho | 4/4 / 7/8 (sau khi bổ sung heuristic, đã kiểm tra 0 false positive mới) |
+
+**Lỗi hành vi thật còn lại:** TC-NOKB-08 — model trích nội dung công thức món "Khổ qua hầm thịt" (kèm các công dụng làm đẹp) như lời khuyên thai kỳ. Nguyên nhân nằm ở **mức chunk**: công thức nằm bên trong một tài liệu dinh dưỡng hợp lệ (Viện Dinh dưỡng 2012), nên việc dọn kho theo tài liệu (G3d) không thể bắt được; chưa sửa. **Truy xuất:** QĐ 1139 chỉ được lấy trúng 13/29 lần, hay thua `BYT_2026_Dinh_duong_trong_phong_benh` (tài liệu dinh dưỡng phổ thông). Đây là hướng tối ưu tiếp theo (trọng số tài liệu/`stage`, `MAX_CHUNKS_PER_DOCUMENT`), chưa làm.
+
+### G6.2 #14 — spec đã tạo, CHỜ DUYỆT
+
+Theo `implement-flow.md`, đã tạo (Status `Draft`, **chưa code**):
+- `04_Implement/RagConversationHistoryIntegrity/RagConversationHistoryIntegrity_TDS.md`
+- `04_Implement/RagConversationHistoryIntegrity/RagConversationHistoryIntegrity_Test-Spec.md` (13 TC)
+
+Phương án do chủ dự án chọn: **B — backend ký HMAC mỗi câu trả lời, chỉ chuyển tiếp lượt `assistant` có chữ ký hợp lệ cho đúng người dùng**; phạm vi Backend + Mobile; không bảng mới, không migration, không đổi hợp đồng với AI service. Còn mở: xoay vòng khoá (`OPEN-02`), metric cho lượt bị loại (`OPEN-03`).

@@ -59,6 +59,8 @@ ABSTENTION_PHRASES = (
     "không thể hỗ trợ",
     "không thể tư vấn",
     "câu hỏi thuộc lĩnh vực này",
+    "vui lòng đặt câu hỏi thuộc lĩnh vực",
+    "vui lòng đặt các câu hỏi liên quan đến lĩnh vực",
     "không thể tự ý",
 )
 

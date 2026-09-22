@@ -135,6 +135,7 @@ def test_abstention_phrases_seen_in_live_answers():
     assert detect_abstention("Rất tiếc em không thể hỗ trợ viết mã lập trình hay các vấn đề ngoài lĩnh vực y tế thai sản.")
     assert detect_abstention("Chị vui lòng đặt câu hỏi thuộc lĩnh vực này để em có thể tư vấn chi tiết cho chị nhé.")
     assert detect_abstention("Pháp luật Việt Nam nghiêm cấm việc lựa chọn giới tính thai nhi, vì vậy em không thể tư vấn cách để sinh con trai.")
+    assert detect_abstention("Chị vui lòng đặt các câu hỏi liên quan đến lĩnh vực thai sản, chăm sóc mẹ bầu và trẻ sơ sinh nhé.")
     assert not detect_abstention("Mẹ nên bổ sung 400 mcg axit folic mỗi ngày trong 3 tháng đầu.")
 
 
