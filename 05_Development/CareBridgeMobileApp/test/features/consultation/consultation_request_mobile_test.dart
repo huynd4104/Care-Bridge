@@ -64,7 +64,7 @@ class _FakeConsultationRequestService extends ConsultationRequestService {
     required String clientRequestId,
     required String expertProfileId,
     required String topic,
-    required String description,
+    String? description,
     DateTime? preferredWindowStart,
     DateTime? preferredWindowEnd,
   }) {
@@ -135,7 +135,7 @@ void main() {
   });
 
   // CONREQ-FL-02
-  testWidgets('form validates required topic and description before submit', (
+  testWidgets('form validates required topic before submit, description is optional', (
     tester,
   ) async {
     final fake = _FakeConsultationRequestService()..detail = _detail();
@@ -155,8 +155,70 @@ void main() {
     await tester.pump();
 
     expect(find.text('Vui lòng nhập chủ đề'), findsOneWidget);
-    expect(find.text('Vui lòng mô tả nhu cầu tư vấn'), findsOneWidget);
+    expect(find.text('Vui lòng mô tả nhu cầu tư vấn'), findsNothing);
     expect(fake.createCalls, 0);
+
+    // Enter only topic without description, submit should succeed
+    await tester.enterText(
+      find.byKey(const Key('consultation-topic')),
+      'Hỏi về dinh dưỡng',
+    );
+    await tester.tap(find.byKey(const Key('consultation-submit')));
+    await tester.pumpAndSettle();
+
+    expect(fake.createCalls, 1);
+  });
+
+  testWidgets('tapping on screen unfocuses text field', (
+    tester,
+  ) async {
+    final fake = _FakeConsultationRequestService()..detail = _detail();
+    ConsultationRequestService.instance = fake;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConsultationRequestFormScreen(
+          expertProfileId: 'expert-1',
+          expertDisplayName: 'BS. Bình',
+          availabilityService: _EmptyAvailabilityService(),
+        ),
+      ),
+    );
+
+    // Tap to focus on topic
+    await tester.tap(find.byKey(const Key('consultation-topic')));
+    await tester.pump();
+    expect(
+      FocusScope.of(tester.element(find.byKey(const Key('consultation-topic')))).hasFocus,
+      isTrue,
+    );
+
+    // Tap outside on the expert card
+    await tester.tap(find.text('Tư vấn cùng Chuyên gia'));
+    await tester.pumpAndSettle();
+
+    final topicEditable = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('consultation-topic')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(topicEditable.focusNode.hasFocus, isFalse);
+
+    // Tap to focus on description
+    await tester.tap(find.byKey(const Key('consultation-description')));
+    await tester.pumpAndSettle();
+    final descEditable = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('consultation-description')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(descEditable.focusNode.hasFocus, isTrue);
+
+    // Tap outside on the expert card
+    await tester.tap(find.text('Tư vấn cùng Chuyên gia'));
+    await tester.pumpAndSettle();
+    expect(descEditable.focusNode.hasFocus, isFalse);
   });
 
   // CONREQ-FL-03

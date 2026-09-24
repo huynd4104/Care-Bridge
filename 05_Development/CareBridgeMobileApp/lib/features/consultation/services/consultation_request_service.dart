@@ -37,15 +37,17 @@ class ConsultationRequestService {
     required String clientRequestId,
     required String expertProfileId,
     required String topic,
-    required String description,
+    String? description,
     DateTime? preferredWindowStart,
     DateTime? preferredWindowEnd,
   }) async {
+    final trimmedDesc = description?.trim();
     final response = await apiPost('/api/v1/consultation-requests', {
       'clientRequestId': clientRequestId,
       'expertProfileId': expertProfileId,
       'topic': topic,
-      'description': description,
+      if (trimmedDesc != null && trimmedDesc.isNotEmpty)
+        'description': trimmedDesc,
       if (preferredWindowStart != null)
         'preferredWindowStart': preferredWindowStart.toUtc().toIso8601String(),
       if (preferredWindowEnd != null)

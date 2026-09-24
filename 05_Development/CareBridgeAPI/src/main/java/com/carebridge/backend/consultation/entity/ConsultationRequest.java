@@ -39,7 +39,7 @@ public class ConsultationRequest {
     @Column(name = "topic", nullable = false, length = 200)
     private String topic;
 
-    @Column(name = "description", nullable = false, length = 2000)
+    @Column(name = "description", length = 2000)
     private String description;
 
     @Column(name = "preferred_window_start")

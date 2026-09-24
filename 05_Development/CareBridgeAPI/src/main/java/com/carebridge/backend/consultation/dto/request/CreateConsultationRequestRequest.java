@@ -28,7 +28,6 @@ public class CreateConsultationRequestRequest {
     @Size(max = 200)
     private String topic;
 
-    @NotBlank
     @Size(max = 2000)
     private String description;
 
