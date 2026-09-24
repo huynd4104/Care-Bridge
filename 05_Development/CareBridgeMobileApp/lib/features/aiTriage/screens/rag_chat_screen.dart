@@ -7,6 +7,8 @@ import '../../../core/network/api_client.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../directChat/services/direct_chat_service.dart';
 import '../../recommendation/models/recommendation_questionnaire.dart';
+import '../../healthRecords/services/health_metric_service.dart';
+import '../../healthRecords/models/health_metric_model.dart';
 
 class _Message {
   final String text;
@@ -120,6 +122,8 @@ class _RagChatScreenState extends State<RagChatScreen> {
   Map<String, dynamic>? _surveyProfile;
   Map<String, dynamic>? _surveyDerived;
   String? _surveyStatus;
+  Map<String, String>? _latestVitals;
+  bool _loadingVitals = false;
 
   String get _effectiveStage {
     final jt =
@@ -213,6 +217,7 @@ class _RagChatScreenState extends State<RagChatScreen> {
     final role = (AuthState.instance.role ?? 'MOTHER').toUpperCase();
     if (role != 'MOTHER') return;
 
+    String? currentJourneyId;
     try {
       final res = await apiGet('/api/v1/journeys/me/dashboard');
       if (res is Map && mounted) {
@@ -222,6 +227,8 @@ class _RagChatScreenState extends State<RagChatScreen> {
             data['pregnancyWeek'] ??
             data['completedGestationalWeek'] ??
             data['effectivePregnancyWeek'];
+        final jId = (data['journeyId'] ?? data['id'])?.toString();
+        currentJourneyId = jId;
         setState(() {
           if (type != null) _journeyType = type;
           if (week != null) {
@@ -255,6 +262,169 @@ class _RagChatScreenState extends State<RagChatScreen> {
         }
       }
     } catch (_) {}
+
+    if (currentJourneyId != null && currentJourneyId.isNotEmpty) {
+      await _loadLatestVitals(currentJourneyId);
+    }
+  }
+
+  Future<void> _loadLatestVitals(String journeyId) async {
+    try {
+      if (mounted) setState(() => _loadingVitals = true);
+      final service = HealthMetricService();
+      final results = await Future.wait([
+        service
+            .getMetricTrend(journeyId: journeyId, metricType: 'BLOOD_PRESSURE')
+            .catchError((_) => const MetricTrend(metricType: 'BLOOD_PRESSURE', dataPoints: [])),
+        service
+            .getMetricTrend(journeyId: journeyId, metricType: 'BLOOD_GLUCOSE')
+            .catchError((_) => const MetricTrend(metricType: 'BLOOD_GLUCOSE', dataPoints: [])),
+        service
+            .getMetricTrend(journeyId: journeyId, metricType: 'TEMPERATURE')
+            .catchError((_) => const MetricTrend(metricType: 'TEMPERATURE', dataPoints: [])),
+        service
+            .getMetricTrend(journeyId: journeyId, metricType: 'HEART_RATE')
+            .catchError((_) => const MetricTrend(metricType: 'HEART_RATE', dataPoints: [])),
+        service
+            .getMetricTrend(journeyId: journeyId, metricType: 'FETAL_MOVEMENT_SESSION')
+            .catchError((_) => const MetricTrend(metricType: 'FETAL_MOVEMENT_SESSION', dataPoints: [])),
+        service
+            .getMetricTrend(journeyId: journeyId, metricType: 'HYDRATION')
+            .catchError((_) => const MetricTrend(metricType: 'HYDRATION', dataPoints: [])),
+        service
+            .getMetricTrend(journeyId: journeyId, metricType: 'EPDS_SCORE')
+            .catchError((_) => const MetricTrend(metricType: 'EPDS_SCORE', dataPoints: [])),
+      ]);
+
+      final vitals = <String, String>{};
+      if (results[0].dataPoints.isNotEmpty) {
+        vitals['Huyết áp'] = '${results[0].dataPoints.last.valueDisplay} mmHg';
+      }
+      if (results[1].dataPoints.isNotEmpty) {
+        vitals['Đường huyết'] = '${results[1].dataPoints.last.valueDisplay} mmol/L';
+      }
+      if (results[2].dataPoints.isNotEmpty) {
+        vitals['Thân nhiệt'] = '${results[2].dataPoints.last.valueDisplay} °C';
+      }
+      if (results[3].dataPoints.isNotEmpty) {
+        vitals['Nhịp tim'] = '${results[3].dataPoints.last.valueDisplay} bpm';
+      }
+      if (results[4].dataPoints.isNotEmpty) {
+        vitals['Cử động thai'] = '${results[4].dataPoints.last.valueDisplay} cử động';
+      }
+      if (results[5].dataPoints.isNotEmpty) {
+        vitals['Lượng nước'] = '${results[5].dataPoints.last.valueDisplay} ml';
+      }
+      if (results[6].dataPoints.isNotEmpty) {
+        vitals['Tâm trạng EPDS'] = '${results[6].dataPoints.last.valueDisplay} điểm';
+      }
+
+      if (mounted) {
+        setState(() {
+          _latestVitals = vitals.isNotEmpty ? vitals : null;
+          _loadingVitals = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingVitals = false);
+    }
+  }
+
+  List<String> _extractSurveyConditions(Map<String, dynamic>? profile) {
+    final conditions = <String>[];
+    if (profile != null) {
+      if (profile['underlyingConditions'] is Map &&
+          profile['underlyingConditions']['conditionCodes'] is List) {
+        conditions.addAll(
+          (profile['underlyingConditions']['conditionCodes'] as List).map(
+            (e) => e.toString(),
+          ),
+        );
+      }
+      if (profile['reproductiveHistory'] is Map &&
+          profile['reproductiveHistory']['conditionCodes'] is List) {
+        conditions.addAll(
+          (profile['reproductiveHistory']['conditionCodes'] as List).map(
+            (e) => e.toString(),
+          ),
+        );
+      }
+    }
+    return conditions;
+  }
+
+  void _attachHealthProfile() {
+    final conditions = _extractSurveyConditions(_surveyProfile);
+    final isPrePregnancy = _effectiveStage == 'PRECONCEPTION';
+    final isPostpartum = _effectiveStage == 'POSTPARTUM';
+    final stageLabel = isPrePregnancy
+        ? 'Chuẩn bị mang thai'
+        : (isPostpartum
+            ? 'Hậu sản & Chăm bé'
+            : (_pregnancyWeek != null
+                ? 'Tuần $_pregnancyWeek'
+                : 'Hồ sơ sức khỏe'));
+
+    setState(() {
+      _attachedContext = {
+        'metricLabel': 'Hồ sơ sức khỏe cá nhân',
+        'displayValue': stageLabel,
+        'gestationalAge': _pregnancyWeek,
+        'journeyType': _journeyType,
+        'stage': _effectiveStage,
+        'riskFactors': conditions,
+        'latestVitals': _latestVitals,
+        'surveyProfile': _surveyProfile,
+        'surveyDerived': _surveyDerived,
+        'surveyStatus': _surveyStatus,
+        'surveyRiskConditions': conditions,
+      };
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã đính kèm hồ sơ sức khỏe vào cuộc trò chuyện'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showAttachHealthContextModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AttachHealthContextSheet(
+        isAttached: _attachedContext != null,
+        journeyType: _journeyType,
+        pregnancyWeek: _pregnancyWeek,
+        effectiveStage: _effectiveStage,
+        surveyProfile: _surveyProfile,
+        surveyStatus: _surveyStatus,
+        latestVitals: _latestVitals,
+        isLoadingVitals: _loadingVitals,
+        onConfirmAttach: () {
+          Navigator.of(ctx).pop();
+          _attachHealthProfile();
+        },
+        onRemoveAttachment: () {
+          Navigator.of(ctx).pop();
+          setState(() {
+            _attachedContext = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã gỡ đính kèm hồ sơ sức khỏe khỏi cuộc trò chuyện'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+        onViewDetails: () {
+          Navigator.of(ctx).pop();
+          _openAttachmentDetailsModal();
+        },
+      ),
+    );
   }
 
   @override
@@ -481,6 +651,40 @@ class _RagChatScreenState extends State<RagChatScreen> {
         if (notes != null && notes.isNotEmpty) {
           recentMetrics['symptoms'] = [notes];
         }
+
+        final vitals = _attachedContext!['latestVitals'];
+        if (vitals is Map) {
+          if (!recentMetrics.containsKey('systolic_bp') && vitals['Huyết áp'] != null) {
+            final bpStr = vitals['Huyết áp'].toString();
+            final parts = bpStr.split(RegExp(r'[^\d]+')).where((s) => s.isNotEmpty).toList();
+            if (parts.length >= 2) {
+              recentMetrics['systolic_bp'] = int.tryParse(parts[0]);
+              recentMetrics['diastolic_bp'] = int.tryParse(parts[1]);
+            }
+          }
+          if (!recentMetrics.containsKey('blood_glucose') && vitals['Đường huyết'] != null) {
+            final gStr = vitals['Đường huyết'].toString();
+            final match = RegExp(r'[\d.]+').firstMatch(gStr);
+            if (match != null) {
+              recentMetrics['blood_glucose'] = double.tryParse(match.group(0)!);
+            }
+          }
+          if (!recentMetrics.containsKey('temperature') && vitals['Thân nhiệt'] != null) {
+            final tStr = vitals['Thân nhiệt'].toString();
+            final match = RegExp(r'[\d.]+').firstMatch(tStr);
+            if (match != null) {
+              recentMetrics['temperature'] = double.tryParse(match.group(0)!);
+            }
+          }
+          if (!recentMetrics.containsKey('fetal_movements_count') && vitals['Cử động thai'] != null) {
+            final fStr = vitals['Cử động thai'].toString();
+            final match = RegExp(r'\d+').firstMatch(fStr);
+            if (match != null) {
+              recentMetrics['fetal_movements_count'] = int.tryParse(match.group(0)!);
+            }
+          }
+        }
+
         if (recentMetrics.isNotEmpty) {
           requestPayload['recentMetrics'] = recentMetrics;
         }
@@ -1240,6 +1444,8 @@ class _RagChatScreenState extends State<RagChatScreen> {
             controller: _inputCtrl,
             sending: _sending,
             onSend: () => _send(),
+            onAttachContext: _showAttachHealthContextModal,
+            hasAttachment: _attachedContext != null,
           ),
         ],
       ),
@@ -2370,11 +2576,15 @@ class _InputBar extends StatelessWidget {
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
+  final VoidCallback onAttachContext;
+  final bool hasAttachment;
 
   const _InputBar({
     required this.controller,
     required this.sending,
     required this.onSend,
+    required this.onAttachContext,
+    this.hasAttachment = false,
   });
 
   @override
@@ -2395,6 +2605,38 @@ class _InputBar extends StatelessWidget {
         top: false,
         child: Row(
           children: [
+            Tooltip(
+              message: hasAttachment
+                  ? 'Hồ sơ sức khỏe đã đính kèm (chạm để xem / gỡ)'
+                  : 'Đính kèm hồ sơ sức khỏe',
+              child: InkWell(
+                key: const Key('chat_input_attach_context_button'),
+                onTap: sending ? null : onAttachContext,
+                borderRadius: BorderRadius.circular(22),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: hasAttachment
+                        ? const Color(0xFFC98C7B).withValues(alpha: 0.15)
+                        : const Color(0xFFF6F1EC),
+                    shape: BoxShape.circle,
+                    border: hasAttachment
+                        ? Border.all(color: const Color(0xFFC98C7B), width: 1.5)
+                        : Border.all(color: const Color(0xFFE8DFD8), width: 1),
+                  ),
+                  child: Icon(
+                    hasAttachment
+                        ? Icons.assignment_turned_in_rounded
+                        : Icons.add_rounded,
+                    color: const Color(0xFF845143),
+                    size: hasAttachment ? 22 : 24,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: controller,
@@ -2448,6 +2690,449 @@ class _InputBar extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachHealthContextSheet extends StatelessWidget {
+  final bool isAttached;
+  final String? journeyType;
+  final int? pregnancyWeek;
+  final String effectiveStage;
+  final Map<String, dynamic>? surveyProfile;
+  final String? surveyStatus;
+  final Map<String, String>? latestVitals;
+  final bool isLoadingVitals;
+  final VoidCallback onConfirmAttach;
+  final VoidCallback onRemoveAttachment;
+  final VoidCallback onViewDetails;
+
+  const _AttachHealthContextSheet({
+    required this.isAttached,
+    this.journeyType,
+    this.pregnancyWeek,
+    required this.effectiveStage,
+    this.surveyProfile,
+    this.surveyStatus,
+    this.latestVitals,
+    this.isLoadingVitals = false,
+    required this.onConfirmAttach,
+    required this.onRemoveAttachment,
+    required this.onViewDetails,
+  });
+
+  List<String> _extractConditions(Map<String, dynamic>? profile) {
+    final conditions = <String>[];
+    if (profile != null) {
+      if (profile['underlyingConditions'] is Map &&
+          profile['underlyingConditions']['conditionCodes'] is List) {
+        conditions.addAll(
+          (profile['underlyingConditions']['conditionCodes'] as List).map(
+            (e) => e.toString(),
+          ),
+        );
+      }
+      if (profile['reproductiveHistory'] is Map &&
+          profile['reproductiveHistory']['conditionCodes'] is List) {
+        conditions.addAll(
+          (profile['reproductiveHistory']['conditionCodes'] as List).map(
+            (e) => e.toString(),
+          ),
+        );
+      }
+    }
+    return conditions;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final conditions = _extractConditions(surveyProfile);
+    final hasSurveyData = surveyProfile != null && surveyProfile!.isNotEmpty;
+    final isNotStarted =
+        surveyStatus == 'NOT_STARTED' ||
+        (surveyProfile == null && surveyStatus == null);
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Title Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1EC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.assignment_outlined,
+                      color: Color(0xFF845143),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Đính kèm Hồ sơ Sức khỏe',
+                          style: TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Cung cấp thông tin để AI Nurse tư vấn chuẩn xác hơn',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Status banner if already attached
+              if (isAttached)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFC8E6C9)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF2E7D32),
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Hồ sơ sức khỏe hiện đang được đính kèm trong cuộc trò chuyện.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF1B5E20),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Overview Cards
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAF7F5),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEFE9E4)),
+                ),
+                child: Column(
+                  children: [
+                    // 1. Stage / Week
+                    Row(
+                      children: [
+                        Icon(
+                          effectiveStage == 'PRECONCEPTION'
+                              ? Icons.spa_rounded
+                              : (effectiveStage == 'POSTPARTUM'
+                                    ? Icons.child_friendly_rounded
+                                    : Icons.child_care_rounded),
+                          color: const Color(0xFF845143),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Giai đoạn:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF666666),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            effectiveStage == 'PRECONCEPTION'
+                                ? 'Chuẩn bị mang thai'
+                                : (effectiveStage == 'POSTPARTUM'
+                                      ? 'Hậu sản & Chăm bé'
+                                      : (pregnancyWeek != null
+                                            ? 'Thai kỳ tuần $pregnancyWeek'
+                                            : 'Đang theo dõi')),
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF333333),
+                            ),
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20, color: Color(0xFFEFE9E4)),
+
+                    // 2. Survey Status
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.history_edu_rounded,
+                          color: Color(0xFF845143),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Tiền sử (Survey):',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF666666),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                hasSurveyData
+                                    ? (conditions.isNotEmpty
+                                          ? 'Đã ghi nhận (${conditions.length} tiền sử)'
+                                          : 'Đã khảo sát (An toàn)')
+                                    : (isNotStarted
+                                          ? 'Chưa làm khảo sát'
+                                          : 'Đã hoàn tất'),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: hasSurveyData
+                                      ? const Color(0xFF2E7D32)
+                                      : (isNotStarted
+                                            ? const Color(0xFFE65100)
+                                            : const Color(0xFF333333)),
+                                ),
+                              ),
+                              if (isNotStarted)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).pop();
+                                      context.push('/recommendation-profile');
+                                    },
+                                    child: const Text(
+                                      'Làm khảo sát ngay >',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFC98C7B),
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20, color: Color(0xFFEFE9E4)),
+
+                    // 3. Vitals Snapshot
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.monitor_heart_outlined,
+                          color: Color(0xFF845143),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Sinh hiệu gần nhất:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF666666),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: isLoadingVitals
+                              ? const Align(
+                                  alignment: Alignment.centerRight,
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                )
+                              : (latestVitals != null &&
+                                      latestVitals!.isNotEmpty
+                                  ? Wrap(
+                                      alignment: WrapAlignment.end,
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: latestVitals!.entries
+                                          .take(3)
+                                          .map((e) {
+                                            return Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFEDE7F6),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                '${e.key}: ${e.value}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF4527A0),
+                                                ),
+                                              ),
+                                            );
+                                          })
+                                          .toList(),
+                                    )
+                                  : const Text(
+                                      'Chưa có dữ liệu mới',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: Colors.grey,
+                                      ),
+                                      textAlign: TextAlign.end,
+                                    )),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Action buttons
+              if (!isAttached)
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    key: const Key('confirm_attach_health_context_btn'),
+                    onPressed: onConfirmAttach,
+                    icon: const Icon(Icons.attachment_rounded, size: 20),
+                    label: const Text(
+                      'Đính kèm hồ sơ vào cuộc trò chuyện',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFC98C7B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('view_attached_context_details_btn'),
+                        onPressed: onViewDetails,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFC98C7B)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Xem chi tiết',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF845143),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('remove_attached_context_btn'),
+                        onPressed: onRemoveAttachment,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFD32F2F)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Gỡ đính kèm',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFD32F2F),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
