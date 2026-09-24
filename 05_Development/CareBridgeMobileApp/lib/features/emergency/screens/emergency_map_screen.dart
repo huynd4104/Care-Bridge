@@ -18,7 +18,7 @@ import '../../aiTriage/models/triage_continuation.dart';
 import '../../aiTriage/services/triage_continuation_restore_coordinator.dart';
 import '../../aiTriage/services/triage_continuation_store.dart';
 import '../../aiTriage/services/triage_service.dart';
-import '../../privacy/services/privacy_service.dart';
+import '../../privacy/services/location_consent_coordinator.dart';
 import '../../safety/services/safety_permission_service.dart';
 import '../models/care_facility_model.dart';
 import '../models/emergency_session_model.dart';
@@ -414,17 +414,8 @@ class _EmergencyMapScreenState extends State<EmergencyMapScreen> {
     }
   }
 
-  Future<bool> _defaultLocationConsentProbe() async {
-    final grants = await PrivacyService.instance.listConsents();
-    return grants.any(
-      (grant) =>
-          grant.isActive &&
-          grant.dataType == 'LOCATION' &&
-          grant.purpose == 'SHARE' &&
-          grant.recipient == 'CAREBRIDGE_SAFETY' &&
-          grant.scope == 'SAFETY_EMERGENCY_ALERT',
-    );
-  }
+  Future<bool> _defaultLocationConsentProbe() =>
+      LocationConsentCoordinator.instance.hasLocationConsent();
 
   Future<void> _defaultLocationConsentGrant({
     required String dataType,
@@ -432,7 +423,7 @@ class _EmergencyMapScreenState extends State<EmergencyMapScreen> {
     required String recipient,
     required String scope,
   }) async {
-    await PrivacyService.instance.grantConsent(
+    await LocationConsentCoordinator.instance.grantLocationConsent(
       dataType: dataType,
       purpose: purpose,
       recipient: recipient,

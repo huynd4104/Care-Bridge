@@ -29,6 +29,7 @@ import '../../healthRecords/screens/fetal_movement_tracker_screen.dart';
 import '../../healthRecords/screens/epds_screen.dart';
 import '../../recommendation/models/recommendation_model.dart';
 import '../../recommendation/services/recommendation_service.dart';
+import '../../privacy/services/location_consent_coordinator.dart';
 import '../../safety/models/safety_config_model.dart';
 import '../../safety/services/safety_service.dart';
 import '../../safety/services/safety_foreground_service.dart';
@@ -145,6 +146,15 @@ class _MotherHomeScreenState extends State<MotherHomeScreen>
           if (mounted) unawaited(_todayTasksController.refresh());
         });
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          LocationConsentCoordinator.instance.checkAndPromptLocationConsent(
+            context,
+          ),
+        );
+      }
+    });
   }
 
   @override

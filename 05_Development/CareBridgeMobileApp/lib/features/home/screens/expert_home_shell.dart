@@ -7,6 +7,7 @@ import '../../directChat/services/direct_chat_service.dart';
 import '../../directChat/services/conversation_refresh_bus.dart';
 import '../../consultation/screens/expert_requests_tab_screen.dart';
 import '../../expert/screens/expert_calendar_screen.dart';
+import '../../privacy/services/location_consent_coordinator.dart';
 
 class ExpertHomeShell extends StatefulWidget {
   const ExpertHomeShell({super.key});
@@ -34,6 +35,15 @@ class _ExpertHomeShellState extends State<ExpertHomeShell>
     _refreshSubscription = ConversationRefreshBus.events.listen(
       (_) => _refreshUnreadCount(),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          LocationConsentCoordinator.instance.checkAndPromptLocationConsent(
+            context,
+          ),
+        );
+      }
+    });
   }
 
   @override

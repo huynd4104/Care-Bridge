@@ -244,8 +244,13 @@ class _ExpertDirectoryScreenState extends State<ExpertDirectoryScreen> {
 
   Widget _buildHeader(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
-    final canPop =
-        context.canPop() || (ModalRoute.of(context)?.canPop ?? false);
+    final canPop = () {
+      try {
+        return context.canPop() || (ModalRoute.of(context)?.canPop ?? false);
+      } catch (_) {
+        return ModalRoute.of(context)?.canPop ?? false;
+      }
+    }();
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -275,11 +280,13 @@ class _ExpertDirectoryScreenState extends State<ExpertDirectoryScreen> {
                     size: 20,
                   ),
                   onPressed: () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      Navigator.of(context).pop();
-                    }
+                    try {
+                      if (context.canPop()) {
+                        context.pop();
+                        return;
+                      }
+                    } catch (_) {}
+                    Navigator.of(context).pop();
                   },
                 ),
                 const SizedBox(width: 12),

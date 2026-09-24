@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +10,7 @@ import '../../community/screens/question_detail_screen.dart';
 import '../../community/services/community_service.dart';
 import '../../consultation/screens/expert_requests_tab_screen.dart';
 import '../../expert/services/expert_home_service.dart';
+import '../../privacy/services/location_consent_coordinator.dart';
 
 class ExpertAppHomeScreen extends StatefulWidget {
   const ExpertAppHomeScreen({super.key});
@@ -34,6 +37,15 @@ class _ExpertAppHomeScreenState extends State<ExpertAppHomeScreen> {
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          LocationConsentCoordinator.instance.checkAndPromptLocationConsent(
+            context,
+          ),
+        );
+      }
+    });
   }
 
   Future<void> _load() async {
