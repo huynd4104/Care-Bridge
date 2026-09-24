@@ -228,3 +228,7 @@ scratchpad/
 
 # AI Nurse knowledge-base row backups (contain embeddings, ~100MB) - keep local only
 05_Development/CareBridgeAITriageService/reports/backups/
+
+# Bien moi truong that - khong bao gio dua vao git duoi bat ky dinh dang nao
+08_References/env.md
+env.md
