@@ -123,4 +123,55 @@ void main() {
     expect(find.text('Hồ sơ Sức khỏe Đính kèm'), findsNothing);
     expect(find.text('Hồ sơ đính kèm: Điểm EPDS'), findsNothing);
   });
+
+  testWidgets('allows user to manually attach health profile via plus button on input bar', (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    // Initially no banner
+    expect(find.byKey(const Key('attachment_context_banner_tap')), findsNothing);
+
+    // Plus button on input bar is present
+    final attachButtonFinder = find.byKey(const Key('chat_input_attach_context_button'));
+    expect(attachButtonFinder, findsOneWidget);
+
+    // Tap plus button to open attachment sheet
+    await tester.tap(attachButtonFinder);
+    await tester.pumpAndSettle();
+
+    // Verify sheet opened
+    expect(find.text('Đính kèm Hồ sơ Sức khỏe'), findsOneWidget);
+    expect(find.byKey(const Key('confirm_attach_health_context_btn')), findsOneWidget);
+
+    // Tap confirm button
+    await tester.tap(find.byKey(const Key('confirm_attach_health_context_btn')));
+    await tester.pumpAndSettle();
+
+    // Sheet closed and attachment banner is now displayed!
+    expect(find.byKey(const Key('attachment_context_banner_tap')), findsOneWidget);
+    expect(find.text('Hồ sơ đính kèm: Hồ sơ sức khỏe cá nhân'), findsOneWidget);
+    expect(find.text('Chạm để xem chi tiết sinh hiệu, survey...'), findsOneWidget);
+
+    // Wait for snackbar to dismiss
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    // Tap plus button again to verify options when attached
+    await tester.tap(attachButtonFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('view_attached_context_details_btn')), findsOneWidget);
+    expect(find.byKey(const Key('remove_attached_context_btn')), findsOneWidget);
+
+    // Remove attachment via sheet
+    await tester.tap(find.byKey(const Key('remove_attached_context_btn')));
+    await tester.pumpAndSettle();
+
+    // Banner removed
+    expect(find.byKey(const Key('attachment_context_banner_tap')), findsNothing);
+  });
 }
