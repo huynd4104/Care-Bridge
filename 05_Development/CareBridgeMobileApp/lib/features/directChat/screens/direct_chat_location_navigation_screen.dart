@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:trackasia_gl/trackasia_gl.dart';
@@ -8,6 +11,45 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../emergency/models/care_facility_model.dart';
 import '../../emergency/services/care_facility_service.dart';
+
+const _deviceChannel = MethodChannel('com.carebridge.app/device');
+
+// Các lớp vector / symbol phức tạp của style TrackAsia làm driver
+// GL của Android Emulator crash (SIGSEGV trong GL2Encoder::s_glDrawElements)
+// ngay khi dẫn đường zoom sâu hoặc nghiêng góc 3D perspective.
+// Máy thật chạy GPU vật lý không bị lỗi này, nên chỉ tối ưu trên emulator.
+const _emulatorUnsafeLayerIds = <String>[
+  'road-oneway-arrow-blue',
+  'road-oneway-arrow-white',
+  'tunnel-oneway-arrow-blue',
+  'tunnel-oneway-arrow-white',
+  'bridge-oneway-arrow-blue',
+  'bridge-oneway-arrow-white',
+  'crosswalks',
+  'level-crossing',
+  'building-number-label',
+  'block-number-label',
+  'road-intersection',
+  'road-pedestrian-polygon-pattern',
+];
+
+Future<bool>? _isAndroidEmulator;
+
+Future<bool> _runningOnAndroidEmulator() {
+  if (defaultTargetPlatform != TargetPlatform.android) {
+    return Future.value(false);
+  }
+  return _isAndroidEmulator ??= _deviceChannel
+      .invokeMethod<bool>('isEmulator')
+      .then((value) {
+        debugPrint('[NAV_DEBUG] isEmulator channel returned: $value');
+        return value ?? false;
+      })
+      .catchError((e) {
+        debugPrint('[NAV_DEBUG] isEmulator channel error: $e');
+        return false;
+      });
+}
 
 class DirectChatLocationNavigationScreen extends StatefulWidget {
   const DirectChatLocationNavigationScreen({
@@ -71,6 +113,7 @@ class _DirectChatLocationNavigationScreenState
   bool _followUser = true;
   bool _voiceEnabled = true;
   bool _arrivedAnnounced = false;
+  bool _trackingCamera = false;
   int _currentStepIndex = 0;
 
   String get _title => widget.label?.trim().isNotEmpty == true
@@ -81,6 +124,7 @@ class _DirectChatLocationNavigationScreenState
   void initState() {
     super.initState();
     _routes = widget.careFacilityService ?? CareFacilityService();
+    unawaited(_runningOnAndroidEmulator());
     unawaited(_configureTts());
     unawaited(_prepareNavigation());
   }
@@ -89,8 +133,23 @@ class _DirectChatLocationNavigationScreenState
   void dispose() {
     _styleWatchdog?.cancel();
     unawaited(_positionSubscription?.cancel());
-    unawaited(_tts.stop());
+    try {
+      unawaited(_tts.stop());
+    } catch (_) {}
     super.dispose();
+  }
+
+  Future<void> _hideEmulatorUnsafeLayers(
+    TrackAsiaMapController controller,
+  ) async {
+    if (!await _runningOnAndroidEmulator()) return;
+    for (final layerId in _emulatorUnsafeLayerIds) {
+      try {
+        await controller.setLayerVisibility(layerId, false);
+      } catch (_) {
+        // Style có thể đổi tên/bỏ lớp; thiếu lớp thì không cần ẩn.
+      }
+    }
   }
 
   Future<void> _configureTts() async {
@@ -283,19 +342,27 @@ class _DirectChatLocationNavigationScreenState
 
   Future<void> _trackUserCamera(Position position) async {
     final controller = _mapController;
-    if (!_styleReady || controller == null) return;
-    final bearing = _calculateBearing(position);
-    await _syncMarkersOnly();
-    await controller.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(position.latitude, position.longitude),
-          zoom: 17.5,
-          tilt: 50.0,
-          bearing: bearing,
-        ),
-      ),
-    );
+    if (!_styleReady || controller == null || _trackingCamera) return;
+    _trackingCamera = true;
+    try {
+      final isEmulator = await _runningOnAndroidEmulator();
+      final bearing = _calculateBearing(position);
+      await _syncMarkersOnly();
+      try {
+        await controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(position.latitude, position.longitude),
+              zoom: isEmulator ? 15.8 : 17.5,
+              tilt: isEmulator ? 0.0 : 50.0,
+              bearing: bearing,
+            ),
+          ),
+        );
+      } catch (_) {}
+    } finally {
+      _trackingCamera = false;
+    }
   }
 
   Future<void> _syncMarkersOnly() async {
@@ -317,22 +384,14 @@ class _DirectChatLocationNavigationScreenState
         _userCircle = null;
       }
     }
+    // Tuyệt đối không gọi clearCircles() trong lúc đang tracking vì sẽ giải phóng buffer GL
+    // gây race-condition SIGSEGV trên Android Emulator.
     try {
-      await controller.clearCircles();
       _userCircle = await controller.addCircle(
         CircleOptions(
           geometry: LatLng(position.latitude, position.longitude),
-          circleRadius: 9,
+          circleRadius: 8,
           circleColor: '#2563EB',
-          circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: 3,
-        ),
-      );
-      await controller.addCircle(
-        CircleOptions(
-          geometry: LatLng(widget.latitude, widget.longitude),
-          circleRadius: 11,
-          circleColor: '#DC2626',
           circleStrokeColor: '#FFFFFF',
           circleStrokeWidth: 3,
         ),
@@ -414,32 +473,34 @@ class _DirectChatLocationNavigationScreenState
     final controller = _mapController;
     final position = _position;
     if (controller == null || position == null) return;
-    await controller.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(
-            position.latitude < widget.latitude
-                ? position.latitude
-                : widget.latitude,
-            position.longitude < widget.longitude
-                ? position.longitude
-                : widget.longitude,
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(
+              position.latitude < widget.latitude
+                  ? position.latitude
+                  : widget.latitude,
+              position.longitude < widget.longitude
+                  ? position.longitude
+                  : widget.longitude,
+            ),
+            northeast: LatLng(
+              position.latitude > widget.latitude
+                  ? position.latitude
+                  : widget.latitude,
+              position.longitude > widget.longitude
+                  ? position.longitude
+                  : widget.longitude,
+            ),
           ),
-          northeast: LatLng(
-            position.latitude > widget.latitude
-                ? position.latitude
-                : widget.latitude,
-            position.longitude > widget.longitude
-                ? position.longitude
-                : widget.longitude,
-          ),
+          left: 48,
+          top: 120,
+          right: 48,
+          bottom: 240,
         ),
-        left: 48,
-        top: 120,
-        right: 48,
-        bottom: 240,
-      ),
-    );
+      );
+    } catch (_) {}
   }
 
   void _startInAppNavigation() {
@@ -479,7 +540,9 @@ class _DirectChatLocationNavigationScreenState
       _isNavigating = false;
       _followUser = false;
     });
-    unawaited(_tts.stop());
+    try {
+      unawaited(_tts.stop());
+    } catch (_) {}
     unawaited(_syncMap());
   }
 
@@ -490,16 +553,18 @@ class _DirectChatLocationNavigationScreenState
       if (_isNavigating) {
         unawaited(_trackUserCamera(pos));
       } else {
-        _mapController?.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: LatLng(pos.latitude, pos.longitude),
-              zoom: 15,
-              tilt: 0,
-              bearing: 0,
+        try {
+          _mapController?.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(
+                target: LatLng(pos.latitude, pos.longitude),
+                zoom: 15,
+                tilt: 0,
+                bearing: 0,
+              ),
             ),
-          ),
-        );
+          );
+        } catch (_) {}
       }
     }
   }
@@ -660,9 +725,15 @@ class _DirectChatLocationNavigationScreenState
                 zoom: 13,
               ),
               myLocationEnabled: false,
+              myLocationTrackingMode: MyLocationTrackingMode.none,
+              myLocationRenderMode: MyLocationRenderMode.normal,
               onMapCreated: (controller) => _mapController = controller,
-              onStyleLoadedCallback: () {
+              onStyleLoadedCallback: () async {
                 _styleWatchdog?.cancel();
+                final controller = _mapController;
+                if (controller != null) {
+                  await _hideEmulatorUnsafeLayers(controller);
+                }
                 _styleReady = true;
                 unawaited(_syncMap());
               },

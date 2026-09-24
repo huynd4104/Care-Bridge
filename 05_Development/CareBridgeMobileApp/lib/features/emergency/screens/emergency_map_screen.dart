@@ -37,6 +37,12 @@ const _emulatorUnsafeLayerIds = <String>[
   'tunnel-oneway-arrow-white',
   'bridge-oneway-arrow-blue',
   'bridge-oneway-arrow-white',
+  'crosswalks',
+  'level-crossing',
+  'building-number-label',
+  'block-number-label',
+  'road-intersection',
+  'road-pedestrian-polygon-pattern',
 ];
 
 Future<bool>? _isAndroidEmulator;
@@ -929,12 +935,13 @@ class _EmergencyMapScreenState extends State<EmergencyMapScreen> {
                         360) %
                       360
                   : 0.0);
+          final isEmu = await _runningOnAndroidEmulator();
           await mapController.animateCamera(
             CameraUpdate.newCameraPosition(
               CameraPosition(
                 target: LatLng(position.latitude, position.longitude),
-                zoom: 17.5,
-                tilt: 50.0,
+                zoom: isEmu ? 15.8 : 17.5,
+                tilt: isEmu ? 0.0 : 50.0,
                 bearing: bearing,
               ),
             ),
@@ -2034,16 +2041,17 @@ class _EmergencyMapScreenState extends State<EmergencyMapScreen> {
                       const SizedBox(height: 10),
                       FloatingActionButton.small(
                         heroTag: 'emergency_recenter_btn',
-                        onPressed: () {
+                        onPressed: () async {
                           setState(() => _followUser = true);
                           final pos = _position;
                           if (pos != null && _mapController != null) {
+                            final isEmu = await _runningOnAndroidEmulator();
                             _mapController!.animateCamera(
                               CameraUpdate.newCameraPosition(
                                 CameraPosition(
                                   target: LatLng(pos.latitude, pos.longitude),
-                                  zoom: _navigationActive ? 17.5 : 15,
-                                  tilt: _navigationActive ? 50.0 : 0,
+                                  zoom: _navigationActive ? (isEmu ? 15.8 : 17.5) : 15,
+                                  tilt: _navigationActive ? (isEmu ? 0.0 : 50.0) : 0,
                                   bearing: 0,
                                 ),
                               ),

@@ -353,6 +353,11 @@ class FallDetectionSensorService {
     }
   }
 
+  /// Kích hoạt sẵn sàng cho phiên kiểm tra cảm biến IMU (Self-Test).
+  void armSensorSelfTest([DateTime? armedAt]) {
+    _sensorSelfTestDetector.arm(armedAt);
+  }
+
   void _publishSamplingDiagnostics(ImuSample sample, {bool force = false}) {
     final previousAt = _lastAccelerometerAt;
     if (previousAt != null && sample.timestamp.isAfter(previousAt)) {
