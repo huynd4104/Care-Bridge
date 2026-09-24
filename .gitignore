@@ -23,6 +23,7 @@ database-debug.log
 *.local
 *.secret
 carebridge-*.json
+08_References/env.md
 
 # Logs and temporary files
 *.log
