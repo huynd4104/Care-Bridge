@@ -120,17 +120,17 @@ describe('checklistImportParser', () => {
     const guideRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Huong_dan, { header: 1, defval: '' });
     expect(rootRows[0]).toEqual(ROOT_HEADERS);
     expect(itemRows[0]).toEqual(ITEM_HEADERS);
-    expect(rootRows).toHaveLength(31);
-    expect(itemRows).toHaveLength(111);
+    expect(rootRows).toHaveLength(33);
+    expect(itemRows).toHaveLength(121);
     expect(guideRows).toHaveLength(28);
     expect(rootRows[1]?.[0]).toBe('PRE_PREG_01');
-    expect(rootRows[30]?.[0]).toBe('BABY_SAFETY_0_24M');
-    expect(itemRows[110]?.[0]).toBe('BABY_SAFETY_0_24M');
+    expect(rootRows[32]?.[0]).toBe('BABY_SAFETY_0_24M');
+    expect(itemRows[120]?.[0]).toBe('BABY_SAFETY_0_24M');
     expect(guideRows[27]?.[1]).toContain('5MB');
 
     const parsedGroups = parseChecklistWorkbook(publicBytes);
-    expect(parsedGroups).toHaveLength(30);
+    expect(parsedGroups).toHaveLength(32);
     expect(parsedGroups.every((group) => group.isValid)).toBe(true);
-    expect(parsedGroups.reduce((total, group) => total + group.itemCount, 0)).toBe(110);
+    expect(parsedGroups.reduce((total, group) => total + group.itemCount, 0)).toBe(120);
   });
 });

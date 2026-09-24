@@ -1,13 +1,13 @@
 <mxfile host="Electron" pages="2">
   <diagram id="web-context" name="Web App Context">
-    <mxGraphModel dx="1144" dy="733" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1450" math="0" shadow="0">
+    <mxGraphModel dx="1873" dy="1138" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1450" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="w-system" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#F19C99;strokeWidth=3;fontSize=14;fontStyle=1;align=center;fontFamily=Helvetica;" value="CareBridge Web App&lt;br&gt;(Admin Web / Expert Portal / Partner Portal)" vertex="1">
           <mxGeometry height="200" width="200" x="800" y="500" as="geometry" />
         </mxCell>
-        <mxCell id="w-guest" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1E40AF;strokeWidth=2;fontSize=12;fontColor=#1E40AF;fontStyle=1;align=center;fontFamily=Helvetica;" value="Guest User" vertex="1">
+        <mxCell id="w-guest" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1E40AF;strokeWidth=2;fontSize=12;fontColor=#1E40AF;fontStyle=1;align=center;fontFamily=Helvetica;" value="User" vertex="1">
           <mxGeometry height="80" width="220" x="310" y="231" as="geometry" />
         </mxCell>
         <mxCell id="w-expert" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1E40AF;strokeWidth=2;fontSize=12;fontColor=#1E40AF;fontStyle=1;align=center;fontFamily=Helvetica;" value="Verified Expert" vertex="1">
@@ -21,12 +21,6 @@
         </mxCell>
         <mxCell id="w-admin" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1E40AF;strokeWidth=2;fontSize=12;fontColor=#1E40AF;fontStyle=1;align=center;fontFamily=Helvetica;" value="System Admin" vertex="1">
           <mxGeometry height="80" width="220" x="540" y="140" as="geometry" />
-        </mxCell>
-        <mxCell id="w-partner" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1E40AF;strokeWidth=2;fontSize=12;fontColor=#1E40AF;fontStyle=1;align=center;fontFamily=Helvetica;" value="Partner Representative" vertex="1">
-          <mxGeometry height="80" width="220" x="310" y="889" as="geometry" />
-        </mxCell>
-        <mxCell id="w-payment" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#065F46;strokeWidth=2;fontSize=13;fontColor=#065F46;fontStyle=1;align=center;fontFamily=Helvetica;" value="VNPay Payment Gateway" vertex="1">
-          <mxGeometry height="80" width="220" x="1270" y="231" as="geometry" />
         </mxCell>
         <mxCell id="w-notification" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#065F46;strokeWidth=2;fontSize=13;fontColor=#065F46;fontStyle=1;align=center;fontFamily=Helvetica;" value="Firebase Cloud Messaging" vertex="1">
           <mxGeometry height="80" width="220" x="1400" y="690" as="geometry" />
@@ -126,38 +120,6 @@
             <mxPoint x="909.9999999999998" y="219.99999999999994" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="w-edge-110" edge="1" parent="1" source="w-partner" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-system" value="Partner profile, service listing, sponsored campaign/content lifecycle">
-          <mxGeometry relative="1" x="0.3569" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="430" y="670" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="w-edge-111" edge="1" parent="1" source="w-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-partner" value="Approval/revision/suspension results, referral/campaign performance">
-          <mxGeometry relative="1" x="-0.3884" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="410" y="650" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="w-edge-112" edge="1" parent="1" source="w-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-payment" value="Payment, refund, commission and reconciliation requests">
-          <mxGeometry relative="1" x="-0.3668" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="1390" y="550" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="w-edge-113" edge="1" parent="1" source="w-payment" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-system" value="Payment/refund/settlement status">
-          <mxGeometry relative="1" x="0.3569" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="1370" y="530" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
         <mxCell id="w-edge-114" edge="1" parent="1" source="w-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-notification" value="Firebase push notification requests">
           <mxGeometry relative="1" x="-0.0942" as="geometry">
             <mxPoint as="offset" />
@@ -206,35 +168,11 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="w-new-consent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#6D28D9;strokeWidth=2;fontSize=12;fontColor=#4C1D95;fontStyle=1;align=center;fontFamily=Helvetica;" value="Consent &amp; Access Control Service" vertex="1">
-          <mxGeometry height="80" width="220" x="820" y="100" as="geometry" />
-        </mxCell>
         <mxCell id="w-new-storage" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#6D28D9;strokeWidth=2;fontSize=12;fontColor=#4C1D95;fontStyle=1;align=center;fontFamily=Helvetica;" value="Firebase Storage&lt;br&gt;(Health Records / Files)" vertex="1">
           <mxGeometry height="80" width="220" x="530" y="980" as="geometry" />
         </mxCell>
-        <mxCell id="w-new-audit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#6D28D9;strokeWidth=2;fontSize=12;fontColor=#4C1D95;fontStyle=1;align=center;fontFamily=Helvetica;" value="Audit / Security Log Service" vertex="1">
-          <mxGeometry height="80" width="220" x="1050" y="980" as="geometry" />
-        </mxCell>
         <mxCell id="w-new-knowledge" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#6D28D9;strokeWidth=2;fontSize=12;fontColor=#4C1D95;fontStyle=1;align=center;fontFamily=Helvetica;" value="Approved Content / RAG Knowledge Base" vertex="1">
           <mxGeometry height="80" width="220" x="1050" y="140" as="geometry" />
-        </mxCell>
-        <mxCell id="w-edge-120" edge="1" parent="1" source="w-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-new-consent" value="Consent checks,&amp;nbsp;&lt;div&gt;sharing scope,&lt;/div&gt;&lt;div&gt;expiry/revoke&lt;/div&gt;">
-          <mxGeometry relative="1" x="0.3675" y="50" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="920" y="290" />
-              <mxPoint x="920" y="290" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="w-edge-121" edge="1" parent="1" source="w-new-consent" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-system" value="Access decision,&lt;div&gt;sharing history&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.3758" y="50" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="940" y="360" />
-              <mxPoint x="940" y="360" />
-            </Array>
-          </mxGeometry>
         </mxCell>
         <mxCell id="w-edge-122" edge="1" parent="1" source="w-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-new-storage" value="Upload/view shared health&amp;nbsp;&lt;div&gt;files and summaries&lt;/div&gt;">
           <mxGeometry relative="1" x="-0.2155" as="geometry">
@@ -251,24 +189,6 @@
             <Array as="points">
               <mxPoint x="650" y="820" />
               <mxPoint x="860" y="820" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="w-edge-124" edge="1" parent="1" source="w-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-new-audit" value="Admin, consent, expert access,&amp;nbsp;&lt;div&gt;payment and security events&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.1764" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="960" y="780" />
-              <mxPoint x="1170" y="780" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="w-edge-125" edge="1" parent="1" source="w-new-audit" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="w-system" value="Audit trail, incident evidence,&amp;nbsp;&lt;div&gt;access history&lt;/div&gt;">
-          <mxGeometry relative="1" x="0.0434" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="1150" y="820" />
-              <mxPoint x="940" y="820" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -312,7 +232,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="mobile-context" name="Mobile App Context">
-    <mxGraphModel dx="2060" dy="2870" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1550" math="0" shadow="0">
+    <mxGraphModel dx="2289" dy="1391" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1550" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -327,9 +247,6 @@
         </mxCell>
         <mxCell id="m-expert-app" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1E40AF;strokeWidth=2;fontSize=12;fontColor=#1E40AF;fontStyle=1;align=center;fontFamily=Helvetica;" value="Verified Expert" vertex="1">
           <mxGeometry height="80" width="220" x="230" y="850" as="geometry" />
-        </mxCell>
-        <mxCell id="m-payment" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#065F46;strokeWidth=2;fontSize=13;fontColor=#065F46;fontStyle=1;align=center;fontFamily=Helvetica;" value="VNPay Payment Gateway" vertex="1">
-          <mxGeometry height="80" width="220" x="1230" y="250" as="geometry" />
         </mxCell>
         <mxCell id="m-map" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#065F46;strokeWidth=2;fontSize=13;fontColor=#065F46;fontStyle=1;align=center;fontFamily=Helvetica;" value="TrackAsia Map Service" vertex="1">
           <mxGeometry height="80" width="220" x="1415" y="802" as="geometry" />
@@ -381,26 +298,6 @@
             <mxPoint as="offset" />
             <Array as="points">
               <mxPoint x="330" y="690" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="m-edge-206" edge="1" parent="1" source="m-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-payment" value="Consultation payment/refund requests">
-          <mxGeometry relative="1" x="-0.5644" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="1190" y="510" />
-              <mxPoint x="1190" y="360" />
-              <mxPoint x="1320" y="360" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="m-edge-207" edge="1" parent="1" source="m-payment" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-system" value="Transaction/refund status">
-          <mxGeometry relative="1" x="0.6076" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="1340" y="380" />
-              <mxPoint x="1210" y="380" />
-              <mxPoint x="1210" y="530" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -600,19 +497,13 @@
           <mxGeometry height="80" width="220" x="460" y="100" as="geometry" />
         </mxCell>
         <mxCell id="m-new-user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1E40AF;strokeWidth=2;fontSize=12;fontColor=#1E40AF;fontStyle=1;align=center;fontFamily=Helvetica;" value="User&lt;div&gt;(shared role)&lt;/div&gt;" vertex="1">
-          <mxGeometry height="80" width="220" x="800" y="-70" as="geometry" />
-        </mxCell>
-        <mxCell id="m-new-consent" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#6D28D9;strokeWidth=2;fontSize=12;fontColor=#4C1D95;fontStyle=1;align=center;fontFamily=Helvetica;" value="Consent &amp; Access Control Service" vertex="1">
-          <mxGeometry height="80" width="220" x="1150" y="100" as="geometry" />
+          <mxGeometry height="80" width="220" x="1090" y="100" as="geometry" />
         </mxCell>
         <mxCell id="m-new-storage" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#6D28D9;strokeWidth=2;fontSize=12;fontColor=#4C1D95;fontStyle=1;align=center;fontFamily=Helvetica;" value="Firebase Storage&lt;br&gt;(Health Records / Files)" vertex="1">
           <mxGeometry height="80" width="220" x="1010" y="1100" as="geometry" />
         </mxCell>
         <mxCell id="m-new-camera" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#C2410C;strokeWidth=2;fontSize=12;fontColor=#9A3412;fontStyle=1;align=center;fontFamily=Helvetica;" value="MediaPipe Pose Analysis&lt;br&gt;(On-device Camera)" vertex="1">
           <mxGeometry height="80" width="220" x="380" y="988" as="geometry" />
-        </mxCell>
-        <mxCell id="m-new-audit" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#6D28D9;strokeWidth=2;fontSize=12;fontColor=#4C1D95;fontStyle=1;align=center;fontFamily=Helvetica;" value="Audit / Safety Event Log Service" vertex="1">
-          <mxGeometry height="80" width="220" x="540" y="1100" as="geometry" />
         </mxCell>
         <mxCell id="m-edge-220" edge="1" parent="1" source="m-new-guest" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-system" value="Registration, login, OTP, password reset">
           <mxGeometry relative="1" x="-0.621" as="geometry">
@@ -631,36 +522,18 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="m-edge-222" edge="1" parent="1" source="m-new-user" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-system" value="Profile, privacy settings,&amp;nbsp;&lt;div&gt;notification preferences,&amp;nbsp;&lt;/div&gt;&lt;div&gt;search/report&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.7116" y="60" as="geometry">
+          <mxGeometry relative="1" x="-0.6574" y="20" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="910" y="240" />
-              <mxPoint x="910" y="240" />
+              <mxPoint x="910" y="150" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="m-edge-223" edge="1" parent="1" source="m-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-new-user" value="Notifications, account status,&lt;div&gt;&amp;nbsp;search/report results&lt;/div&gt;">
-          <mxGeometry relative="1" x="0.6926" y="70" as="geometry">
+          <mxGeometry relative="1" x="0.6757" y="20" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="900" y="110" />
-              <mxPoint x="900" y="110" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="m-edge-224" edge="1" parent="1" source="m-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-new-consent" value="Grant/revoke/check consent,&amp;nbsp;&lt;div&gt;scope, expiry&lt;/div&gt;">
-          <mxGeometry relative="1" x="0.6103" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="930" y="160" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="m-edge-225" edge="1" parent="1" source="m-new-consent" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-system" value="Access decision, permission&amp;nbsp;&lt;div&gt;status, sharing history&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.6345" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="920" y="120" />
+              <mxPoint x="900" y="130" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -695,24 +568,6 @@
             <mxPoint x="1" as="offset" />
             <Array as="points">
               <mxPoint x="500" y="750" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="m-edge-230" edge="1" parent="1" source="m-system" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-new-audit" value="Safety events, consent/audit&amp;nbsp;&lt;div&gt;events, access history&lt;/div&gt;">
-          <mxGeometry relative="1" x="0.2969" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="850" y="1030" />
-              <mxPoint x="660" y="1030" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="m-edge-231" edge="1" parent="1" source="m-new-audit" style="endArrow=block;endSize=8;html=1;rounded=0;fontSize=10.5;strokeColor=#4B5563;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;curved=0;fontColor=#374151;labelBackgroundColor=#ffffff;fontFamily=Helvetica;" target="m-system" value="Safety history, audit evidence,&amp;nbsp;&lt;div&gt;false-positive history&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.2166" as="geometry">
-            <mxPoint as="offset" />
-            <Array as="points">
-              <mxPoint x="630" y="1000" />
-              <mxPoint x="830" y="1000" />
             </Array>
           </mxGeometry>
         </mxCell>
