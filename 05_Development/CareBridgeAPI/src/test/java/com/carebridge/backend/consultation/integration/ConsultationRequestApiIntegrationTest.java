@@ -74,6 +74,24 @@ class ConsultationRequestApiIntegrationTest extends AbstractPostgresIntegrationT
     }
 
     @Test
+    void createWithoutDescriptionPersistsNullDescription() throws Exception {
+        Fixture fixture = seedFixture();
+        UUID clientRequestId = UUID.randomUUID();
+        String body = objectMapper.writeValueAsString(java.util.Map.of(
+                "clientRequestId", clientRequestId,
+                "expertProfileId", fixture.expertProfileId(),
+                "topic", "Nutrition"));
+
+        MvcResult result = create(fixture.motherId(), body);
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(201);
+        UUID id = responseId(result);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT description FROM expert_consultation_requests WHERE id=?",
+                String.class, id)).isNull();
+    }
+
+    @Test
     void retryAfterTrustLossReturnsHttp200AndSameResourceWithoutNewSideEffects()
             throws Exception {
         Fixture fixture = seedFixture();

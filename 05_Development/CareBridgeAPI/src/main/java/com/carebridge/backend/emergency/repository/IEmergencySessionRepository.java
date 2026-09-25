@@ -33,6 +33,7 @@ public interface IEmergencySessionRepository extends JpaRepository<EmergencySess
             FROM safety_events event
             WHERE event.record_type = 'EMERGENCY_SESSION'
               AND event.status = 'ACTIVE'
+              AND event.created_at >= :staleCutoff
               AND (
                     event.alert_status IS NULL
                  OR (event.alert_status IN ('FAILED', 'PARTIAL', 'NO_RECIPIENTS')
@@ -43,5 +44,6 @@ public interface IEmergencySessionRepository extends JpaRepository<EmergencySess
             ORDER BY event.created_at, event.safety_event_id
             LIMIT 50
             """, nativeQuery = true)
-    List<UUID> findAlertRetryCandidates(@Param("retryCutoff") Instant retryCutoff);
+    List<UUID> findAlertRetryCandidates(@Param("retryCutoff") Instant retryCutoff,
+                                        @Param("staleCutoff") Instant staleCutoff);
 }

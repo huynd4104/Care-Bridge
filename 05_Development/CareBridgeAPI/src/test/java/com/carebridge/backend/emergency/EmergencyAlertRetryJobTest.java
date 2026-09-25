@@ -29,7 +29,7 @@ class EmergencyAlertRetryJobTest {
     @InjectMocks private EmergencyAlertRetryJob retryJob;
 
     @Test
-    void retryPendingAlertsUsesOneMinuteCutoffAndDispatchesExistingCandidate() {
+    void retryPendingAlertsUsesOneMinuteCutoffFifteenMinuteAgeCapAndDispatchesExistingCandidate() {
         UUID sessionId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
         EmergencySession session = EmergencySession.builder()
@@ -39,7 +39,7 @@ class EmergencyAlertRetryJobTest {
                 .triggerSource("TRIAGE")
                 .createdAt(Instant.parse("2026-07-25T00:00:00Z"))
                 .build();
-        when(emergencySessionRepository.findAlertRetryCandidates(any()))
+        when(emergencySessionRepository.findAlertRetryCandidates(any(), any()))
                 .thenReturn(List.of(sessionId));
         when(emergencySessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
         Instant before = Instant.now().minusSeconds(61);
@@ -48,8 +48,10 @@ class EmergencyAlertRetryJobTest {
 
         Instant after = Instant.now().minusSeconds(59);
         ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
-        verify(emergencySessionRepository).findAlertRetryCandidates(cutoff.capture());
+        ArgumentCaptor<Instant> staleCutoff = ArgumentCaptor.forClass(Instant.class);
+        verify(emergencySessionRepository).findAlertRetryCandidates(cutoff.capture(), staleCutoff.capture());
         assertThat(cutoff.getValue()).isBetween(before, after);
+        assertThat(staleCutoff.getValue()).isBetween(before.minusSeconds(14 * 60), after.minusSeconds(14 * 60));
         verify(familyAlertService).sendAlert(argThat(event ->
                 sessionId.equals(event.sessionId())
                         && ownerId.equals(event.userId())
@@ -62,7 +64,7 @@ class EmergencyAlertRetryJobTest {
         UUID secondId = UUID.randomUUID();
         EmergencySession first = session(firstId);
         EmergencySession second = session(secondId);
-        when(emergencySessionRepository.findAlertRetryCandidates(any()))
+        when(emergencySessionRepository.findAlertRetryCandidates(any(), any()))
                 .thenReturn(List.of(firstId, secondId));
         when(emergencySessionRepository.findById(firstId)).thenReturn(Optional.of(first));
         when(emergencySessionRepository.findById(secondId)).thenReturn(Optional.of(second));
