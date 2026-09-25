@@ -57,8 +57,11 @@ public class MainActivity extends FlutterActivity {
     private static boolean isEmulator() {
         return "ranchu".equals(Build.HARDWARE)
                 || "goldfish".equals(Build.HARDWARE)
-                || Build.PRODUCT.startsWith("sdk_gphone")
-                || Build.FINGERPRINT.startsWith("generic")
-                || Build.FINGERPRINT.contains("emulator");
+                || (Build.HARDWARE != null && (Build.HARDWARE.contains("ranchu") || Build.HARDWARE.contains("goldfish")))
+                || (Build.PRODUCT != null && (Build.PRODUCT.startsWith("sdk_gphone") || Build.PRODUCT.contains("emulator")))
+                || (Build.MODEL != null && (Build.MODEL.contains("sdk_gphone") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("google_sdk")))
+                || (Build.FINGERPRINT != null && (Build.FINGERPRINT.startsWith("generic") || Build.FINGERPRINT.contains("emulator") || Build.FINGERPRINT.contains("emu64")))
+                || (Build.BRAND != null && Build.BRAND.startsWith("generic"))
+                || (Build.MANUFACTURER != null && Build.MANUFACTURER.contains("Genymotion"));
     }
 }

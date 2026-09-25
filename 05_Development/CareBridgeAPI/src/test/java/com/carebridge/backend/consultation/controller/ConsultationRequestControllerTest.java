@@ -84,6 +84,21 @@ class ConsultationRequestControllerTest {
     }
 
     @Test
+    void createAllowsNullOrBlankDescription() throws Exception {
+        when(service.create(any(), eq(MOTHER_ID)))
+                .thenReturn(new CreateConsultationRequestResult(response(), true));
+
+        var body = validBody();
+        body.remove("description");
+
+        mockMvc.perform(post("/api/v1/consultation-requests")
+                        .principal(() -> MOTHER_ID.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void validationUsesFlatValidationErrorContract() throws Exception {
         var body = validBody();
         body.put("topic", "");

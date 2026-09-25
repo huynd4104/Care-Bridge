@@ -112,6 +112,7 @@ class AuthState extends ChangeNotifier {
     _refreshToken = refreshToken;
     _userId = userId;
     _role = role;
+    _isRestoring = false;
     _sessionGeneration++;
     notifyListeners();
     debugPrint('[AuthState] setTokens: authenticated session published');

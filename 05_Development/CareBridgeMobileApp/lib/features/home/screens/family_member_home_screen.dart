@@ -23,6 +23,7 @@ import '../../notification/screens/emergency_alerts_screen.dart';
 import '../../notification/screens/notification_center_screen.dart';
 import '../../notification/screens/notification_detail_screen.dart';
 import '../../notification/services/notification_service.dart';
+import '../../privacy/services/location_consent_coordinator.dart';
 import '../../recommendation/models/recommendation_model.dart';
 import '../../recommendation/services/recommendation_service.dart';
 import '../../reminder/services/today_task_service.dart';
@@ -88,6 +89,15 @@ class _FamilyMemberHomeScreenState extends State<FamilyMemberHomeScreen> {
     _recommendationService =
         widget.recommendationService ?? RecommendationService();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          LocationConsentCoordinator.instance.checkAndPromptLocationConsent(
+            context,
+          ),
+        );
+      }
+    });
   }
 
   Future<void> _checkUnread({

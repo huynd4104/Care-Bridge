@@ -9,6 +9,7 @@ import '../../auth/screens/account_profile_screen.dart';
 import '../../directChat/services/direct_chat_service.dart';
 import '../../directChat/services/conversation_refresh_bus.dart';
 import '../../checklist/services/checklist_assignment_refresh_bus.dart';
+import '../../privacy/services/location_consent_coordinator.dart';
 
 /// Main app shell housing the BottomNavigationBar (5 tabs) for Family role.
 /// Tabs: Trang chủ | Nhóm | Chuyên gia | Trò chuyện | Hồ sơ
@@ -44,6 +45,15 @@ class _FamilyHomeShellState extends State<FamilyHomeShell>
     _refreshSubscription = ConversationRefreshBus.events.listen(
       (_) => _refreshUnreadCount(),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          LocationConsentCoordinator.instance.checkAndPromptLocationConsent(
+            context,
+          ),
+        );
+      }
+    });
   }
 
   @override

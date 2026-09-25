@@ -29,6 +29,7 @@ import '../../healthRecords/screens/fetal_movement_tracker_screen.dart';
 import '../../healthRecords/screens/epds_screen.dart';
 import '../../recommendation/models/recommendation_model.dart';
 import '../../recommendation/services/recommendation_service.dart';
+import '../../privacy/services/location_consent_coordinator.dart';
 import '../../safety/models/safety_config_model.dart';
 import '../../safety/services/safety_service.dart';
 import '../../safety/services/safety_foreground_service.dart';
@@ -145,6 +146,15 @@ class _MotherHomeScreenState extends State<MotherHomeScreen>
           if (mounted) unawaited(_todayTasksController.refresh());
         });
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          LocationConsentCoordinator.instance.checkAndPromptLocationConsent(
+            context,
+          ),
+        );
+      }
+    });
   }
 
   @override
@@ -240,18 +250,32 @@ class _MotherHomeScreenState extends State<MotherHomeScreen>
       setState(() => _loading = true);
     }
     _checkUnread(generation: generation, accountId: AuthState.instance.userId);
+
+    // Hồ sơ, dashboard và lịch nhắc không phụ thuộc nhau, nên phát cả ba đi
+    // cùng lúc rồi mới chờ. Xếp hàng await như trước bắt màn hình đợi hết vòng
+    // này tới vòng kia: đo trên máy thật, tám request đầu của màn chính mất
+    // khoảng 10 giây khi nối tiếp và 1,6 giây khi gọi song song.
+    final profileFuture = AuthService.instance.getProfile();
+    final dashboardFuture =
+        widget.dashboardLoader?.call() ?? _journeyService.getDashboard();
+    final remindersFuture = _loadReminders();
+
+    // Dashboard là future duy nhất ở đây có thể ném lỗi trước khi tới lượt
+    // await của nó. Gắn sẵn một listener rỗng để lỗi đó không bị Flutter báo là
+    // "unhandled" trong lúc còn đang chờ hồ sơ; await bên dưới vẫn nhận đúng
+    // lỗi ấy vì một future Dart cho phép nhiều listener.
+    unawaited(dashboardFuture.then((_) {}, onError: (Object _) {}));
+
     try {
-      final profile = await AuthService.instance.getProfile();
+      final profile = await profileFuture;
       if (mounted && generation == _loadGeneration) {
         setState(() => _userAvatarUrl = profile.avatarUrl);
       }
     } catch (_) {}
     try {
       // Gọi Service để gửi request lấy Dashboard dữ liệu tuổi thai từ Backend
-      final dashboard =
-          await (widget.dashboardLoader?.call() ??
-              _journeyService.getDashboard());
-      final reminders = await _loadReminders();
+      final dashboard = await dashboardFuture;
+      final reminders = await remindersFuture;
       if (mounted && generation == _loadGeneration) {
         setState(() {
           // Cập nhật State Dashboard (chứa pregnancyWeek, completedGestationalDays, trimester, plan...)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:untitled/features/directChat/screens/direct_chat_location_navigation_screen.dart';
 
@@ -49,5 +50,42 @@ void main() {
     // Verify returned to overview mode
     expect(find.text('Dẫn đường'), findsOneWidget);
     expect(find.byKey(const Key('start-navigation-btn')), findsOneWidget);
+  });
+
+  testWidgets('DirectChatLocationNavigationScreen handles navigation safely on simulated Android emulator', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('com.carebridge.app/device'),
+      (call) async {
+        if (call.method == 'isEmulator') {
+          return true;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('com.carebridge.app/device'),
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DirectChatLocationNavigationScreen(
+          latitude: 10.762622,
+          longitude: 106.660172,
+          label: 'Vị trí thử nghiệm',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Tap "Bắt đầu dẫn đường"
+    await tester.tap(find.byKey(const Key('start-navigation-btn')));
+    await tester.pump();
+
+    expect(find.text('Đang dẫn đường'), findsOneWidget);
   });
 }

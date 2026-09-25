@@ -677,11 +677,18 @@ class _ConsultationRequestDetailScreenState
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
-              request.description,
-              style: const TextStyle(
+              request.description.trim().isEmpty
+                  ? 'Chưa có mô tả chi tiết'
+                  : request.description,
+              style: TextStyle(
                 fontFamily: 'Lexend',
-                color: _onSurface,
+                color: request.description.trim().isEmpty
+                    ? _onSurfaceVariant.withValues(alpha: 0.7)
+                    : _onSurface,
                 fontSize: 14,
+                fontStyle: request.description.trim().isEmpty
+                    ? FontStyle.italic
+                    : FontStyle.normal,
                 height: 1.5,
               ),
             ),

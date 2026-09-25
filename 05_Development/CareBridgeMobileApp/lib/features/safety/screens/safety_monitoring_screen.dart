@@ -400,6 +400,7 @@ class _SafetyMonitoringScreenState extends State<SafetyMonitoringScreen>
     }
 
     _sensorSelfTestArmedAt = DateTime.now().toUtc();
+    _foregroundCoordinator.armSensorSelfTest(_sensorSelfTestArmedAt);
     _demoGestureArmTimer?.cancel();
     _demoGestureArmTimer = Timer(const Duration(seconds: 8), () {
       if (!mounted) return;

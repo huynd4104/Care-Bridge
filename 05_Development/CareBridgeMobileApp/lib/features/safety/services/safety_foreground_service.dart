@@ -101,19 +101,36 @@ class SafetyForegroundServiceCoordinator {
     sendTaskData: sendTaskData ?? (_) {},
   );
 
+  static SafetyForegroundServiceCoordinator _createDefaultInstance() {
+    late final SafetyForegroundServiceCoordinator coordinator;
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+    final gateway = isAndroid
+        ? _FlutterSafetyForegroundGateway()
+        : _InProcessSafetyForegroundGateway(
+            sensorService: FallDetectionSensorService.instance,
+            onEvent: (event) => coordinator._eventController.add(event),
+            onSensorSelfTest: (res) =>
+                coordinator._sensorSelfTestController.add(res),
+            onDiagnostics: (diag) =>
+                coordinator._publishDiagnosticsSnapshot(diag),
+          );
+    coordinator = SafetyForegroundServiceCoordinator._(
+      gateway: gateway,
+      isAuthenticated: () => AuthState.instance.isAuthenticated,
+      loadConfig: SafetyService().getConfig,
+      loadConsents: PrivacyService.instance.listConsents,
+      platformSupported: () =>
+          !kIsWeb && (Platform.isAndroid || Platform.isIOS),
+      platformAndroid: () => isAndroid,
+      requestAndroidPermissions: _requestAndroidForegroundPermissions,
+      sendTaskData: isAndroid ? FlutterForegroundTask.sendDataToTask : (_) {},
+    );
+    return coordinator;
+  }
+
   /// Singleton instance của bộ điều phối Foreground Service.
   static final SafetyForegroundServiceCoordinator instance =
-      SafetyForegroundServiceCoordinator._(
-        gateway: _FlutterSafetyForegroundGateway(),
-        isAuthenticated: () => AuthState.instance.isAuthenticated,
-        loadConfig: SafetyService().getConfig,
-        loadConsents: PrivacyService.instance.listConsents,
-        platformSupported: () =>
-            !kIsWeb && (Platform.isAndroid || Platform.isIOS),
-        platformAndroid: () => !kIsWeb && Platform.isAndroid,
-        requestAndroidPermissions: _requestAndroidForegroundPermissions,
-        sendTaskData: FlutterForegroundTask.sendDataToTask,
-      );
+      _createDefaultInstance();
 
   final SafetyForegroundGateway _gateway;
   final bool Function() _isAuthenticated;
@@ -149,44 +166,68 @@ class SafetyForegroundServiceCoordinator {
 
   void beginFallDetectorAlertResponse() {
     if (!_platformSupported() || !_isRunning) return;
-    _sendTaskData({'type': 'begin_fall_detector_alert_response'});
+    if (_platformAndroid()) {
+      _sendTaskData({'type': 'begin_fall_detector_alert_response'});
+    } else {
+      FallDetectionSensorService.instance.beginAlertResponse();
+    }
   }
 
   void rearmFallDetectorAfterResponse({DateTime? respondedAt}) {
     if (!_platformSupported() || !_isRunning) return;
-    _sendTaskData({
-      'type': 'rearm_fall_detector',
-      'respondedAt': (respondedAt ?? DateTime.now()).toUtc().toIso8601String(),
-    });
+    if (_platformAndroid()) {
+      _sendTaskData({
+        'type': 'rearm_fall_detector',
+        'respondedAt': (respondedAt ?? DateTime.now()).toUtc().toIso8601String(),
+      });
+    } else {
+      FallDetectionSensorService.instance.rearmAfterAlertResponse(
+        (respondedAt ?? DateTime.now()).toUtc(),
+      );
+    }
+  }
+
+  void armSensorSelfTest([DateTime? armedAt]) {
+    if (!_platformSupported() || !_isRunning) return;
+    if (_platformAndroid()) {
+      _sendTaskData({
+        'type': 'arm_sensor_self_test',
+        if (armedAt != null) 'armedAt': armedAt.toUtc().toIso8601String(),
+      });
+    } else {
+      FallDetectionSensorService.instance.armSensorSelfTest(armedAt);
+    }
   }
 
   void initialize() {
     if (_initialized || !_platformSupported()) return;
     _initialized = true;
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'carebridge_safety_monitoring',
-        channelName: 'Giám sát an toàn CareBridge',
-        channelDescription:
-            'Thông báo thường trực khi CareBridge đang theo dõi cảm biến an toàn.',
-        onlyAlertOnce: true,
-        visibility: NotificationVisibility.VISIBILITY_PUBLIC,
-      ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: false,
-        playSound: false,
-      ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(30000),
-        autoRunOnBoot: false,
-        autoRunOnMyPackageReplaced: true,
-        allowWakeLock: true,
-        allowWifiLock: false,
-        allowAutoRestart: true,
-        stopWithTask: false,
-      ),
-    );
-    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+    if (_platformAndroid()) {
+      FlutterForegroundTask.init(
+        androidNotificationOptions: AndroidNotificationOptions(
+          channelId: 'carebridge_safety_monitoring',
+          channelName: 'Giám sát an toàn CareBridge',
+          channelDescription:
+              'Thông báo thường trực khi CareBridge đang theo dõi cảm biến an toàn.',
+          onlyAlertOnce: true,
+          visibility: NotificationVisibility.VISIBILITY_PUBLIC,
+        ),
+        iosNotificationOptions: const IOSNotificationOptions(
+          showNotification: false,
+          playSound: false,
+        ),
+        foregroundTaskOptions: ForegroundTaskOptions(
+          eventAction: ForegroundTaskEventAction.repeat(30000),
+          autoRunOnBoot: false,
+          autoRunOnMyPackageReplaced: true,
+          allowWakeLock: true,
+          allowWifiLock: false,
+          allowAutoRestart: true,
+          stopWithTask: false,
+        ),
+      );
+      FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+    }
     AuthState.instance.addListener(_onAuthStateChanged);
   }
 
@@ -305,6 +346,19 @@ class SafetyForegroundServiceCoordinator {
   void _onTaskData(Object data) {
     if (data is! Map) return;
     final normalized = Map<String, dynamic>.from(data);
+    if (normalized['type'] == 'task_stopped') {
+      _isRunning = false;
+      if (safetyDiagnosticsEnabled) {
+        _publishDiagnosticsSnapshot(
+          ImuDiagnosticsSnapshot.stopped(
+            generation: _latestDiagnosticsGeneration,
+            capturedAt: DateTime.now().toUtc(),
+          ),
+          force: true,
+        );
+      }
+      return;
+    }
     if (normalized['type'] == 'safety_event') {
       final payload = normalized['event'];
       if (payload is! Map) return;
@@ -423,6 +477,58 @@ class _FlutterSafetyForegroundGateway implements SafetyForegroundGateway {
   }
 }
 
+class _InProcessSafetyForegroundGateway implements SafetyForegroundGateway {
+  _InProcessSafetyForegroundGateway({
+    required FallDetectionSensorService sensorService,
+    required void Function(SafetyEvent) onEvent,
+    required void Function(SensorSelfTestResult) onSensorSelfTest,
+    required void Function(ImuDiagnosticsSnapshot) onDiagnostics,
+  }) : _sensorService = sensorService,
+       _onEvent = onEvent,
+       _onSensorSelfTest = onSensorSelfTest,
+       _onDiagnostics = onDiagnostics;
+
+  final FallDetectionSensorService _sensorService;
+  final void Function(SafetyEvent) _onEvent;
+  final void Function(SensorSelfTestResult) _onSensorSelfTest;
+  final void Function(ImuDiagnosticsSnapshot) _onDiagnostics;
+
+  StreamSubscription<SafetyEvent>? _eventSub;
+  StreamSubscription<SensorSelfTestResult>? _selfTestSub;
+  StreamSubscription<ImuDiagnosticsSnapshot>? _diagSub;
+  bool _running = false;
+
+  @override
+  Future<bool> isRunning() async => _running;
+
+  @override
+  Future<void> start({required bool locationSharingAllowed}) async {
+    await stop();
+    _eventSub = _sensorService.detectedEvents.listen(_onEvent);
+    _selfTestSub =
+        _sensorService.sensorSelfTestResults.listen(_onSensorSelfTest);
+    if (safetyDiagnosticsEnabled) {
+      _diagSub = _sensorService.diagnostics.listen(_onDiagnostics);
+    }
+    await _sensorService.start(
+      locationSharingAllowed: locationSharingAllowed,
+    );
+    _running = true;
+  }
+
+  @override
+  Future<void> stop() async {
+    _running = false;
+    await _eventSub?.cancel();
+    _eventSub = null;
+    await _selfTestSub?.cancel();
+    _selfTestSub = null;
+    await _diagSub?.cancel();
+    _diagSub = null;
+    await _sensorService.stop();
+  }
+}
+
 @pragma('vm:entry-point')
 void startSafetyForegroundTask() {
   FlutterForegroundTask.setTaskHandler(_SafetyForegroundTaskHandler());
@@ -482,6 +588,14 @@ class _SafetyForegroundTaskHandler extends TaskHandler {
 
   @override
   void onReceiveData(Object data) {
+    if (data is Map && data['type'] == 'arm_sensor_self_test') {
+      DateTime? armedAt;
+      if (data['armedAt'] is String) {
+        armedAt = DateTime.tryParse(data['armedAt'] as String)?.toUtc();
+      }
+      _sensorService.armSensorSelfTest(armedAt);
+      return;
+    }
     if (isFallDetectorAlertResponseStartData(data)) {
       _sensorService.beginAlertResponse();
       return;
@@ -550,6 +664,7 @@ class _SafetyForegroundTaskHandler extends TaskHandler {
 
   Future<void> _stopTask() async {
     await _sensorService.stop();
+    FlutterForegroundTask.sendDataToMain({'type': 'task_stopped'});
     await FlutterForegroundTask.stopService();
   }
 

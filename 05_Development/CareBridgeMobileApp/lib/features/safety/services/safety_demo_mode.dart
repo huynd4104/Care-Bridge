@@ -20,15 +20,15 @@ const String safetyDiagnosticsModeLabel = safetyDemoMode ? 'Số Liệu' : 'DEBU
 /// participate in production fall detection.
 class SafetyDemoGestureDetector {
   static const double gravity = 9.81;
-  static const double stationaryAccelerationTolerance = 0.8;
-  static const double stationaryRotationMagnitude = 0.25;
-  static const double motionStartAccelerationDeviation = 3.0;
-  static const double motionStartRotationMagnitude = 1.4;
-  static const double strongAccelerationDeviation = 2.5;
-  static const double strongRotationMagnitude = 1.2;
-  static const double requiredPeakAccelerationDeviation = 5.0;
-  static const double requiredPeakRotationMagnitude = 2.0;
-  static const double minimumEstimatedTravelMetres = 0.45;
+  static const double stationaryAccelerationTolerance = 1.2;
+  static const double stationaryRotationMagnitude = 0.4;
+  static const double motionStartAccelerationDeviation = 2.5;
+  static const double motionStartRotationMagnitude = 0.8;
+  static const double strongAccelerationDeviation = 2.0;
+  static const double strongRotationMagnitude = 0.8;
+  static const double requiredPeakAccelerationDeviation = 4.0;
+  static const double requiredPeakRotationMagnitude = 1.2;
+  static const double minimumEstimatedTravelMetres = 0.25;
   // A controlled 50 cm drop has a short near-weightless phase, while a pillow
   // or mattress may dissipate most of the impact. Requiring both phases keeps
   // the self-test distinct from an ordinary lift or hand shake without
@@ -37,12 +37,12 @@ class SafetyDemoGestureDetector {
   static const double softImpactAccelerationMagnitude = 9.5;
   static const Duration minimumFreeFallDuration = Duration(milliseconds: 40);
   static const Duration maximumSoftDropSequence = Duration(seconds: 2);
-  static const int minimumStrongSamples = 8;
-  static const Duration stationaryPreparation = Duration(milliseconds: 300);
-  static const Duration preparationValidity = Duration(seconds: 3);
-  static const Duration minimumMotionDuration = Duration(milliseconds: 250);
-  static const Duration maximumMotionDuration = Duration(milliseconds: 900);
-  static const Duration maximumSampleGap = Duration(milliseconds: 120);
+  static const int minimumStrongSamples = 5;
+  static const Duration stationaryPreparation = Duration(milliseconds: 200);
+  static const Duration preparationValidity = Duration(seconds: 8);
+  static const Duration minimumMotionDuration = Duration(milliseconds: 200);
+  static const Duration maximumMotionDuration = Duration(milliseconds: 1400);
+  static const Duration maximumSampleGap = Duration(milliseconds: 250);
   static const Duration cooldown = Duration(seconds: 2);
 
   DateTime? _lastDetectedAt;
@@ -60,6 +60,11 @@ class SafetyDemoGestureDetector {
 
   int get sequence => _sequence;
 
+  void arm([DateTime? armedAt]) {
+    _resetMotionPreparation();
+    _preparedAt = armedAt ?? DateTime.now().toUtc();
+  }
+
   bool addSample(ImuSample sample) {
     final lastDetectedAt = _lastDetectedAt;
     if (lastDetectedAt != null &&
@@ -72,7 +77,10 @@ class SafetyDemoGestureDetector {
     _lastSampleAt = sample.timestamp;
     if (previousAt != null) {
       final gap = sample.timestamp.difference(previousAt);
-      if (gap <= Duration.zero || gap > maximumSampleGap) {
+      if (gap < Duration.zero) {
+        return false;
+      }
+      if (gap > maximumSampleGap) {
         _resetMotionPreparation();
         return false;
       }
@@ -83,8 +91,10 @@ class SafetyDemoGestureDetector {
     final gyroscopeFresh =
         sample.gyroscopeTimestamp != null &&
         sample.timestamp.difference(sample.gyroscopeTimestamp!).abs() <=
-            maximumSampleGap;
-    final rotationMagnitude = gyroscopeFresh ? sample.gyroscopeMagnitude : 0.0;
+            const Duration(milliseconds: 500);
+    final rotationMagnitude = (gyroscopeFresh || sample.gyroscopeMagnitude > 0)
+        ? sample.gyroscopeMagnitude
+        : 0.0;
     final stationary =
         accelerationDeviation <= stationaryAccelerationTolerance &&
         rotationMagnitude <= stationaryRotationMagnitude;
@@ -118,9 +128,11 @@ class SafetyDemoGestureDetector {
       return false;
     }
 
-    final seconds =
-        sample.timestamp.difference(previousAt!).inMicroseconds /
-        Duration.microsecondsPerSecond;
+    final gapMicroseconds =
+        sample.timestamp.difference(previousAt!).inMicroseconds;
+    final seconds = gapMicroseconds <= 0
+        ? 0.001
+        : gapMicroseconds / Duration.microsecondsPerSecond;
     // Magnitude-only IMU data cannot recover an exact world-space trajectory.
     // Integrating gravity-compensated movement gives a conservative proxy that
     // rejects a short jerk while accepting a deliberate ~50 cm hand swing.

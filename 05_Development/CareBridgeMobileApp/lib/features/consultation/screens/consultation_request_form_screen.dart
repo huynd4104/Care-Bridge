@@ -59,14 +59,16 @@ class _ConsultationRequestFormScreenState
   }
 
   Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
     if (_submitting || !_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
+      final desc = _descriptionController.text.trim();
       await ConsultationRequestService.instance.create(
         clientRequestId: _clientRequestId,
         expertProfileId: widget.expertProfileId,
         topic: _topicController.text.trim(),
-        description: _descriptionController.text.trim(),
+        description: desc.isEmpty ? null : desc,
         preferredWindowStart: _selectedSlot?.startAt,
         preferredWindowEnd: _selectedSlot?.endAt,
       );
@@ -100,7 +102,10 @@ class _ConsultationRequestFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
       backgroundColor: _canvas,
       bottomNavigationBar: SafeArea(
         top: false,
@@ -145,12 +150,16 @@ class _ConsultationRequestFormScreenState
           ),
         ),
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
-          padding: const EdgeInsets.all(20),
-          children: [
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
+            padding: const EdgeInsets.all(20),
+            children: [
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -263,13 +272,13 @@ class _ConsultationRequestFormScreenState
                 color: _onSurface,
               ),
               decoration: InputDecoration(
-                labelText: 'Mô tả chi tiết nhu cầu tư vấn',
+                labelText: 'Mô tả chi tiết nhu cầu tư vấn (không bắt buộc)',
                 labelStyle: const TextStyle(
                   fontFamily: 'Lexend',
                   color: _onSurfaceVariant,
                 ),
                 hintText:
-                    'Mẹ hãy mô tả cụ thể các triệu chứng, thắc mắc hoặc thông tin cần bác sĩ hỗ trợ nhé...',
+                    'Mô tả cụ thể các triệu chứng, thắc mắc hoặc thông tin cần bác sĩ hỗ trợ (nếu có)...',
                 hintStyle: TextStyle(
                   fontFamily: 'Lexend',
                   fontSize: 13,
@@ -290,9 +299,6 @@ class _ConsultationRequestFormScreenState
                   borderSide: const BorderSide(color: _primary, width: 1.5),
                 ),
               ),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Vui lòng mô tả nhu cầu tư vấn'
-                  : null,
             ),
             const SizedBox(height: 16),
             _buildAvailabilityPicker(),
@@ -300,7 +306,9 @@ class _ConsultationRequestFormScreenState
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildAvailabilityPicker() {
@@ -361,7 +369,10 @@ class _ConsultationRequestFormScreenState
                   tooltip: 'Bỏ chọn ca',
                   onPressed: _submitting
                       ? null
-                      : () => setState(() => _selectedSlot = null),
+                      : () {
+                          FocusScope.of(context).unfocus();
+                          setState(() => _selectedSlot = null);
+                        },
                   icon: const Icon(Icons.close_rounded, color: _primary),
                 ),
             ],
@@ -426,11 +437,14 @@ class _ConsultationRequestFormScreenState
                               label: Text(_formatTime(slot)),
                               onSelected: _submitting
                                   ? null
-                                  : (_) => setState(
-                                      () => _selectedSlot = selected
-                                          ? null
-                                          : slot,
-                                    ),
+                                  : (_) {
+                                      FocusScope.of(context).unfocus();
+                                      setState(
+                                        () => _selectedSlot = selected
+                                            ? null
+                                            : slot,
+                                      );
+                                    },
                               selectedColor: _primary,
                               backgroundColor: _surfaceContainerLow,
                               side: BorderSide(

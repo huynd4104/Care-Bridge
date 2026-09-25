@@ -90,8 +90,13 @@ class _ConversationListScreenState extends State<ConversationListScreen>
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
-    final canPop =
-        context.canPop() || (ModalRoute.of(context)?.canPop ?? false);
+    final canPop = () {
+      try {
+        return context.canPop() || (ModalRoute.of(context)?.canPop ?? false);
+      } catch (_) {
+        return ModalRoute.of(context)?.canPop ?? false;
+      }
+    }();
     return Scaffold(
       backgroundColor: _canvas,
       body: SafeArea(
@@ -124,11 +129,13 @@ class _ConversationListScreenState extends State<ConversationListScreen>
                         size: 20,
                       ),
                       onPressed: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          Navigator.of(context).pop();
-                        }
+                        try {
+                          if (context.canPop()) {
+                            context.pop();
+                            return;
+                          }
+                        } catch (_) {}
+                        Navigator.of(context).pop();
                       },
                     ),
                     const SizedBox(width: 12),
