@@ -37,4 +37,13 @@ public interface EmailService {
      * @param tempPassword plaintext temporary password (one-time display in this email only)
      */
     void sendStaffAccountCredentialsEmail(String to, String name, String tempPassword);
+
+    /**
+     * Notifies an expert that their application was rejected and needs revision.
+     *
+     * @param to recipient email address
+     * @param name expert display name
+     * @param reason actionable rejection reason
+     */
+    void sendExpertRejectionEmail(String to, String name, String reason);
 }
