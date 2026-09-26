@@ -273,6 +273,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(VerifiedContentDetailScreen), findsOneWidget);
+    expect(
+      tester
+          .widget<VerifiedContentDetailScreen>(
+            find.byType(VerifiedContentDetailScreen),
+          )
+          .mode,
+      ContentBrowseMode.lifecycle,
+    );
   });
 
   testWidgets(
@@ -372,12 +380,25 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(VerifiedContentDetailScreen), findsOneWidget);
+      expect(
+        tester
+            .widget<VerifiedContentDetailScreen>(
+              find.byType(VerifiedContentDetailScreen),
+            )
+            .mode,
+        ContentBrowseMode.generic,
+      );
     },
   );
 
   testWidgets(
     'displays baby recommendations directly when mother has baby profile even without active maternal journey',
     (tester) async {
+      tester.view.physicalSize = const Size(800, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       final baby = _baby(nickname: 'Bé Miu');
       final article = _babyArticle(
         id: 'baby-art-standalone',
@@ -405,6 +426,22 @@ void main() {
       );
       expect(find.text('Hướng dẫn tắm cho trẻ sơ sinh an toàn'), findsOneWidget);
       expect(find.text('Phù hợp cho Bé Miu (3 ngày tuổi)'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(
+          const Key('mother-home-recommendation-card-baby-art-standalone'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(VerifiedContentDetailScreen), findsOneWidget);
+      expect(
+        tester
+            .widget<VerifiedContentDetailScreen>(
+              find.byType(VerifiedContentDetailScreen),
+            )
+            .mode,
+        ContentBrowseMode.generic,
+      );
     },
   );
 }

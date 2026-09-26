@@ -2086,7 +2086,7 @@ extension _MotherHomeRecommendationView on _MotherHomeScreenState {
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () => _openRecommendation(item.id),
+            onTap: () => _openRecommendation(item, isBabyItem: isBabyItem),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -2157,13 +2157,20 @@ extension _MotherHomeRecommendationView on _MotherHomeScreenState {
     );
   }
 
-  void _openRecommendation(String contentId) {
+  void _openRecommendation(
+    RecommendationContentItem item, {
+    bool? isBabyItem,
+  }) {
+    final isBaby = isBabyItem ??
+        (item.reasonCode == 'BABY_CARE_CONTEXT' || item.stage == 'BABY_CARE');
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => VerifiedContentDetailScreen(
-          contentId: contentId,
-          mode: ContentBrowseMode.lifecycle,
-          contentService: ContentService.instance,
+          contentId: item.id,
+          mode: isBaby
+              ? ContentBrowseMode.generic
+              : ContentBrowseMode.lifecycle,
+          contentService: _contentService,
         ),
       ),
     );
