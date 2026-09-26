@@ -698,13 +698,31 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
   const [resubmitting, setResubmitting] = useState(false);
   const [resubmitError, setResubmitError] = useState<string | null>(null);
   return (
-    <StepCard icon={<ShieldCheck />} title="Đang chờ quản trị viên xét duyệt" description="CareBridge đang đối soát thông tin và bằng cấp của bạn.">
+    <StepCard
+      icon={<ShieldCheck />}
+      title={state.canResubmit ? 'Hồ sơ cần chỉnh sửa' : 'Đã hoàn thiện hồ sơ'}
+      description={state.canResubmit
+        ? 'Quản trị viên chưa chấp nhận hồ sơ. Sửa đúng bước được chỉ ra bên dưới rồi gửi lại.'
+        : 'CareBridge đang đối soát thông tin và bằng cấp của bạn.'}
+    >
       <div className="grid gap-4 sm:grid-cols-3">
         <Status label="Định danh" value={state.identityStatus} />
         <Status label="Chứng chỉ" value={state.credentialStatus} />
         <Status label="Hồ sơ" value={state.verificationStatus} />
       </div>
-      {(state.rejectionReason || state.latestIdentityAttempt?.reviewReason) && (
+      {/* Hồ sơ đã nộp đủ và không bị từ chối: báo rõ là việc của chuyên gia đã
+          xong, phần còn lại do quản trị viên. Máy chủ chỉ trả lý do từ chối khi
+          hồ sơ còn đang bị từ chối, nên sau khi gửi lại khung đỏ tự biến mất. */}
+      {!state.canResubmit && state.identityStatus !== 'REJECTED' && state.identityStatus !== 'MANUAL_REVIEW_REQUIRED' && (
+        <div className="mt-5 flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <BadgeCheck size={20} className="mt-0.5 shrink-0 text-emerald-600" />
+          <p className="m-0">
+            <span className="font-semibold">Bạn đã hoàn thiện hồ sơ.</span> Vui lòng đợi quản trị viên xác thực. Kết quả sẽ được gửi về email bạn đã đăng ký.
+          </p>
+        </div>
+      )}
+      {(state.rejectionReason || state.identityStatus === 'REJECTED' || state.identityStatus === 'MANUAL_REVIEW_REQUIRED')
+        && (state.rejectionReason || state.latestIdentityAttempt?.reviewReason) && (
         <div className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
           <p className="m-0">Phản hồi xét duyệt: {state.rejectionReason ?? state.latestIdentityAttempt?.reviewReason}</p>
           {/* Máy chủ là nơi biết khâu nào bị chấm sai, nên bước cần sửa do máy chủ
@@ -949,14 +967,21 @@ function Status({ label, value }: { label: string; value: string | null }) {
   const positive = value === 'APPROVED';
   const rejected = value === 'REJECTED';
 
+  // Đủ mọi giá trị máy chủ có thể trả về cho định danh, chứng chỉ và hồ sơ,
+  // để không bao giờ lọt mã tiếng Anh ra màn hình.
   const statusTranslations: Record<string, string> = {
     APPROVED: 'Đã duyệt',
     REJECTED: 'Từ chối',
-    PENDING: 'Đang chờ',
+    PENDING: 'Đang chờ duyệt',
+    PENDING_REVIEW: 'Đang chờ duyệt',
+    UNDER_REVIEW: 'Đang xét duyệt',
     MANUAL_REVIEW_REQUIRED: 'Chờ duyệt thủ công',
+    MISSING: 'Chưa gửi',
+    EXPIRED: 'Hết hạn',
+    SUSPENDED: 'Tạm ngưng',
   };
 
-  const displayValue = value ? (statusTranslations[value] || value) : 'CHƯA GỬI';
+  const displayValue = value ? (statusTranslations[value] || 'Đang xử lý') : 'Chưa gửi';
 
   return (
     <div

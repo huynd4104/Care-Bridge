@@ -78,11 +78,16 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
               _statusHero(_state!),
               const SizedBox(height: 18),
               _progressCard(_state!),
-              if (_state!.rejectionReason?.isNotEmpty == true) ...[
+              // Chỉ hiện khi còn thứ phải sửa. Model lấy cả lý do cũ của lần định danh
+              // trước, nên hồ sơ đã gửi lại xong không được hiện khung đỏ nữa.
+              if (_state!.rejectionReason?.isNotEmpty == true &&
+                  (_state!.canResubmit ||
+                      _state!.identityStatus == 'REJECTED' ||
+                      _state!.identityStatus == 'MANUAL_REVIEW_REQUIRED')) ...[
                 const SizedBox(height: 16),
                 _messageCard(
                   Icons.info_outline_rounded,
-                  'Cần bổ sung',
+                  'Lý do quản trị viên từ chối',
                   _state!.rejectionReason!,
                   const Color(0xFF93000A),
                 ),
@@ -154,7 +159,11 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
   Widget _statusHero(ExpertOnboardingState state) {
     final approved = state.approved;
     final rejected = state.rejected;
-    final color = approved
+    // Hồ sơ đã nộp đủ (kể cả vừa gửi lại) là việc của chuyên gia đã xong, nên
+    // dùng màu xanh lá như trạng thái thành công, không dùng màu cảnh báo.
+    final submitted = !approved && !rejected &&
+        state.nextStep == ExpertOnboardingStep.review;
+    final color = approved || submitted
         ? const Color(0xFF287D55)
         : rejected
         ? const Color(0xFFB3261E)
@@ -162,13 +171,17 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
     final title = approved
         ? 'Đã xác minh chuyên gia'
         : rejected
-        ? 'Hồ sơ cần bổ sung'
-        : 'Đang chờ xét duyệt';
+        ? 'Hồ sơ cần chỉnh sửa'
+        : submitted
+        ? 'Đã hoàn thiện hồ sơ'
+        : 'Hồ sơ chưa hoàn tất';
     final detail = approved
         ? 'Bạn đã có thể sử dụng các chức năng dành cho chuyên gia.'
         : rejected
-        ? 'Xem lý do bên dưới và gửi lại phần được yêu cầu.'
-        : 'Danh tính và giấy tờ chuyên môn đang được quản trị viên kiểm tra.';
+        ? 'Sửa đúng bước được chỉ ra bên dưới rồi gửi lại hồ sơ.'
+        : submitted
+        ? 'Vui lòng đợi quản trị viên xác thực. Kết quả sẽ được gửi về email bạn đã đăng ký.'
+        : 'Hoàn thành các bước còn lại để gửi hồ sơ cho quản trị viên.';
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -182,6 +195,8 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                 ? Icons.verified_rounded
                 : rejected
                 ? Icons.assignment_late_rounded
+                : submitted
+                ? Icons.task_alt_rounded
                 : Icons.hourglass_top_rounded,
             size: 62,
             color: color,
@@ -308,9 +323,14 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
       case 'MANUAL_REVIEW_REQUIRED':
         return 'Cần quản trị viên kiểm tra thủ công';
       case 'PENDING':
+      case 'PENDING_REVIEW':
       case 'SUBMITTED':
       case 'UNDER_REVIEW':
         return 'Đang chờ xét duyệt';
+      case 'EXPIRED':
+        return 'Hết hạn — cần gửi lại';
+      case 'SUSPENDED':
+        return 'Tạm ngưng';
       case 'RETRYABLE':
       case 'RETRYABLE_ERROR':
         return 'Tạm thời chưa xử lý được — vui lòng thử lại';
@@ -319,7 +339,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
       case 'REQUIRED':
         return 'Chưa gửi';
       default:
-        return status.isEmpty ? 'Chưa có trạng thái' : status;
+        return status.isEmpty ? 'Chưa có trạng thái' : 'Đang xử lý';
     }
   }
 

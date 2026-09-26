@@ -346,13 +346,17 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
                 .credentialStatus(credentialStatus)
                 .verificationStatus(profile.getVerificationStatus())
                 .expertType(profile.getExpertType() != null ? profile.getExpertType().name() : null)
-                .rejectionReason(profileRepository
-                        .findLatestProfileRejectionReason(profile.getExpertProfileId())
-                        .orElse(null))
+                // Lý do đọc từ bản ghi từ chối mới nhất trong audit log, và bản ghi đó
+                // vẫn nằm đó sau khi chuyên gia gửi lại. Không chặn theo trạng thái thì
+                // hồ sơ đã nộp lại, đang chờ duyệt, vẫn hiện khung đỏ "bị từ chối".
+                .rejectionReason(canResubmit(profile.getVerificationStatus())
+                        ? profileRepository
+                                .findLatestProfileRejectionReason(profile.getExpertProfileId())
+                                .orElse(null)
+                        : null)
                 .rejectedStep(determineRejectedStep(profile.getVerificationStatus(),
                         identityStatus, credentialStatus))
-                .canResubmit(profile.getVerificationStatus() == VerificationStatus.REJECTED
-                        || profile.getVerificationStatus() == VerificationStatus.EXPIRED)
+                .canResubmit(canResubmit(profile.getVerificationStatus()))
                 .nextStep(nextStep)
                 .latestIdentityAttempt(latest.map(this::toResponse).orElse(null))
                 .build();
@@ -548,6 +552,12 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
         return "UNDER_REVIEW";
     }
 
+    /** Trạng thái mà /profiles/me/renew chấp nhận để đưa hồ sơ về chờ duyệt. */
+    private static boolean canResubmit(VerificationStatus verificationStatus) {
+        return verificationStatus == VerificationStatus.REJECTED
+                || verificationStatus == VerificationStatus.EXPIRED;
+    }
+
     /**
      * Hồ sơ bị từ chối thì chuyên gia phải biết sai ở khâu nào mới sửa được.
      *
@@ -562,8 +572,7 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
      */
     private static String determineRejectedStep(
             VerificationStatus verificationStatus, String identityStatus, String credentialStatus) {
-        if (verificationStatus != VerificationStatus.REJECTED
-                && verificationStatus != VerificationStatus.EXPIRED) {
+        if (!canResubmit(verificationStatus)) {
             return null;
         }
         if ("REJECTED".equals(identityStatus) || "MISSING".equals(identityStatus)) return "IDENTITY";
