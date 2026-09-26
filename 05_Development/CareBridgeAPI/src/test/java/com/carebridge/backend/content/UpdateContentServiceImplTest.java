@@ -23,6 +23,8 @@ import com.carebridge.backend.content.mapper.ContentMapper;
 import com.carebridge.backend.content.policy.HtmlContentSanitizer;
 import com.carebridge.backend.content.repository.ContentRepository;
 import com.carebridge.backend.content.service.AdminContentServiceImpl;
+import com.carebridge.backend.content.service.ContentWorkloadDispatcherService;
+import com.carebridge.backend.notification.service.ContentReviewNotificationService;
 import java.security.Principal;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,6 +55,12 @@ class UpdateContentServiceImplTest {
 
     @Mock
     private HtmlContentSanitizer htmlContentSanitizer;
+
+    @Mock
+    private ContentWorkloadDispatcherService contentWorkloadDispatcherService;
+
+    @Mock
+    private ContentReviewNotificationService contentReviewNotificationService;
 
     @InjectMocks
     private AdminContentServiceImpl adminContentService;
@@ -238,5 +246,22 @@ class UpdateContentServiceImplTest {
 
         verify(htmlContentSanitizer).sanitize("updated body");
         assertEquals(sanitizedBody, response.body());
+    }
+
+    @Test
+    void updateContent_archivedItem_canBeUpdatedToDraftOrPendingReview() {
+        ContentItem existing = makeItem(C1, "Archived Article", ContentStage.PREGNANCY, ContentType.ARTICLE, 1);
+        existing.setStatus(ContentStatus.ARCHIVED);
+        when(contentRepository.findById(C1)).thenReturn(Optional.of(existing));
+        when(contentRepository.findByTitleIgnoreCaseAndStageAndType(any(), any(), any())).thenReturn(Optional.empty());
+        when(contentRepository.save(any(ContentItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(contentWorkloadDispatcherService.dispatchToOptimalExpert(any(), any(), any())).thenReturn(UUID.randomUUID());
+
+        UpdateContentRequest request = makeRequest("Archived Article Updated", ContentStage.PREGNANCY, ContentStatus.PENDING_REVIEW);
+        UpdateContentResponse response = adminContentService.updateContent(C1, request, principal);
+
+        assertEquals(ContentStatus.PENDING_REVIEW, response.status());
+        assertEquals("Archived Article Updated", response.title());
+        assertEquals(2, response.versionNo());
     }
 }
