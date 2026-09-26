@@ -4,6 +4,7 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +26,8 @@ public class ShareLocationRequest {
     @DecimalMax(value = "180.0")
     private BigDecimal longitude;
 
+    @PositiveOrZero(message = "Độ chính xác vị trí không được âm")
+    @DecimalMax(value = "10000", message = "Độ chính xác vị trí tối đa 10.000 mét")
     private BigDecimal accuracyMeters;
 
     private String availabilityStatus;

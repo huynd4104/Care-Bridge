@@ -83,11 +83,29 @@ public class GlobalExceptionHandler {
         ErrorResponse response = ErrorResponse.builder()
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("VALIDATION_ERROR")
-                .message("Invalid request")
+                .message(firstVietnameseMessage(details))
                 .path(request.getRequestURI())
                 .details(details)
                 .build();
         return ResponseEntity.badRequest().body(response);
+    }
+
+    private static final java.util.regex.Pattern VIETNAMESE_TEXT = java.util.regex.Pattern.compile(
+            "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
+            java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.UNICODE_CASE);
+
+    /**
+     * Web và app chỉ hiện message khi nó là tiếng Việt, còn lại thay bằng câu chung chung
+     * "Dữ liệu gửi lên không hợp lệ". Vì vậy câu tiếng Việt viết sẵn cho từng trường (ví dụ
+     * "Phí tư vấn tối đa 10.000.000 đồng mỗi buổi") phải được đưa lên đây thì người dùng mới
+     * thấy. Trường nào chưa có câu tiếng Việt thì giữ nguyên "Invalid request" như cũ.
+     */
+    private static String firstVietnameseMessage(List<ErrorDetail> details) {
+        return details.stream()
+                .map(ErrorDetail::getMessage)
+                .filter(message -> message != null && VIETNAMESE_TEXT.matcher(message).find())
+                .findFirst()
+                .orElse("Invalid request");
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

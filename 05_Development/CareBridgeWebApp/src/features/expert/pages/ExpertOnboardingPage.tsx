@@ -3,6 +3,17 @@ import { ContractStep, ExpertTypeStep } from '../components/ExpertTwoTierSteps';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ArrowRight, BadgeCheck, Camera, Check, FileBadge, RefreshCw, ShieldCheck } from 'lucide-react';
 import {
+  EARLIEST_ISSUED_DATE,
+  MAX_CONSULTATION_SCOPE,
+  MAX_CREDENTIAL_NUMBER,
+  MAX_EXPERIENCE_YEARS,
+  MAX_PROFESSIONAL_TITLE,
+  credentialDateErrors,
+  experienceYearsError,
+  localToday,
+  textFieldError,
+} from '../utils/expertValidation';
+import {
   createMyProfile,
   getExpertOnboarding,
   renewVerification,
@@ -345,10 +356,28 @@ function IdentityStep({ onDone, latestReason, needsProfile }: { onDone: () => Pr
     void runVerify();
   }, [images.selfie, images.identityFront]);
 
+  const profileErrors = {
+    professionalTitle: textFieldError(form.professionalTitle, {
+      label: 'chức danh',
+      max: MAX_PROFESSIONAL_TITLE,
+      required: true,
+    }),
+    experienceYears: experienceYearsError(form.experienceYears),
+    consultationScope: textFieldError(form.consultationScope, {
+      label: 'phạm vi tư vấn',
+      max: MAX_CONSULTATION_SCOPE,
+    }),
+  };
+
   const submit = async () => {
     if (needsProfile) {
-      if (!form.specialtyId || !form.professionalTitle || !form.provinceId || !form.hospitalId) {
+      if (!form.specialtyId || !form.professionalTitle.trim() || !form.provinceId || !form.hospitalId) {
         setError('Vui lòng điền đầy đủ thông tin chuyên môn bắt buộc.');
+        return;
+      }
+      const firstProfileError = Object.values(profileErrors).find(Boolean);
+      if (firstProfileError) {
+        setError(firstProfileError);
         return;
       }
     }
@@ -408,16 +437,40 @@ function IdentityStep({ onDone, latestReason, needsProfile }: { onDone: () => Pr
                 ))}
               </select>
             </label>
-            <Input label="Chức danh *" value={form.professionalTitle} onChange={update('professionalTitle')} placeholder="Ví dụ: BS.CKII, ThS.BS..." />
-            <Input label="Số năm kinh nghiệm" type="number" min="0" max="80" value={form.experienceYears} onChange={update('experienceYears')} />
+            <Input
+              label="Chức danh *"
+              value={form.professionalTitle}
+              onChange={update('professionalTitle')}
+              placeholder="Ví dụ: BS.CKII, ThS.BS..."
+              maxLength={MAX_PROFESSIONAL_TITLE}
+              error={form.professionalTitle ? profileErrors.professionalTitle : null}
+            />
+            <Input
+              label="Số năm kinh nghiệm"
+              type="number"
+              min="0"
+              max={MAX_EXPERIENCE_YEARS}
+              step="1"
+              value={form.experienceYears}
+              onChange={update('experienceYears')}
+              error={profileErrors.experienceYears}
+            />
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Phạm vi tư vấn</label>
-              <textarea 
-                value={form.consultationScope} 
-                onChange={update('consultationScope')} 
-                className="h-24 resize-none rounded-xl border border-gray-300 p-3 font-normal outline-none focus:border-primary focus:ring-4 focus:ring-primary/20"
+              <textarea
+                value={form.consultationScope}
+                onChange={update('consultationScope')}
+                aria-invalid={Boolean(profileErrors.consultationScope)}
+                className={`h-24 resize-none rounded-xl border p-3 font-normal outline-none focus:ring-4 ${
+                  profileErrors.consultationScope
+                    ? 'border-error focus:border-error focus:ring-error/20'
+                    : 'border-gray-300 focus:border-primary focus:ring-primary/20'
+                }`}
                 placeholder="Mô tả các bệnh lý và chuyên môn tư vấn chính..."
               />
+              {profileErrors.consultationScope && (
+                <span className="text-xs text-error">{profileErrors.consultationScope}</span>
+              )}
             </div>
             <div className="sm:col-span-2 grid gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-200">
               <p className="text-xs font-bold uppercase text-gray-500">Địa điểm công tác</p>
@@ -562,6 +615,17 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
         return next;
       });
 
+  const credentialNumberError = textFieldError(form.credentialNumber, {
+    label: 'số chứng chỉ',
+    max: MAX_CREDENTIAL_NUMBER,
+    required: true,
+  });
+  const dateErrors = credentialDateErrors(form.issuedDate, form.expiryDate, {
+    expiryRequired: form.credentialType !== 'DEGREE',
+  });
+  // Ô chưa đụng tới thì chưa báo "vui lòng nhập", chỉ báo khi đã gõ sai.
+  const shown = (value: string, message: string | null | undefined) => (value ? message ?? null : null);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -579,31 +643,11 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
       return;
     }
 
-    // 3. Validate Dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-
-    const issued = new Date(form.issuedDate);
-    if (issued > today) {
-      setError('Ngày cấp không được vượt quá ngày hiện tại.');
+    // 3. Số chứng chỉ và các ngày: cùng luật đang hiện lỗi ngay dưới từng ô.
+    const firstFieldError = credentialNumberError ?? dateErrors.issuedDate ?? dateErrors.expiryDate;
+    if (firstFieldError) {
+      setError(firstFieldError);
       return;
-    }
-
-    if (form.credentialType !== 'DEGREE' && !form.expiryDate) {
-      setError('Loại chứng chỉ này yêu cầu ngày hết hạn.');
-      return;
-    }
-
-    if (form.expiryDate) {
-      const expiry = new Date(form.expiryDate);
-      if (expiry <= issued) {
-        setError('Ngày hết hạn phải lớn hơn ngày cấp.');
-        return;
-      }
-      if (expiry <= today) {
-        setError('Chứng chỉ đã hết hạn. Ngày hết hạn phải là một ngày trong tương lai.');
-        return;
-      }
     }
 
     setSubmitting(true);
@@ -611,7 +655,7 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
       await submitCredential({ 
         body: {
           credentialType: form.credentialType,
-          credentialNumber: form.credentialNumber,
+          credentialNumber: form.credentialNumber.trim(),
           issuer: finalIssuer,
           issuedDate: form.issuedDate,
           expiryDate: form.expiryDate || undefined
@@ -627,7 +671,8 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
     }
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Ngày theo lịch của người dùng; toISOString() là ngày UTC nên trước 7h sáng không chọn được hôm nay.
+  const todayStr = localToday();
 
   return (
     <StepCard icon={<FileBadge />} title="Chứng chỉ chuyên môn" description="Cung cấp bằng chứng về trình độ chuyên môn để quản trị viên phê duyệt.">
@@ -643,7 +688,13 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
             <option value="IDENTITY_DOCUMENT">Giấy tờ định danh y tế bổ sung</option>
           </select>
         </label>
-        <Input label="Số chứng chỉ *" value={form.credentialNumber} onChange={update('credentialNumber')} />
+        <Input
+          label="Số chứng chỉ *"
+          value={form.credentialNumber}
+          onChange={update('credentialNumber')}
+          maxLength={MAX_CREDENTIAL_NUMBER}
+          error={form.credentialNumber ? credentialNumberError : null}
+        />
         
         <div className="grid gap-2 text-sm font-medium">
           <label>Đơn vị cấp *</label>
@@ -666,10 +717,25 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
           )}
         </div>
 
-        <Input label="Ngày cấp *" type="date" max={todayStr} value={form.issuedDate} onChange={update('issuedDate')} />
-        
+        <Input
+          label="Ngày cấp *"
+          type="date"
+          min={EARLIEST_ISSUED_DATE}
+          max={todayStr}
+          value={form.issuedDate}
+          onChange={update('issuedDate')}
+          error={shown(form.issuedDate, dateErrors.issuedDate)}
+        />
+
         {form.credentialType !== 'DEGREE' ? (
-          <Input label="Ngày hết hạn *" type="date" min={form.issuedDate || todayStr} value={form.expiryDate} onChange={update('expiryDate')} />
+          <Input
+            label="Ngày hết hạn *"
+            type="date"
+            min={form.issuedDate && form.issuedDate > todayStr ? form.issuedDate : todayStr}
+            value={form.expiryDate}
+            onChange={update('expiryDate')}
+            error={shown(form.expiryDate, dateErrors.expiryDate)}
+          />
         ) : (
           <div className="grid gap-2 text-sm font-medium text-gray-400">
             Ngày hết hạn
@@ -924,15 +990,25 @@ function StepCard({ icon, title, description, children }: { icon: React.ReactNod
   );
 }
 
-function Input({ label, className, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+function Input({
+  label,
+  className,
+  error,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | null }) {
   return (
     <label className="grid gap-1.5 text-xs font-semibold text-on-surface">
       {label}
       <input
         {...props}
         required={label.includes('*')}
-        className={`h-11 rounded-2xl border border-outline-variant bg-surface px-4 text-sm text-on-surface outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary font-sans ${className || ''}`}
+        aria-invalid={Boolean(error)}
+        className={`h-11 rounded-2xl border bg-surface px-4 text-sm text-on-surface outline-none transition-all focus:ring-1 font-sans ${
+          error ? 'border-error focus:border-error focus:ring-error' : 'border-outline-variant focus:border-primary focus:ring-primary'
+        } ${className || ''}`}
       />
+      {/* Lỗi hiện ngay khi đang nhập, không đợi bấm gửi. */}
+      {error && <span className="text-xs font-normal text-error">{error}</span>}
     </label>
   );
 }
