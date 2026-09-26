@@ -9,7 +9,6 @@ import 'linked_accounts_screen.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../shared/components/app_user_avatar.dart';
 import '../../../features/session/screens/login_sessions_screen.dart';
-import '../../../features/privacy/screens/privacy_settings_screen.dart';
 import '../../../features/familySync/screens/care_groups_screen.dart';
 import '../../../features/expert/screens/expert_profile_page_screen.dart';
 import '../../../features/expert/screens/verification_documents_page_screen.dart';
@@ -140,9 +139,6 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                 MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
               );
             }),
-            _menuItem(Icons.notifications_outlined, 'Cài đặt thông báo', () {
-              // TODO: navigate to notification preferences (CB-113)
-            }),
           ]),
           const SizedBox(height: 16),
           if (isExpert) ...[
@@ -197,13 +193,6 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
             _menuItem(Icons.devices_outlined, 'Phiên đăng nhập', () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const LoginSessionsScreen()),
-              );
-            }),
-            _menuItem(Icons.shield_outlined, 'Quyền riêng tư', () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const PrivacySettingsScreen(),
-                ),
               );
             }),
             _menuItem(Icons.person_off_outlined, 'Vô hiệu hoá tài khoản', () {
