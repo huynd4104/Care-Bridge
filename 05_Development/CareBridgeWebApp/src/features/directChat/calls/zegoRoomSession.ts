@@ -268,6 +268,9 @@ export function mountZegoRoomSession({
         },
         showLeavingView: false,
         showLeaveRoomConfirmDialog: true,
+        videoScreenConfig: {
+          objectFit: 'cover',
+        },
         onJoinRoom: () => {
           if (!disposed) {
             void startRecording();
