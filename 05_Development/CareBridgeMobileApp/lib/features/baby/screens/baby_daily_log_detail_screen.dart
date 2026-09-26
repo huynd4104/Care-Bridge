@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/baby_daily_log_model.dart';
 import '../services/baby_log_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class BabyDailyLogDetailScreen extends StatefulWidget {
   final String babyId;
@@ -71,7 +72,7 @@ class _BabyDailyLogDetailScreenState extends State<BabyDailyLogDetailScreen> {
     } catch (e) {
       if (mounted && generation == _fetchGeneration) {
         setState(() {
-          _errorMessage = 'Không thể tải chi tiết nhật ký. $e';
+          _errorMessage = 'Không thể tải chi tiết nhật ký. ${userErrorMessage(e)}';
           _isLoading = false;
         });
       }
@@ -87,7 +88,7 @@ class _BabyDailyLogDetailScreenState extends State<BabyDailyLogDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Không thể xóa nhật ký. $e')));
+        ).showSnackBar(SnackBar(content: Text('Không thể xóa nhật ký. ${userErrorMessage(e)}')));
       }
     } finally {
       if (mounted) setState(() => _isDeleting = false);

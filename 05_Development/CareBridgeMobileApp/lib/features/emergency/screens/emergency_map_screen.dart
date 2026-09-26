@@ -667,7 +667,10 @@ class _EmergencyMapScreenState extends State<EmergencyMapScreen> {
           'Chưa có tài khoản Family hợp lệ trong nhóm gia đình để nhận vị trí.',
         ApiException(statusCode: >= 500) =>
           'Máy chủ chưa thể lưu vị trí. Hãy thử gửi lại sau ít phút.',
-        ApiException() => error.displayMessage,
+        ApiException() => userErrorMessage(
+            error,
+            fallback: 'Không thể gửi vị trí. Hãy thử lại.',
+          ),
         _ => 'Không thể gửi vị trí. Hãy kiểm tra kết nối và thử lại.',
       };
       ScaffoldMessenger.of(context)

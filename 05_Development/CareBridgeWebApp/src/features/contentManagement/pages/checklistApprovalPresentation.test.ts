@@ -20,7 +20,7 @@ describe('checklist approval presentation', () => {
   it('describes recipients and cohort coexistence', () => {
     expect(checklistRecipientLabel(['MOTHER', 'FAMILY'])).toContain('·');
     expect(checklistCoexistenceGuidance(0)).toContain('legacy');
-    expect(checklistCoexistenceGuidance(2)).toContain('PRE_PREGNANCY');
+    expect(checklistCoexistenceGuidance(2)).toContain('Chuẩn bị mang thai');
     expect(checklistCoexistenceGuidance(0, 'POSTPARTUM')).toContain('không áp dụng');
   });
 
@@ -51,5 +51,58 @@ describe('checklist approval presentation', () => {
     expect(checklistWindowLabel({ substage: null, eligibilityStartInclusive: 39, eligibilityEndInclusive: 2147483647 })).toBe('Tuần 40+');
     expect(checklistCadenceLabel('WEEKLY', 'EACH_WEEK')).toBe('Theo tuần');
     expect(checklistCadenceLabel('SET', 'ONCE_PER_WINDOW')).toBe('Theo bộ');
+  });
+
+  it('normalizes pre-pregnancy, week, day, and month substages to Vietnamese', () => {
+    // Pre-pregnancy raw codes and stage
+    expect(checklistWindowLabel({
+      substage: {
+        code: 'PRE_PREGNANCY_NONE_DAY_0_0',
+        anchor: 'NONE',
+        startInclusive: 0,
+        endInclusive: 0,
+        unit: 'DAY',
+      },
+    })).toBe('Toàn bộ giai đoạn');
+    expect(checklistWindowLabel({ stage: 'PRE_PREGNANCY', substage: null })).toBe('Toàn bộ giai đoạn');
+    expect(checklistWindowLabel({ substage: { code: 'PRE_PREGNANCY_ALL', anchor: 'NONE', startInclusive: 0, endInclusive: 0, unit: 'DAY' } })).toBe('Toàn bộ giai đoạn');
+    expect(checklistWindowLabel({ substage: { code: 'LEGACY_PRE_PREGNANCY', anchor: 'NONE', startInclusive: 0, endInclusive: 2147483647, unit: 'DAY' } })).toBe('Toàn bộ giai đoạn');
+
+    // Week window from substage
+    expect(checklistWindowLabel({
+      substage: {
+        code: 'PREGNANCY_LMP_WEEK_0_12',
+        anchor: 'LMP',
+        startInclusive: 0,
+        endInclusive: 12,
+        unit: 'WEEK',
+      },
+    })).toBe('Tuần 1–13');
+
+    // Month window from substage
+    expect(checklistWindowLabel({
+      substage: {
+        code: 'BABY_CARE_MONTH_0_3',
+        anchor: 'BIRTH_DATE',
+        startInclusive: 0,
+        endInclusive: 3,
+        unit: 'MONTH',
+      },
+    })).toBe('Tháng 0–3');
+
+    // Day window from substage
+    expect(checklistWindowLabel({
+      substage: {
+        code: 'POSTPARTUM_DAY_0_7',
+        anchor: 'DELIVERY_DATE',
+        startInclusive: 0,
+        endInclusive: 7,
+        unit: 'DAY',
+      },
+    })).toBe('Ngày 0–7');
+
+    // Fallback parsing from code string when attributes are absent
+    expect(checklistWindowLabel({ substage: { code: 'PREGNANCY_LMP_WEEK_0_19' } as any })).toBe('Tuần 1–20');
+    expect(checklistWindowLabel({ substage: null, eligibilityStartInclusive: null, eligibilityEndInclusive: null })).toBe('Không có cửa sổ');
   });
 });

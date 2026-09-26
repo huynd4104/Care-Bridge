@@ -5,6 +5,7 @@ import 'package:mime/mime.dart';
 import '../../fileManager/screens/file_viewer_screen.dart';
 import '../models/health_record_model.dart';
 import '../services/health_record_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class HealthRecordAttachmentDetailScreen extends StatefulWidget {
   const HealthRecordAttachmentDetailScreen({
@@ -171,7 +172,7 @@ class _HealthRecordAttachmentDetailScreenState
       _showSnack('Đã cập nhật hồ sơ sức khỏe.');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) _showSnack('Không thể lưu thay đổi. ${e.toString()}');
+      if (mounted) _showSnack('Không thể lưu thay đổi. ${userErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -236,7 +237,7 @@ class _HealthRecordAttachmentDetailScreenState
       _showSnack('Đã xóa hồ sơ sức khỏe.');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) _showSnack('Không thể xóa hồ sơ. ${e.toString()}');
+      if (mounted) _showSnack('Không thể xóa hồ sơ. ${userErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _deleting = false);
     }

@@ -255,6 +255,9 @@ export interface ChecklistTemplate {
   displayOrder?: number | null;
   items: ChecklistItem[];
   latestReviewFeedback?: ReviewFeedback | null;
+  archiveReason?: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
 }
 
 export interface ContentVersionSnapshot {

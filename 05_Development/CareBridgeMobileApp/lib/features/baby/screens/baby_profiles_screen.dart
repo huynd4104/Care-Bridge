@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../models/baby_model.dart';
 import '../services/baby_service.dart';
 import '../widgets/switch_active_baby_sheet.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// CB-010 — Baby Profiles (UC-31, UC-32, UC-33, UC-192, UC-193)
 /// Lists all baby profiles for the current user. Active profile is highlighted.
@@ -50,7 +51,7 @@ class _BabyProfilesScreenState extends State<BabyProfilesScreen> {
       debugPrint('[BabyProfilesScreen] _loadProfiles error: $e');
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải danh sách hồ sơ.\n$e';
+          _error = 'Không thể tải danh sách hồ sơ.\n${userErrorMessage(e)}';
           _loading = false;
         });
       }
@@ -80,7 +81,7 @@ class _BabyProfilesScreenState extends State<BabyProfilesScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể chuyển hồ sơ đang theo dõi. $e')),
+        SnackBar(content: Text('Không thể chuyển hồ sơ đang theo dõi. ${userErrorMessage(e)}')),
       );
     }
   }
@@ -423,7 +424,7 @@ class _BabyProfilesScreenState extends State<BabyProfilesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Không thể lưu trữ hồ sơ. $e')));
+      ).showSnackBar(SnackBar(content: Text('Không thể lưu trữ hồ sơ. ${userErrorMessage(e)}')));
     }
   }
 }

@@ -128,6 +128,20 @@ export async function fetchAdminChecklistTemplates(params: {
   return res.data.data;
 }
 
+/** Every workspace checklist in one stage, across pages (the endpoint caps size at 50). */
+export async function fetchAllAdminChecklistTemplatesForStage(
+  stage: ContentStage,
+  maxPages = 20,
+): Promise<AdminChecklistTemplateDetail[]> {
+  const templates: AdminChecklistTemplateDetail[] = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await fetchAdminChecklistTemplates({ stage, page, size: 50 });
+    templates.push(...result.content);
+    if (page + 1 >= result.totalPages) break;
+  }
+  return templates;
+}
+
 export async function fetchChecklistTemplateDetail(id: string): Promise<AdminChecklistTemplateDetail> {
   const res = await apiClient.get<ApiResponse<AdminChecklistTemplateDetail>>(`/api/v1/admin/checklist-templates/${id}`);
   return res.data.data;

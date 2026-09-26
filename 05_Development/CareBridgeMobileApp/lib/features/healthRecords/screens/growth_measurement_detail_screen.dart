@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/growth_measurement_model.dart';
 import '../services/growth_measurement_service.dart';
 import 'growth_measurement_form_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 class GrowthMeasurementDetailScreen extends StatefulWidget {
   final String babyId;
@@ -59,7 +60,7 @@ class _GrowthMeasurementDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     } finally {
       if (mounted) {

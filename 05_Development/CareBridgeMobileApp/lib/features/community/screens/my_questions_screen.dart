@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/community_model.dart';
 import '../services/community_service.dart';
 import 'question_detail_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 class MyQuestionsScreen extends StatefulWidget {
   const MyQuestionsScreen({super.key});
@@ -63,7 +64,7 @@ class _MyQuestionsScreenState extends State<MyQuestionsScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể tải câu hỏi: $error')),
+          SnackBar(content: Text('Không thể tải câu hỏi: ${userErrorMessage(error)}')),
         );
       }
     } finally {
@@ -120,7 +121,7 @@ class _MyQuestionsScreenState extends State<MyQuestionsScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể xóa câu hỏi: $error')),
+          SnackBar(content: Text('Không thể xóa câu hỏi: ${userErrorMessage(error)}')),
         );
       }
     }

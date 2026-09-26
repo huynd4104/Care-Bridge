@@ -18,6 +18,7 @@ import com.carebridge.backend.content.dto.response.ReviewFeedbackResponse;
 import com.carebridge.backend.content.dto.response.StaffContentDetailResponse;
 import com.carebridge.backend.content.entity.ChecklistItem;
 import com.carebridge.backend.content.entity.ChecklistTemplate;
+import com.carebridge.backend.content.entity.ChecklistTemplateStatus;
 import com.carebridge.backend.content.entity.ContentItem;
 import com.carebridge.backend.content.entity.ContentStatus;
 import com.carebridge.backend.content.entity.ContentSource;
@@ -318,6 +319,9 @@ public class ContentMapper {
                 .latestReviewFeedback(toReviewFeedback(
                         template.getRevisionReason(), template.getRevisionRequestedAt(),
                         template.getRevisionRequestedBy(), template.getRevisionRequestedVersion()))
+                .archiveReason(template.getStatus() == ChecklistTemplateStatus.ARCHIVED ? template.getRevisionReason() : null)
+                .archivedAt(template.getStatus() == ChecklistTemplateStatus.ARCHIVED ? template.getRevisionRequestedAt() : null)
+                .archivedBy(template.getStatus() == ChecklistTemplateStatus.ARCHIVED ? template.getRevisionRequestedBy() : null)
                 .build();
     }
 

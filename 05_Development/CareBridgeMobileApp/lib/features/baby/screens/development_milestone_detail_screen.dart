@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/milestone_model.dart';
 import '../services/baby_log_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class DevelopmentMilestoneDetailScreen extends StatefulWidget {
   final String babyId;
@@ -132,7 +133,7 @@ class _DevelopmentMilestoneDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Không thể cập nhật cột mốc. $e')));
+      ).showSnackBar(SnackBar(content: Text('Không thể cập nhật cột mốc. ${userErrorMessage(e)}')));
     }
   }
 

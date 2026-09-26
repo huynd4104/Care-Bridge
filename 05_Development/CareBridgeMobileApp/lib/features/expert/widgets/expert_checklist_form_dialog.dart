@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../directChat/models/checklist_share_data.dart';
 import '../../reminder/models/today_task_support_function.dart';
+import '../../../core/network/api_error_message.dart';
 
 enum ExpertChecklistFormMode { add, edit }
 
@@ -157,7 +158,7 @@ class _ExpertChecklistFormDialogState extends State<ExpertChecklistFormDialog> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _errorMessage = 'Lỗi lưu công việc: $e';
+          _errorMessage = 'Lỗi lưu công việc: ${userErrorMessage(e)}';
         });
       }
     }

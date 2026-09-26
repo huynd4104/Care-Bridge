@@ -7,6 +7,7 @@ import '../services/community_service.dart';
 import '../widgets/community_image_attachments.dart';
 import 'post_answer_screen.dart';
 import 'edit_question_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 bool canAnswerCommunityQuestion(String? status) =>
     status?.trim().toUpperCase() == 'APPROVED';
@@ -172,7 +173,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Không thể xóa câu hỏi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Không thể xóa câu hỏi: ${userErrorMessage(e)}')));
       }
     }
   }
@@ -223,7 +224,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể xóa câu trả lời: $e')),
+          SnackBar(content: Text('Không thể xóa câu trả lời: ${userErrorMessage(e)}')),
         );
       }
     }
@@ -339,7 +340,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Không thể gửi báo cáo: $e')));
+        ).showSnackBar(SnackBar(content: Text('Không thể gửi báo cáo: ${userErrorMessage(e)}')));
       }
     }
   }

@@ -1,3 +1,5 @@
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
+import { checklistApprovalErrorMessage } from '../../contentManagement/pages/checklistApprovalPresentation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -118,7 +120,7 @@ export default function ExpertContentApprovalQueuePage() {
       setTotalElements(res.totalElements || 0);
       setTotalPages(res.totalPages || 1);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể tải danh sách thẩm định';
+      const msg = getApiErrorMessage(err, 'Không thể tải danh sách thẩm định');
       setError(msg);
     } finally {
       setLoading(false);
@@ -239,10 +241,12 @@ export default function ExpertContentApprovalQueuePage() {
         )
       );
 
-      const failedCount = results.filter((r) => r.status === 'rejected').length;
+      const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      const failedCount = failures.length;
       if (failedCount > 0) {
         const successCount = results.length - failedCount;
-        setBatchError(`Đã phê duyệt ${successCount}/${results.length} mục. ${failedCount} mục bị lỗi, vui lòng thử lại.`);
+        const reasons = [...new Set(failures.map((failure) => checklistApprovalErrorMessage(failure.reason)))];
+        setBatchError(`Đã phê duyệt ${successCount}/${results.length} mục. ${failedCount} mục bị lỗi: ${reasons.join(' ')}`);
         await Promise.all([loadQueue(), loadSummaryCounts()]);
       } else {
         setSuccessMessage(`Đã phê duyệt và xuất bản thành công tất cả ${results.length} mục.`);
@@ -250,7 +254,7 @@ export default function ExpertContentApprovalQueuePage() {
         await Promise.all([loadQueue(), loadSummaryCounts()]);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể phê duyệt các mục đã chọn. Vui lòng thử lại.';
+      const msg = getApiErrorMessage(err, 'Không thể phê duyệt các mục đã chọn. Vui lòng thử lại.');
       setBatchError(msg);
     } finally {
       setIsBatchApproving(false);
@@ -296,7 +300,7 @@ export default function ExpertContentApprovalQueuePage() {
       handleCloseDecision();
       await Promise.all([loadQueue(), loadSummaryCounts()]);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Thao tác thất bại';
+      const msg = checklistApprovalErrorMessage(err, pendingDecision.decision);
       setError(msg);
     } finally {
       setSubmitting(false);

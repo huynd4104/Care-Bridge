@@ -77,8 +77,16 @@ public class ConsultationRequestNotificationServiceImpl
 
     @Override
     public void notifyRejected(UUID requesterUserId, UUID expertUserId, UUID requestId) {
+        notifyRejected(requesterUserId, expertUserId, requestId, null);
+    }
+
+    @Override
+    public void notifyRejected(UUID requesterUserId, UUID expertUserId, UUID requestId, String reason) {
+        String body = (reason != null && !reason.isBlank())
+                ? "Chuyên gia đã từ chối yêu cầu tư vấn. Lý do: " + reason.trim()
+                : "Chuyên gia đã phản hồi yêu cầu tư vấn của bạn";
         enqueue(requesterUserId, requestId, "REQUEST_REJECTED",
-                "Yêu cầu đã bị từ chối", "Chuyên gia đã phản hồi yêu cầu tư vấn của bạn");
+                "Yêu cầu đã bị từ chối", body);
     }
 
     @Override

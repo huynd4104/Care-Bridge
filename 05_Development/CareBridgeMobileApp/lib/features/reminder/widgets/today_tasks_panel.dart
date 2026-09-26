@@ -9,7 +9,9 @@ import '../models/reminder_model.dart';
 import '../models/today_task_model.dart';
 import '../models/today_task_support_function.dart';
 import '../services/expert_checklist_sync.dart';
+import '../services/plan_disclaimer_storage.dart';
 import '../services/today_task_service.dart';
+import 'plan_disclaimer_banner.dart';
 
 enum TodayTasksAudience { mother, family }
 
@@ -54,6 +56,8 @@ class TodayTasksPanel extends StatefulWidget {
     this.controller,
     this.headingAction,
     this.belowHeading,
+    this.showPlanDisclaimer = false,
+    this.planDisclaimerStorage,
   });
 
   final TodayTaskService? service;
@@ -65,6 +69,8 @@ class TodayTasksPanel extends StatefulWidget {
   final TodayTasksPanelController? controller;
   final Widget? headingAction;
   final Widget? belowHeading;
+  final bool showPlanDisclaimer;
+  final PlanDisclaimerStorage? planDisclaimerStorage;
 
   @override
   State<TodayTasksPanel> createState() => _TodayTasksPanelState();
@@ -630,6 +636,8 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
               ],
             ),
             const SizedBox(height: 16),
+            if (widget.showPlanDisclaimer)
+              PlanDisclaimerBanner(storage: widget.planDisclaimerStorage),
             if (widget.belowHeading != null) ...[
               widget.belowHeading!,
               const SizedBox(height: 16),
@@ -853,7 +861,7 @@ class _SequencePanel extends StatelessWidget {
         ? 'Bạn đã hoàn thành toàn bộ các bộ checklist.'
         : sequence.readyToAdvance
         ? 'Bạn có thể chuyển sang checklist tiếp theo khi sẵn sàng.'
-        : 'Các kế hoạch được gợi ý dựa trên dữ liệu chung và không thay thế cho việc chẩn đoán, điều trị hoặc lời khuyên của bác sĩ chuyên khoa. Người dùng cần tham khảo ý kiến bác sĩ trước khi thay đổi chế độ vận động hoặc dinh dưỡng';
+        : 'Hoàn thành các mục bắt buộc để mở checklist tiếp theo.';
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Semantics(

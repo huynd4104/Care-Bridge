@@ -6,6 +6,9 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import '../auth/auth_state.dart';
 import 'account_block_parser.dart';
+import 'api_error_message.dart';
+
+export 'api_error_message.dart' show userErrorMessage, ApiErrorMessages;
 
 const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
@@ -804,7 +807,8 @@ class ApiException implements Exception {
     }
   }
 
-  String get displayMessage {
+  /// Thông báo gốc của server (thường là tiếng Anh). Chỉ dùng để nhận diện lỗi, không hiển thị.
+  String get rawServerMessage {
     try {
       final decoded = jsonDecode(message);
       if (decoded is Map<String, dynamic>) {
@@ -814,6 +818,10 @@ class ApiException implements Exception {
     } catch (_) {}
     return message;
   }
+
+  /// Thông báo tiếng Việt cụ thể để hiển thị (server message tiếng Việt hoặc theo mã lỗi).
+  /// Trả về chuỗi rỗng nếu không có, để màn hình dùng câu dự phòng riêng.
+  String get displayMessage => ApiErrorMessages.specific(this) ?? '';
 
   @override
   String toString() => 'ApiException($statusCode): $message';

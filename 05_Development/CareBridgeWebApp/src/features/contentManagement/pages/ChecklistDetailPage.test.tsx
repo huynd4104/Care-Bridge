@@ -89,7 +89,7 @@ describe('ChecklistDetailPage version', () => {
     expect(screen.getByText('PHIÊN BẢN')).toBeTruthy();
     expect(screen.getByText('v3')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Checklist' })).toBeTruthy();
-    expect(screen.getByText(/Không áp dụng chuỗi PRE_PREGNANCY/)).toBeTruthy();
+    expect(screen.getByText(/Không áp dụng chuỗi Chuẩn bị mang thai/)).toBeTruthy();
     expect(screen.getByTestId('checklist-detail-layout').className).toContain('grid-cols-1');
     expect(screen.getByTestId('checklist-detail-layout').className).toContain('lg:grid-cols-[minmax(0,1fr)_340px]');
     expect(screen.getByTestId('checklist-detail-page').className).toContain('bg-background');
@@ -99,6 +99,25 @@ describe('ChecklistDetailPage version', () => {
     expect(editButton.className).toContain('min-h-12');
     expect(editButton.className).toContain('rounded-full');
     expect(editButton.querySelector('[aria-hidden="true"]')).toBeTruthy();
+  });
+
+  it('shows archival notice with reason and hides delete button and coexistence note when checklist is ARCHIVED', async () => {
+    harness.hasRole.mockImplementation((role: string) => role === 'CONTENT_ADMIN');
+    harness.fetchChecklistTemplateDetail.mockResolvedValue({
+      ...checklistDetail(),
+      stage: 'PRE_PREGNANCY',
+      status: 'ARCHIVED',
+      displayOrder: 1,
+      archiveReason: 'Đã thay thế bằng bộ checklist phiên bản mới',
+    });
+
+    render(<ChecklistDetailPage />);
+
+    expect(await screen.findByText('Checklist này đã bị xóa (Đã lưu trữ)')).toBeTruthy();
+    expect(screen.getByText(/Đã thay thế bằng bộ checklist phiên bản mới/)).toBeTruthy();
+    expect(screen.getByText('Đã lưu trữ (Đã xóa)')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Delete checklist' })).toBeNull();
+    expect(screen.queryByRole('note')).toBeNull();
   });
 
   it('shows a positive sequence position and guidance for preconception review', async () => {
@@ -157,7 +176,7 @@ describe('ChecklistDetailPage version', () => {
 
     expect(await screen.findByLabelText('Người nhận: Mẹ')).toBeTruthy();
     expect(screen.getByLabelText('Người nhận: Gia đình')).toBeTruthy();
-    expect(screen.getByText('PREGNANCY_LMP_WEEK_0_12')).toBeTruthy();
+    expect(screen.getByText('Tuần 1–13')).toBeTruthy();
     expect(screen.getByLabelText('Đối tượng mục 1: Mẹ')).toBeTruthy();
     expect(screen.getByLabelText('Đối tượng mục 2: Em bé')).toBeTruthy();
     expect(screen.getByText('NỘI DUNG CHI TIẾT')).toBeTruthy();

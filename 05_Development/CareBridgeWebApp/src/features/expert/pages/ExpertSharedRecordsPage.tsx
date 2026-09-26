@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import { useNavigate } from 'react-router-dom';
 import { ExpertChecklistFormModal } from '../components/ExpertChecklistFormModal';
 import { SharedBabyGrowthBubble } from '../../directChat/components/SharedBabyGrowthBubble';
@@ -149,11 +150,10 @@ export default function ExpertSharedRecordsPage() {
       loadData(true);
     } catch (err: any) {
       console.error('Failed to delete checklist item', err);
-      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
       if (err?.response?.status === 409) {
         showToast('Buổi tư vấn đã kết thúc khung giờ, không thể xóa công việc.', 'error');
       } else {
-        showToast(serverMsg || 'Có lỗi xảy ra khi xóa việc cần làm', 'error');
+        showToast(getApiErrorMessage(err, 'Có lỗi xảy ra khi xóa việc cần làm'), 'error');
       }
     } finally {
       setSavingTask(false);
@@ -185,11 +185,10 @@ export default function ExpertSharedRecordsPage() {
       loadData(true);
     } catch (err: any) {
       console.error('Failed to toggle task status', err);
-      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
       if (err?.response?.status === 409) {
         showToast('Buổi tư vấn đã kết thúc khung giờ, không thể cập nhật việc cần làm.', 'error');
       } else {
-        showToast(serverMsg || 'Không thể cập nhật trạng thái công việc', 'error');
+        showToast(getApiErrorMessage(err, 'Không thể cập nhật trạng thái công việc'), 'error');
       }
     }
   };

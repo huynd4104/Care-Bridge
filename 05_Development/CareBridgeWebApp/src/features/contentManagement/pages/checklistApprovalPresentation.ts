@@ -1,7 +1,8 @@
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import type {
-  AdminChecklistTemplate,
-  AdminChecklistTemplateDetail,
+  ChecklistRangeUnit,
   ChecklistRecipientRole,
+  ChecklistSubstage,
   ContentStage,
 } from '../models/content';
 
@@ -24,7 +25,7 @@ export function checklistSequenceLabel(
   displayOrder: number | null | undefined,
   stage?: ContentStage | null,
 ): string {
-  if (stage !== undefined && stage !== 'PRE_PREGNANCY') return 'Không áp dụng chuỗi PRE_PREGNANCY';
+  if (stage !== undefined && stage !== 'PRE_PREGNANCY') return 'Không áp dụng chuỗi Chuẩn bị mang thai';
   return displayOrder == null || displayOrder <= 0
     ? 'Legacy · ngoài chuỗi'
     : `Bộ chuỗi ${displayOrder}`;
@@ -36,17 +37,79 @@ export function checklistRecipientLabel(roles: ChecklistRecipientRole[] | null |
   return roles.map((role) => labels[role]).join(' · ');
 }
 
-/** Seeded V2 roots use inline eligibility bounds and intentionally have no substage row. */
+/** Chuẩn hóa nhãn hiển thị cửa sổ vòng đời (lifecycle window) của checklist sang tiếng Việt. */
 export function checklistWindowLabel(
-  checklist: Pick<AdminChecklistTemplate, 'substage' | 'eligibilityStartInclusive' | 'eligibilityEndInclusive'>
-    | Pick<AdminChecklistTemplateDetail, 'substage' | 'eligibilityStartInclusive' | 'eligibilityEndInclusive'>,
+  checklist: {
+    stage?: ContentStage | null;
+    substage?: ChecklistSubstage | null;
+    eligibilityStartInclusive?: number | null;
+    eligibilityEndInclusive?: number | null;
+  },
 ): string {
-  if (checklist.substage?.code) return checklist.substage.code;
+  if (checklist.stage === 'PRE_PREGNANCY') {
+    return 'Toàn bộ giai đoạn';
+  }
+
+  const substage = checklist.substage;
+  if (substage) {
+    const code = substage.code ?? '';
+
+    if (
+      code.startsWith('PRE_PREGNANCY') ||
+      code === 'LEGACY_PRE_PREGNANCY' ||
+      code.startsWith('LEGACY_') ||
+      substage.anchor === 'NONE'
+    ) {
+      return 'Toàn bộ giai đoạn';
+    }
+
+    let unit = substage.unit;
+    let startInclusive = substage.startInclusive;
+    let endInclusive = substage.endInclusive;
+
+    if (!unit || startInclusive == null || endInclusive == null) {
+      const match = code.match(/(?:^|_)(WEEK|DAY|MONTH)_(\d+)_(\d+)$/);
+      if (match) {
+        unit = match[1] as ChecklistRangeUnit;
+        startInclusive = Number(match[2]);
+        endInclusive = Number(match[3]);
+      }
+    }
+
+    if (unit && startInclusive != null && endInclusive != null) {
+      const isOpenEnded = endInclusive >= 2_000_000_000;
+      if (unit === 'WEEK') {
+        const start = startInclusive + 1;
+        if (isOpenEnded) return `Tuần ${start}+`;
+        const end = endInclusive + 1;
+        return start === end ? `Tuần ${start}` : `Tuần ${start}–${end}`;
+      }
+      if (unit === 'DAY') {
+        const start = startInclusive;
+        if (isOpenEnded) return `Ngày ${start}+`;
+        const end = endInclusive;
+        return start === end ? `Ngày ${start}` : `Ngày ${start}–${end}`;
+      }
+      if (unit === 'MONTH') {
+        const start = startInclusive;
+        if (isOpenEnded) return `Tháng ${start}+`;
+        const end = endInclusive;
+        return start === end ? `Tháng ${start}` : `Tháng ${start}–${end}`;
+      }
+    }
+
+    if (code) return code;
+  }
+
   const start = checklist.eligibilityStartInclusive;
   const end = checklist.eligibilityEndInclusive;
-  if (start == null || end == null) return 'Không có cửa sổ';
-  if (end >= 2_000_000_000) return `Tuần ${start + 1}+`;
-  return `Tuần ${start + 1}–${end + 1}`;
+  if (start != null && end != null) {
+    if (end >= 2_000_000_000) return `Tuần ${start + 1}+`;
+    if (start === end) return `Tuần ${start + 1}`;
+    return `Tuần ${start + 1}–${end + 1}`;
+  }
+
+  return 'Không có cửa sổ';
 }
 
 export function checklistCadenceLabel(scheduleType?: string | null, materializationPolicy?: string | null): string {
@@ -64,11 +127,11 @@ export function checklistCoexistenceGuidance(
   stage?: ContentStage | null,
 ): string {
   if (stage !== undefined && stage !== 'PRE_PREGNANCY') {
-    return 'Chuỗi PRE_PREGNANCY không áp dụng cho checklist ở giai đoạn này.';
+    return 'Chuỗi Chuẩn bị mang thai không áp dụng cho checklist ở giai đoạn này.';
   }
   return displayOrder == null || displayOrder <= 0
-    ? 'Đây là checklist legacy (ngoài chuỗi). Không thể duyệt cùng lúc với một chuỗi PRE_PREGNANCY đang hoạt động.'
-    : 'Đây là bộ trong chuỗi PRE_PREGNANCY. Checklist legacy bộ 0 phải được lưu trữ hoặc tắt trước khi xuất bản.';
+    ? 'Đây là checklist legacy (ngoài chuỗi). Không thể duyệt cùng lúc với một chuỗi Chuẩn bị mang thai đang hoạt động.'
+    : 'Đây là bộ trong chuỗi Chuẩn bị mang thai. Checklist legacy bộ 0 phải được lưu trữ hoặc tắt trước khi xuất bản.';
 }
 
 function responseReasonCode(error: unknown): string | null {
@@ -91,7 +154,7 @@ export function checklistApprovalErrorMessage(
   if (reasonCode && CHECKLIST_APPROVAL_REASON_MESSAGES[reasonCode]) {
     return CHECKLIST_APPROVAL_REASON_MESSAGES[reasonCode];
   }
-  return decision === 'APPROVE'
+  return getApiErrorMessage(error, decision === 'APPROVE'
     ? 'Không thể xuất bản mục này. Vui lòng thử lại.'
-    : 'Không thể trả mục này về nháp. Vui lòng thử lại.';
+    : 'Không thể trả mục này về nháp. Vui lòng thử lại.');
 }

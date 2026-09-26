@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/vaccination_model.dart';
 import '../services/vaccination_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// Shared UC-229/UC-230 form for adding and editing vaccination records.
 /// Styled with CareBridge Warm Claymorphism and card-based layout.
@@ -141,7 +142,7 @@ class _VaccinationRecordFormScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Không thể lưu hồ sơ tiêm chủng: $error'),
+          content: Text('Không thể lưu hồ sơ tiêm chủng: ${userErrorMessage(error)}'),
           backgroundColor: _error,
         ),
       );

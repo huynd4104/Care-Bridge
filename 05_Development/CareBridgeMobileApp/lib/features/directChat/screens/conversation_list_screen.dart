@@ -6,6 +6,7 @@ import '../calls/conversation_signal_hub.dart';
 import '../models/direct_conversation.dart';
 import '../services/direct_chat_service.dart';
 import '../services/conversation_refresh_bus.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// Shared between MOTHER, FAMILY, and EXPERT roles (TDS §13.5).
 class ConversationListScreen extends StatefulWidget {
@@ -76,7 +77,7 @@ class _ConversationListScreenState extends State<ConversationListScreen>
     } catch (e) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
-        _error = 'Lỗi tải danh sách: $e';
+        _error = 'Lỗi tải danh sách: ${userErrorMessage(e)}';
         _loading = false;
       });
     }

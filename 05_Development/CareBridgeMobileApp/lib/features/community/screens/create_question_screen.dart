@@ -4,6 +4,7 @@ import '../../../core/constants/content_stages.dart';
 import '../models/community_model.dart';
 import '../services/community_service.dart';
 import '../widgets/community_image_attachments.dart';
+import '../../../core/network/api_error_message.dart';
 
 class CreateQuestionScreen extends StatefulWidget {
   final String? initialTopicId;
@@ -92,7 +93,7 @@ class _CreateQuestionScreenState extends State<CreateQuestionScreen> {
         });
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Không thể tải chủ đề: $error')));
+        ).showSnackBar(SnackBar(content: Text('Không thể tải chủ đề: ${userErrorMessage(error)}')));
       }
     } finally {
       if (mounted) setState(() => _loadingTopics = false);
@@ -135,7 +136,7 @@ class _CreateQuestionScreenState extends State<CreateQuestionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Thất bại: $e'),
+            content: Text('Thất bại: ${userErrorMessage(e)}'),
             backgroundColor: _error,
           ),
         );
@@ -154,7 +155,7 @@ class _CreateQuestionScreenState extends State<CreateQuestionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Không thể thêm ảnh: $e')));
+        ).showSnackBar(SnackBar(content: Text('Không thể thêm ảnh: ${userErrorMessage(e)}')));
       }
     }
   }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../healthRecords/models/health_record_model.dart';
 import '../../healthRecords/screens/health_record_attachment_detail_screen.dart';
 import '../../healthRecords/services/health_record_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class SharedDataScreen extends StatefulWidget {
   final String groupId;
@@ -66,7 +67,7 @@ class _SharedDataScreenState extends State<SharedDataScreen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Không thể tải danh sách hồ sơ sức khỏe: $e';
+        _errorMessage = 'Không thể tải danh sách hồ sơ sức khỏe: ${userErrorMessage(e)}';
       });
     }
   }
@@ -264,7 +265,7 @@ class _SharedDataScreenState extends State<SharedDataScreen> {
       Navigator.of(context).pop(); // Close loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Không thể tải chi tiết hồ sơ: $e'),
+          content: Text('Không thể tải chi tiết hồ sơ: ${userErrorMessage(e)}'),
           backgroundColor: Colors.red,
         ),
       );

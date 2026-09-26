@@ -12,6 +12,7 @@ import 'safety_demo_mode.dart';
 import 'safety_service.dart';
 import 'safety_permission_service.dart';
 import '../../privacy/services/privacy_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 typedef AccelerometerEvents = Stream<AccelerometerEvent> Function();
 typedef GyroscopeEvents = Stream<GyroscopeEvent> Function();
@@ -580,7 +581,7 @@ class FallDetectionSensorService {
           debugPrint(
             '[FallDetectionSensorService] send IMU failed after retry: $error',
           );
-          _publishSensorError('Không gửi được dữ liệu ngã: $error');
+          _publishSensorError('Không gửi được dữ liệu ngã: ${userErrorMessage(error)}');
           return;
         }
         await Future<void>.delayed(Duration(seconds: attempt));

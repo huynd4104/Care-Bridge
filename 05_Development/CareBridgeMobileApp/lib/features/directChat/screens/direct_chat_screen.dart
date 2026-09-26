@@ -163,7 +163,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _showError('Không thể tải cuộc trò chuyện: $e');
+      _showError('Không thể tải cuộc trò chuyện: ${userErrorMessage(e)}');
     } finally {
       if (mounted) {
         _initialLoadComplete = true;
@@ -302,7 +302,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
         _hasMoreOlder = page.hasMoreOlder;
       });
     } catch (e) {
-      if (mounted) _showError('Không thể tải thêm lịch sử: $e');
+      if (mounted) _showError('Không thể tải thêm lịch sử: ${userErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _loadingOlder = false);
     }
@@ -371,7 +371,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
         await _sendWithClientId(clientMessageId, body);
       }
     } catch (e) {
-      if (mounted) _showError('Không thể gửi: $e');
+      if (mounted) _showError('Không thể gửi: ${userErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -398,7 +398,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
         );
       });
     } catch (e) {
-      if (mounted) _showError('Không thể chọn ảnh: $e');
+      if (mounted) _showError('Không thể chọn ảnh: ${userErrorMessage(e)}');
     }
   }
 
@@ -422,7 +422,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
         );
       });
     } catch (e) {
-      if (mounted) _showError('Không thể chọn tài liệu: $e');
+      if (mounted) _showError('Không thể chọn tài liệu: ${userErrorMessage(e)}');
     }
   }
 
@@ -701,7 +701,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
       );
       await _syncNewer();
     } catch (e) {
-      if (mounted) _showError('Không thể thu hồi tin nhắn: $e');
+      if (mounted) _showError('Không thể thu hồi tin nhắn: ${userErrorMessage(e)}');
     }
   }
 
@@ -713,7 +713,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
         context,
       ).initiate(widget.conversationId, callType);
     } catch (e) {
-      _showError('Không thể tạo cuộc gọi: $e');
+      _showError('Không thể tạo cuộc gọi: ${userErrorMessage(e)}');
     }
   }
 

@@ -5,6 +5,7 @@ import '../models/expert_content_approval_model.dart';
 import '../services/expert_content_approval_service.dart';
 import 'expert_checklist_review_screen.dart';
 import 'expert_content_review_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 class ExpertContentApprovalQueueScreen extends StatefulWidget {
   final ExpertContentApprovalService? service;
@@ -76,7 +77,7 @@ class _ExpertContentApprovalQueueScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Không thể tải danh sách thẩm định: $e';
+        _error = 'Không thể tải danh sách thẩm định: ${userErrorMessage(e)}';
         _loading = false;
       });
     }
@@ -257,7 +258,7 @@ class _ExpertContentApprovalQueueScreenState
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Thao tác thất bại: $e', style: const TextStyle(fontFamily: 'Lexend')),
+          content: Text('Thao tác thất bại: ${userErrorMessage(e)}', style: const TextStyle(fontFamily: 'Lexend')),
           backgroundColor: Colors.red,
         ),
       );

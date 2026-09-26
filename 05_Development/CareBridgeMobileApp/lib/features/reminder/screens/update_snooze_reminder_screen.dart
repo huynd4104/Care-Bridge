@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/reminder_model.dart';
 import '../services/reminder_service.dart';
 import '../widgets/appointment_notification_timing_editor.dart';
+import '../../../core/network/api_error_message.dart';
 
 class UpdateSnoozeReminderScreen extends StatefulWidget {
   final String reminderId;
@@ -99,7 +100,7 @@ class _UpdateSnoozeReminderScreenState
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Thao tác thất bại: $e'),
+          content: Text('Thao tác thất bại: ${userErrorMessage(e)}'),
           backgroundColor: _error,
         ),
       );
@@ -179,7 +180,7 @@ class _UpdateSnoozeReminderScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Thao tác thất bại: $e'),
+          content: Text('Thao tác thất bại: ${userErrorMessage(e)}'),
           backgroundColor: _error,
         ),
       );
@@ -216,7 +217,7 @@ class _UpdateSnoozeReminderScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Thao tác thất bại: $e'),
+          content: Text('Thao tác thất bại: ${userErrorMessage(e)}'),
           backgroundColor: _error,
         ),
       );
@@ -294,7 +295,7 @@ class _UpdateSnoozeReminderScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Thao tác thất bại: $e'),
+          content: Text('Thao tác thất bại: ${userErrorMessage(e)}'),
           backgroundColor: _error,
         ),
       );

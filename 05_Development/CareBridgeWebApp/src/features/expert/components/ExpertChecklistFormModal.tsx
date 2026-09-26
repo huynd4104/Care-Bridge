@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import {
   CalendarRange,
   ClipboardList,
@@ -301,21 +302,20 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
       console.error('Failed to submit checklist form', err);
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const code = data?.code;
-      const serverMsg = data?.message || data?.error;
+      const code = data?.error ?? data?.code;
+      // Bản gốc (tiếng Anh) của server chỉ dùng để nhận diện lỗi, không hiển thị.
+      const rawServerMsg = data?.rawMessage ?? data?.message;
 
       if (status === 409) {
-        if (code === 'DCC-014' || (typeof serverMsg === 'string' && serverMsg.toLowerCase().includes('consultation window'))) {
+        if (code === 'DCC-014' || (typeof rawServerMsg === 'string' && rawServerMsg.toLowerCase().includes('consultation window'))) {
           setErrorMsg('Buổi tư vấn của cuộc trò chuyện này đã kết thúc khung giờ, không thể gửi cập nhật chỉ định mới.');
         } else if (code === 'DCC-010') {
           setErrorMsg('Tài khoản chuyên gia hiện không khả dụng để gửi cập nhật cho cuộc trò chuyện này.');
         } else {
-          setErrorMsg(serverMsg || 'Xung đột phiên làm việc khi lưu checklist. Vui lòng thử lại.');
+          setErrorMsg(getApiErrorMessage(err, 'Xung đột phiên làm việc khi lưu checklist. Vui lòng thử lại.'));
         }
-      } else if (serverMsg && typeof serverMsg === 'string' && serverMsg !== 'An unexpected error occurred') {
-        setErrorMsg(serverMsg);
       } else {
-        setErrorMsg('Không thể lưu chỉ định y tế vào lộ trình của mẹ bầu. Vui lòng thử lại.');
+        setErrorMsg(getApiErrorMessage(err, 'Không thể lưu chỉ định y tế vào lộ trình của mẹ bầu. Vui lòng thử lại.'));
       }
     } finally {
       setSubmitting(false);

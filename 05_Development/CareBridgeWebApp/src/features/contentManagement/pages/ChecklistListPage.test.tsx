@@ -141,7 +141,7 @@ describe('UC82-69-WEB-001 admin checklist boundary', () => {
     expect(await screen.findByText('Canonical metadata checklist')).toBeTruthy();
     expect(screen.getByLabelText('Người nhận: Mẹ')).toBeTruthy();
     expect(screen.getByLabelText('Người nhận: Gia đình')).toBeTruthy();
-    expect(screen.getByText('BABY_CARE_MONTH_0_3')).toBeTruthy();
+    expect(screen.getByText('Tháng 0–3')).toBeTruthy();
     expect(screen.getByLabelText('Mục 1: Mẹ')).toBeTruthy();
     expect(screen.getByLabelText('Mục 2: Em bé')).toBeTruthy();
   });

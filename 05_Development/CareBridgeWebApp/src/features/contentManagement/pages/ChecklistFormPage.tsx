@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarRange, ClipboardList, Plus, Save, Send, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { SequencePositionField, type StageChecklistsState } from '../components/ChecklistPlacementGuide';
 import ContraindicationPicker from '../components/ContraindicationPicker';
 import ReviewFeedbackNotice from '../components/ReviewFeedbackNotice';
 import type {
@@ -20,9 +21,11 @@ import type {
 import { CHECKLIST_SUPPORT_FUNCTION_OPTIONS, STAGE_LABELS, STAGE_OPTIONS } from '../models/content';
 import {
   createChecklistTemplate,
+  fetchAllAdminChecklistTemplatesForStage,
   fetchChecklistTemplateDetail,
   updateChecklistTemplate,
 } from '../services/contentApi';
+import { buildSequenceOverview, evaluatePosition, nextFreePosition } from './checklistSequencePositions';
 
 interface ItemRow {
   key: string;
@@ -158,6 +161,10 @@ export default function ChecklistFormPage() {
   const [scheduleEndMode, setScheduleEndMode] = useState<ChecklistScheduleEndMode | null>(null);
   const [weekBoundaryRule, setWeekBoundaryRule] = useState<ChecklistWeekBoundaryRule | null>(null);
   const [displayOrder, setDisplayOrder] = useState(1);
+  // Create starts on the next free set; edits and manual picks keep their value.
+  const [displayOrderTouched, setDisplayOrderTouched] = useState(isEdit);
+  const [lineageId, setLineageId] = useState<string | null>(null);
+  const [stageChecklists, setStageChecklists] = useState<StageChecklistsState>({ status: 'idle' });
   const [items, setItems] = useState<ItemRow[]>([
     newRow(DEFAULT_CHECKLIST_CONTRACT_VERSION === 2),
   ]);
@@ -187,6 +194,7 @@ export default function ChecklistFormPage() {
       setRecipientRoles(loadedRoles);
       setStage(hasMotherRecipient ? (data.stage ?? '') : '');
       setDisplayOrder(data.displayOrder ?? 1);
+      setLineageId(data.lineageId ?? null);
       const loadedSubstage = hasMotherRecipient && data.stage != null && data.stage !== 'PRE_PREGNANCY'
         ? (data.substage ?? defaultSubstage(data.stage as ContentStage))
         : null;
@@ -250,6 +258,26 @@ export default function ChecklistFormPage() {
     if (isEdit) void loadDetail();
   }, [isEdit, loadDetail]);
 
+  useEffect(() => {
+    // Only the PRE_PREGNANCY sequence has positions to pick from.
+    if (stage !== 'PRE_PREGNANCY') {
+      setStageChecklists({ status: 'idle' });
+      return undefined;
+    }
+    let cancelled = false;
+    setStageChecklists({ status: 'loading' });
+    fetchAllAdminChecklistTemplatesForStage(stage)
+      .then((templates) => {
+        if (!cancelled) setStageChecklists({ status: 'ready', templates });
+      })
+      .catch(() => {
+        if (!cancelled) setStageChecklists({ status: 'error' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stage]);
+
   const hasMotherRecipient = recipientRoles.includes('MOTHER');
   const isTargetlessV2 = checklistContractVersion === 2;
   const populatedItems = items.filter((row) => row.itemText.trim() || row.sourceUrl.trim());
@@ -301,6 +329,22 @@ export default function ChecklistFormPage() {
     && recipientRoles[0] === 'MOTHER'
     && stage === 'PRE_PREGNANCY';
   const isImmutable = status === 'APPROVED' || status === 'ARCHIVED';
+  const sequenceOverview = useMemo(
+    () => (stage === 'PRE_PREGNANCY' && stageChecklists.status === 'ready'
+      ? buildSequenceOverview(stageChecklists.templates, id)
+      : null),
+    [stage, stageChecklists, id],
+  );
+  const sequencePositionKind = sequenceEligible && sequenceOverview
+    ? evaluatePosition(displayOrder, sequenceOverview, lineageId).kind
+    : null;
+  // Only block review submission; drafts can still be saved while fixing it.
+  const hasSequencePositionConflict = sequencePositionKind === 'occupied' || sequencePositionKind === 'gap';
+
+  useEffect(() => {
+    if (displayOrderTouched || !sequenceOverview) return;
+    setDisplayOrder(nextFreePosition(sequenceOverview, lineageId));
+  }, [displayOrderTouched, sequenceOverview, lineageId]);
   const isValid = name.trim().length > 0
     && recipientRoles.length > 0
     && (!hasMotherRecipient || (stage !== ''
@@ -414,6 +458,7 @@ export default function ChecklistFormPage() {
 
   const submit = async (targetStatus: 'DRAFT' | 'PENDING_REVIEW') => {
     if (!isValid || isImmutable) return;
+    if (targetStatus === 'PENDING_REVIEW' && hasSequencePositionConflict) return;
     setSubmitting(targetStatus === 'PENDING_REVIEW' ? 'submit' : 'draft');
     setSubmitError('');
     const normalizedStage = hasMotherRecipient ? (stage || null) : null;
@@ -515,7 +560,7 @@ export default function ChecklistFormPage() {
           <button aria-label="Save draft" type="button" onClick={() => void submit('DRAFT')} disabled={!isValid || isImmutable || submitting !== null} className="inline-flex items-center gap-2 py-2.5 px-6 rounded-full border border-outline-variant bg-surface text-on-surface text-sm font-semibold hover:bg-surface-container-low cursor-pointer disabled:opacity-40">
             <Save size={18} aria-hidden="true" /> {submitting === 'draft' ? 'Đang lưu...' : 'Lưu nháp'}
           </button>
-          <button aria-label="Submit for review" type="button" onClick={() => void submit('PENDING_REVIEW')} disabled={!isValid || isImmutable || submitting !== null} className="inline-flex items-center gap-2 py-2.5 px-6 rounded-full bg-primary text-on-primary text-sm font-semibold shadow-md hover:bg-primary/90 cursor-pointer disabled:opacity-40">
+          <button aria-label="Submit for review" type="button" onClick={() => void submit('PENDING_REVIEW')} disabled={!isValid || isImmutable || hasSequencePositionConflict || submitting !== null} title={hasSequencePositionConflict ? 'Hãy chọn vị trí bộ checklist còn trống trước khi gửi phê duyệt.' : undefined} className="inline-flex items-center gap-2 py-2.5 px-6 rounded-full bg-primary text-on-primary text-sm font-semibold shadow-md hover:bg-primary/90 cursor-pointer disabled:opacity-40">
             <Send size={18} aria-hidden="true" /> {submitting === 'submit' ? 'Đang gửi...' : 'Gửi phê duyệt'}
           </button>
         </div>
@@ -569,23 +614,18 @@ export default function ChecklistFormPage() {
               )}
               {hasUnsupportedPrePregnancyWeekly && <div role="alert" className="mt-4 rounded-xl border border-error-container bg-error-container/60 p-3 text-xs font-normal text-error">Giai đoạn Chuẩn bị mang thai dùng theo bộ; chỉ có thể chọn “Từng ngày” cho mục lặp.</div>}
               {sequenceEligible && (
-                <label className="mt-4 grid gap-2 text-sm font-semibold text-on-surface">
-                  Vị trí bộ checklist
-                  <input
-                    aria-label="Checklist sequence position"
-                    type="number"
-                    min={1}
-                    max={1000}
-                    step={1}
-                    disabled={isImmutable}
-                    value={displayOrder}
-                    onChange={(event) => setDisplayOrder(Number(event.target.value))}
-                    className={field}
-                  />
-                  <span className="text-xs font-normal text-on-surface-variant">
-                    Nhập 1, 2, 3... theo thứ tự các bộ. Vị trí được kiểm tra lại khi phê duyệt.
-                  </span>
-                </label>
+                <SequencePositionField
+                  value={displayOrder}
+                  onChange={(value) => {
+                    setDisplayOrderTouched(true);
+                    setDisplayOrder(value);
+                  }}
+                  disabled={isImmutable}
+                  lineageId={lineageId}
+                  stageChecklists={stageChecklists}
+                  overview={sequenceOverview}
+                  onOpenChecklist={(checklistId) => navigate(`/content/checklists/${checklistId}`)}
+                />
               )}
             </section>
           )}

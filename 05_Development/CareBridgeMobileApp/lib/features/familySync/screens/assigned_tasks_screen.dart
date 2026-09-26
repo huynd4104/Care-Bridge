@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/family_task_model.dart';
 import '../services/family_task_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// CB-028 — Assigned / Group Tasks Screen (Read-Only)
 /// Displays tasks assigned through the group-scoped care-task resource.
@@ -46,7 +47,7 @@ class _AssignedTasksScreenState extends State<AssignedTasksScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/care_group_model.dart';
 import '../services/care_group_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class SentPendingInvitationsScreen extends StatefulWidget {
   final String groupId;
@@ -53,7 +54,7 @@ class _SentPendingInvitationsScreenState
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     }
   }
@@ -71,7 +72,7 @@ class _SentPendingInvitationsScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     }
   }
@@ -92,7 +93,7 @@ class _SentPendingInvitationsScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
+          SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')),
         );
       }
     }

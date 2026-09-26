@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import apiClient from '../../../shared/api/apiClient';
@@ -35,6 +36,8 @@ interface AnswerItem {
   imageUrls: string[];
   likeCount: number;
   liked: boolean;
+  // Backend maps AI_PENDING -> PENDING; answers only become public once APPROVED.
+  status?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -134,6 +137,7 @@ export default function ExpertQuestionQueuePage() {
   const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
   const [existingAnswerImageUrls, setExistingAnswerImageUrls] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [answerNotice, setAnswerNotice] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
 
@@ -174,7 +178,7 @@ export default function ExpertQuestionQueuePage() {
       setHasMore(content.length >= 20);
       setPage(p);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Không thể tải danh sách câu hỏi cộng đồng');
+      setError(getApiErrorMessage(e, 'Không thể tải danh sách câu hỏi cộng đồng'));
     } finally {
       setLoading(false);
     }
@@ -186,6 +190,7 @@ export default function ExpertQuestionQueuePage() {
 
   // Fetch Question Detail when selected
   useEffect(() => {
+    setAnswerNotice(null);
     if (!selectedId) {
       setDetail(null);
       return;
@@ -224,6 +229,7 @@ export default function ExpertQuestionQueuePage() {
       return;
     }
     setSubmitting(true);
+    setAnswerNotice(null);
     try {
       const imageUrls = await Promise.all(pendingAnswerImages.map(async ({ file }) => {
         const form = new FormData();
@@ -254,26 +260,41 @@ export default function ExpertQuestionQueuePage() {
         imageUrls: data.data?.imageUrls ?? [...existingAnswerImageUrls, ...imageUrls],
         likeCount: data.data?.likeCount ?? 0,
         liked: false,
+        // Posts/edits go through AI moderation first; never assume the answer is public.
+        status: data.data?.status ?? 'PENDING',
         createdAt: data.data?.createdAt || new Date().toISOString(),
         updatedAt: data.data?.updatedAt || data.data?.createdAt || new Date().toISOString(),
       };
+      const isPublished = newAnswer.status === 'APPROVED';
+      const previousAnswer = editingAnswerId
+        ? detail?.answers?.find((answer) => answer.id === editingAnswerId)
+        : undefined;
+      // answerCount only counts APPROVED answers: backend increments on approval
+      // and decrements when an approved answer is edited back into moderation.
+      const countDelta = editingAnswerId
+        ? (previousAnswer?.status === 'APPROVED' && !isPublished ? -1 : 0)
+        : (isPublished ? 1 : 0);
 
       setAnswerText('');
       pendingAnswerImages.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
       setPendingAnswerImages([]);
       setDetail((prev) => {
         if (!prev) return prev;
+        const answerCount = Math.max(0, prev.answerCount + countDelta);
         if (editingAnswerId) {
-          return { ...prev, answers: prev.answers?.map((answer) => answer.id === editingAnswerId
+          return { ...prev, answerCount, answers: prev.answers?.map((answer) => answer.id === editingAnswerId
             ? { ...answer, ...newAnswer, authorDisplay: answer.authorDisplay }
             : answer) };
         }
-        return { ...prev, answerCount: prev.answerCount + 1, answers: [newAnswer, ...(prev.answers || [])] };
+        return { ...prev, answerCount, answers: [newAnswer, ...(prev.answers || [])] };
       });
-      if (!editingAnswerId) {
+      if (countDelta !== 0) {
         setQuestions((prev) => prev.map((q) => q.id === selectedId
-          ? { ...q, answerCount: q.answerCount + 1, hasExpertAnswer: true }
+          ? { ...q, answerCount: Math.max(0, q.answerCount + countDelta), ...(countDelta > 0 ? { hasExpertAnswer: true } : {}) }
           : q));
+      }
+      if (!isPublished) {
+        setAnswerNotice('Câu trả lời đang được AI kiểm duyệt nội dung và sẽ chỉ hiển thị trong cộng đồng sau khi được phê duyệt.');
       }
       setEditingAnswerId(null);
       setExistingAnswerImageUrls([]);
@@ -316,14 +337,18 @@ export default function ExpertQuestionQueuePage() {
     if (!selectedId || !window.confirm('Bạn có chắc muốn xóa câu trả lời này?')) return;
     try {
       await apiClient.delete(`/api/v1/community/questions/${selectedId}/answers/${answerId}`);
+      const deleted = detail?.answers?.find((answer) => answer.id === answerId);
+      const countDelta = !deleted?.status || deleted.status === 'APPROVED' ? -1 : 0;
       setDetail((current) => current ? {
         ...current,
-        answerCount: Math.max(0, current.answerCount - 1),
+        answerCount: Math.max(0, current.answerCount + countDelta),
         answers: current.answers?.filter((answer) => answer.id !== answerId),
       } : current);
-      setQuestions((current) => current.map((question) => question.id === selectedId
-        ? { ...question, answerCount: Math.max(0, question.answerCount - 1) }
-        : question));
+      if (countDelta !== 0) {
+        setQuestions((current) => current.map((question) => question.id === selectedId
+          ? { ...question, answerCount: Math.max(0, question.answerCount + countDelta) }
+          : question));
+      }
       if (editingAnswerId === answerId) cancelEditingAnswer();
     } catch (err: unknown) {
       let message = 'Không thể xóa câu trả lời. Vui lòng thử lại.';
@@ -730,6 +755,18 @@ export default function ExpertQuestionQueuePage() {
                               : 'border-outline-variant/50 bg-surface'
                           }`}
                         >
+                          {ans.authorId === currentUserId && ans.status === 'PENDING' && (
+                            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-800">
+                              <span className="material-symbols-outlined text-sm">smart_toy</span>
+                              Câu trả lời của bạn đang được kiểm duyệt, chưa hiển thị trong cộng đồng.
+                            </div>
+                          )}
+                          {ans.authorId === currentUserId && ans.status === 'HIDDEN' && (
+                            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-medium text-red-800">
+                              <span className="material-symbols-outlined text-sm">visibility_off</span>
+                              Câu trả lời này đã bị ẩn bởi kiểm duyệt viên do vi phạm tiêu chuẩn cộng đồng.
+                            </div>
+                          )}
                           <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
                             <span className="font-bold flex items-center gap-1">
                               {ans.expertLabeled && (
@@ -780,7 +817,7 @@ export default function ExpertQuestionQueuePage() {
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary text-xl mt-0.5">verified</span>
                 <p className="text-xs text-on-surface-variant leading-relaxed m-0">
-                  Câu trả lời của bạn sẽ được hiển thị kèm huy hiệu <strong>Chuyên gia Y tế CareBridge</strong>.
+                  Câu trả lời của bạn sẽ được AI kiểm duyệt trước khi hiển thị kèm huy hiệu <strong>Chuyên gia Y tế CareBridge</strong>.
                   Vui lòng tư vấn y khoa chính xác, văn phong chuẩn mực và không tự ý kê đơn thuốc trực tiếp.
                 </p>
               </div>
@@ -798,6 +835,15 @@ export default function ExpertQuestionQueuePage() {
             </div>
           ) : (
             <div className="p-4 border-t border-surface-container-highest bg-surface space-y-3">
+              {answerNotice && (
+                <div className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <span className="flex items-start gap-2">
+                    <span className="material-symbols-outlined text-base">smart_toy</span>
+                    {answerNotice}
+                  </span>
+                  <button onClick={() => setAnswerNotice(null)} className="cursor-pointer font-semibold">Đóng</button>
+                </div>
+              )}
               {editingAnswerId && <div className="flex items-center justify-between rounded-xl bg-primary-container/30 px-3 py-2 text-xs text-on-surface"><span>Đang chỉnh sửa câu trả lời</span><button onClick={cancelEditingAnswer} className="cursor-pointer font-semibold text-primary">Hủy</button></div>}
               <textarea
                 rows={4}

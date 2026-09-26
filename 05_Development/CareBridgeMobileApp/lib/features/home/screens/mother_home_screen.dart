@@ -1463,6 +1463,7 @@ class _MotherHomeScreenState extends State<MotherHomeScreen>
     audience: TodayTasksAudience.mother,
     layout: TodayTasksLayout.sourceGroups,
     controller: _todayTasksController,
+    showPlanDisclaimer: true,
     belowHeading: _showSafetyMonitoringReminder
         ? _buildSafetyMonitoringReminder()
         : null,

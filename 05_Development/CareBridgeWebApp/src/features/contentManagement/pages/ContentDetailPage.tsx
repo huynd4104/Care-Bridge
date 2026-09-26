@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -113,7 +114,7 @@ export default function ContentDetailPage() {
         }
       }, 1000);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Không thể thực hiện thẩm định. Vui lòng thử lại.');
+      setActionError(getApiErrorMessage(err, 'Không thể thực hiện thẩm định. Vui lòng thử lại.'));
     } finally {
       setSubmittingDecision(false);
     }

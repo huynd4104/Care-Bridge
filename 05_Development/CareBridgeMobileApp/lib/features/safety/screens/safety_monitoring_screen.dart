@@ -701,7 +701,7 @@ class _SafetyMonitoringScreenState extends State<SafetyMonitoringScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể ghi nhận phản hồi an toàn: $error'),
+            content: Text('Không thể ghi nhận phản hồi an toàn: ${userErrorMessage(error)}'),
           ),
         );
       }
@@ -814,7 +814,7 @@ class _SafetyMonitoringScreenState extends State<SafetyMonitoringScreen>
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể bắt đầu diễn tập cảnh báo: $error')),
+        SnackBar(content: Text('Không thể bắt đầu diễn tập cảnh báo: ${userErrorMessage(error)}')),
       );
     }
   }
@@ -1575,7 +1575,7 @@ class _SafetyMonitoringScreenState extends State<SafetyMonitoringScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể cập nhật sự kiện: $e')),
+          SnackBar(content: Text('Không thể cập nhật sự kiện: ${userErrorMessage(e)}')),
         );
       }
     }

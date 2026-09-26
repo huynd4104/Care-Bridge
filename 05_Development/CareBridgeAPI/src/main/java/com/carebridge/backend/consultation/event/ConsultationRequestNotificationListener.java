@@ -38,7 +38,7 @@ public class ConsultationRequestNotificationListener {
                 case "REQUEST_ACCEPTED" -> notificationService.notifyAccepted(
                         request.getRequesterUserId(), expert.getUserId(), request.getId());
                 case "REQUEST_REJECTED" -> notificationService.notifyRejected(
-                        request.getRequesterUserId(), expert.getUserId(), request.getId());
+                        request.getRequesterUserId(), expert.getUserId(), request.getId(), request.getRejectReason());
                 case "REQUEST_CANCELLED" -> notificationService.notifyCancelled(
                         expert.getUserId(), request.getRequesterUserId(), request.getId());
                 case "REQUEST_EXPIRED" -> notificationService.notifyExpired(

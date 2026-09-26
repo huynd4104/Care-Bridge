@@ -3,6 +3,7 @@ import '../models/care_group_model.dart';
 import '../services/care_group_service.dart';
 import 'reject_invitation_confirmation_screen.dart';
 import '../widgets/family_relationship_role_picker.dart';
+import '../../../core/network/api_error_message.dart';
 
 enum _InvitationStatus { pending, accepted, declined }
 
@@ -84,7 +85,7 @@ class _CareGroupInvitationScreenState extends State<CareGroupInvitationScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     } finally {
       if (mounted) {

@@ -82,8 +82,8 @@ class _MyCareGroupsScreenState extends State<MyCareGroupsScreen> {
           final errCode = map['error']?.toString();
           if (errCode == 'FAM-005' || e.statusCode == 404) {
             errorMsg = 'Nhóm không tồn tại';
-          } else if (map['message'] != null) {
-            errorMsg = map['message'].toString();
+          } else {
+            errorMsg = userErrorMessage(e, fallback: errorMsg);
           }
         } catch (_) {
           if (e.statusCode == 404 || e.message.contains('FAM-005')) {
