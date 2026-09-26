@@ -1,5 +1,6 @@
 package com.carebridge.backend.checklist.history.service;
 
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import com.carebridge.backend.baby.entity.BabyProfile;
 import com.carebridge.backend.baby.repository.BabyProfileRepository;
 import com.carebridge.backend.checklist.distribution.ChecklistHistoryReconciliationService;
@@ -57,6 +58,7 @@ public class ChecklistHistoryService {
     private final BabyProfileRepository babyRepository;
     private final CareGroupChecklistScopeResolver scopeResolver;
     private final Clock clock;
+    private ChecklistContraindicationPolicy contraindicationPolicy;
 
     @Autowired
     public ChecklistHistoryService(
@@ -203,11 +205,22 @@ public class ChecklistHistoryService {
                 historyPage.getTotalPages());
     }
 
+    @Autowired(required = false)
+    void setContraindicationPolicy(ChecklistContraindicationPolicy contraindicationPolicy) {
+        this.contraindicationPolicy = contraindicationPolicy;
+    }
+
     private Map<UUID, List<ChecklistTaskInstance>> tasksByInstance(
             List<ChecklistInstance> instances,
             ChecklistTargetSubject targetSubject) {
         List<UUID> instanceIds = instances.stream().map(ChecklistInstance::getId).toList();
-        return taskRepository.findAllByChecklistInstanceIds(instanceIds).stream()
+        List<ChecklistTaskInstance> loadedTasks = taskRepository.findAllByChecklistInstanceIds(instanceIds);
+        // Mục chống chỉ định với hồ sơ khảo sát hiện tại của người mẹ không hiển thị trong lộ trình.
+        Set<UUID> contraindicatedTaskIds = contraindicationPolicy == null
+                ? Set.of()
+                : contraindicationPolicy.hiddenTaskIds(instances, loadedTasks);
+        return loadedTasks.stream()
+                .filter(task -> !contraindicatedTaskIds.contains(task.getId()))
                 .filter(task -> targetSubject == null || task.getTargetSubject() == targetSubject)
                 .collect(Collectors.groupingBy(
                         ChecklistTaskInstance::getChecklistInstanceId,

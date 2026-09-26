@@ -11,7 +11,7 @@ import {
   updateChecklistTemplate,
 } from '../services/contentApi';
 import type { AdminChecklistTemplateDetail, ChecklistSupportFunction } from '../models/content';
-import { CHECKLIST_STATUS_LABELS, CHECKLIST_SUPPORT_FUNCTION_OPTIONS, STAGE_LABELS } from '../models/content';
+import { CHECKLIST_CONTRAINDICATION_LABELS, CHECKLIST_STATUS_LABELS, CHECKLIST_SUPPORT_FUNCTION_OPTIONS, STAGE_LABELS } from '../models/content';
 import {
   checklistCadenceLabel,
   checklistCoexistenceGuidance,
@@ -451,6 +451,15 @@ export default function ChecklistDetailPage() {
                         >
                           Chức năng hỗ trợ: {supportFunctionLabel(item.supportFunction)}
                         </span>
+                        {(item.contraindications ?? []).map((tag) => (
+                          <span
+                            key={tag}
+                            aria-label={`Chống chỉ định mục ${item.order}: ${CHECKLIST_CONTRAINDICATION_LABELS[tag] ?? tag}`}
+                            className="inline-flex items-center rounded-full bg-error-container/40 px-2.5 py-0.5 text-xs font-semibold text-error"
+                          >
+                            Chống chỉ định: {CHECKLIST_CONTRAINDICATION_LABELS[tag] ?? tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </li>

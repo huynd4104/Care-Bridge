@@ -37,6 +37,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -170,10 +171,9 @@ public class ChecklistSequenceAdvanceService {
         }
         List<ChecklistTaskInstance> tasks = taskRepository
                 .findAllForUpdateByChecklistInstanceIdOrderByTaskKey(current.getId());
-        long required = tasks.stream().filter(task -> Boolean.TRUE.equals(task.getRequired())).count();
-        long completed = tasks.stream().filter(task -> Boolean.TRUE.equals(task.getRequired()))
-                .filter(task -> task.getStatus() == ChecklistTaskStatus.COMPLETED).count();
-        if (required == 0 || required != completed) {
+        // Cùng quy tắc với ChecklistSequenceResolver: bỏ qua mục bị chống chỉ định.
+        if (!ChecklistContraindicationPolicy.allVisibleRequiredCompleted(
+                tasks, resolver.contraindicatedTaskIds(current, tasks))) {
             throw new BusinessException(HttpStatus.CONFLICT, "SEQUENCE_NOT_READY",
                     "All required checklist tasks must be completed");
         }

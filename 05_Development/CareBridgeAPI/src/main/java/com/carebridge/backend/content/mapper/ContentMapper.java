@@ -1,5 +1,6 @@
 package com.carebridge.backend.content.mapper;
 
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import com.carebridge.backend.checklist.model.ChecklistRecipientRole;
 import com.carebridge.backend.content.dto.response.AdminChecklistTemplateResponse;
 import com.carebridge.backend.content.dto.request.CreateContentRequest;
@@ -359,6 +360,7 @@ public class ContentMapper {
                 .repeatWeekly(repeatWeekly)
                 .repeatDaily(repeatDaily)
                 .sourceUrl(sourceUrl)
+                .contraindications(ChecklistContraindicationPolicy.parse(item.getConfigurationJson()))
                 .build();
     }
 

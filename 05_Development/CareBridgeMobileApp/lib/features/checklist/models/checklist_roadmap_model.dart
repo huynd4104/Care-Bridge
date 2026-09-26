@@ -7,6 +7,9 @@ class ChecklistRoadmapTask {
   final bool completed;
   final int? dueWeek;
 
+  /// Tag khảo sát mà mục này chống chỉ định (rỗng = phù hợp với mọi mẹ).
+  final List<String> contraindications;
+
   const ChecklistRoadmapTask({
     required this.id,
     required this.title,
@@ -15,6 +18,7 @@ class ChecklistRoadmapTask {
     this.isRequired = false,
     this.completed = false,
     this.dueWeek,
+    this.contraindications = const [],
   });
 
   factory ChecklistRoadmapTask.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,9 @@ class ChecklistRoadmapTask {
       isRequired: json['isRequired'] as bool? ?? json['required'] as bool? ?? false,
       completed: json['completed'] as bool? ?? false,
       dueWeek: (json['dueWeek'] as num?)?.toInt(),
+      contraindications: (json['contraindications'] as List? ?? const [])
+          .whereType<String>()
+          .toList(),
     );
   }
 
@@ -37,6 +44,7 @@ class ChecklistRoadmapTask {
     'isRequired': isRequired,
     'completed': completed,
     'dueWeek': dueWeek,
+    'contraindications': contraindications,
   };
 }
 

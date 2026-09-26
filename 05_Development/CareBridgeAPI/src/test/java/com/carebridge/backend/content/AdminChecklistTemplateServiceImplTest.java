@@ -162,6 +162,48 @@ class AdminChecklistTemplateServiceImplTest {
         }
 
         @Test
+        void create_withContraindications_persistsSortedTagsAndReturnsThem() {
+                when(checklistTemplateRepository.save(any(ChecklistTemplate.class)))
+                                .thenAnswer(inv -> {
+                                        ChecklistTemplate t = inv.getArgument(0);
+                                        t.setId(TEMPLATE_ID);
+                                        return t;
+                                });
+                when(checklistItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+                CreateChecklistTemplateRequest request = makeCreateRequest(List.of(
+                                new ChecklistItemRequest(null, "Đi bộ vừa sức", 1, true,
+                                                ChecklistTargetSubject.MOTHER, null, null, false, false,
+                                                "https://www.acog.org",
+                                                List.of("HYPERTENSION", "CARDIOVASCULAR_DISEASE", "HYPERTENSION")),
+                                new ChecklistItemRequest(null, "Kegel", 2, true)));
+
+                AdminChecklistTemplateDetailResponse response = service.create(request, ADMIN_ID);
+
+                ArgumentCaptor<List<ChecklistItem>> captor = ArgumentCaptor.forClass(List.class);
+                verify(checklistItemRepository).saveAll(captor.capture());
+                assertTrue(captor.getValue().getFirst().getConfigurationJson()
+                                .contains("\"contraindications\":[\"CARDIOVASCULAR_DISEASE\",\"HYPERTENSION\"]"));
+                assertEquals("{}", captor.getValue().get(1).getConfigurationJson());
+                assertEquals(List.of("CARDIOVASCULAR_DISEASE", "HYPERTENSION"),
+                                response.getItems().getFirst().getContraindications());
+                assertEquals(List.of(), response.getItems().get(1).getContraindications());
+        }
+
+        @Test
+        void create_withUnknownContraindication_rejectsBeforePersistence() {
+                CreateChecklistTemplateRequest request = makeCreateRequest(List.of(
+                                new ChecklistItemRequest(null, "Đi bộ", 1, true,
+                                                ChecklistTargetSubject.MOTHER, null, null, false, false,
+                                                null, List.of("NONE_KNOWN"))));
+
+                ContentException error = assertThrows(ContentException.class,
+                                () -> service.create(request, ADMIN_ID));
+                assertEquals("CNT-001", error.getCode());
+                verify(checklistTemplateRepository, never()).save(any(ChecklistTemplate.class));
+        }
+
+        @Test
         void create_withInvalidItemSourceUrl_rejectsBeforePersistence() {
                 for (String invalidSourceUrl : List.of(
                                 "ftp://example.org/document",

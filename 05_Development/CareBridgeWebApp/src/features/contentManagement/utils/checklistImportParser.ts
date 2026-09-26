@@ -6,6 +6,7 @@ import type {
   ContentStage,
   CreateChecklistTemplatePayload,
 } from '../models/content';
+import { CHECKLIST_CONTRAINDICATION_LABELS } from '../models/content';
 
 export const CHECKLIST_SHEET_NAME = 'Checklists';
 export const CHECKLIST_ITEMS_SHEET_NAME = 'Checklist_Items';
@@ -20,6 +21,8 @@ const ITEM_HEADERS = [
   'checklist_code', 'order', 'item_text', 'description', 'is_required',
   'support_function', 'source_url',
 ] as const;
+/** Cột tùy chọn thứ 8 của sheet Checklist_Items: tag chống chỉ định, cách nhau bởi dấu phẩy. */
+const ITEM_CONTRAINDICATIONS_COLUMN = 7;
 
 const STAGES = new Set<ContentStage>(['PRE_PREGNANCY', 'PREGNANCY', 'POSTPARTUM', 'BABY_CARE']);
 const TEMPLATE_TYPES = new Set<ChecklistTemplateType>(['MANDATORY', 'OPTIONAL']);
@@ -65,6 +68,7 @@ interface ItemDraft {
   isRequired: boolean | null;
   supportFunction: ChecklistSupportFunction | null;
   sourceUrl: string;
+  contraindications: string[];
   errors: string[];
 }
 
@@ -211,6 +215,7 @@ function buildTemplate(root: RootDraft, items: ItemDraft[]): CreateChecklistTemp
         ...(item.description ? { description: item.description } : {}),
         ...(item.sourceUrl ? { sourceUrl: item.sourceUrl } : {}),
         ...(item.supportFunction ? { supportFunction: item.supportFunction } : {}),
+        ...(item.contraindications.length > 0 ? { contraindications: item.contraindications } : {}),
         repeatWeekly: hasWeeklyRepeat,
         repeatDaily: hasDailyRepeat,
       })),
@@ -279,7 +284,18 @@ function parseItem(row: string[], rowIndex: number): ItemDraft {
   if (rawSupportFunction && !supportFunction) errors.push(`Dòng mục ${rowIndex}: Chức năng hỗ trợ "${rawSupportFunction}" không hợp lệ.`);
   const sourceUrlError = validateSourceUrl(sourceUrl);
   if (sourceUrlError) errors.push(`Dòng mục ${rowIndex}: ${sourceUrlError}`);
-  return { rowIndex, checklistCode, order, itemText, description, isRequired, supportFunction, sourceUrl, errors };
+  const contraindications = [...new Set(cell(row, ITEM_CONTRAINDICATIONS_COLUMN)
+    .split(/[,;\n]/)
+    .map((tag) => tag.trim().toUpperCase())
+    .filter(Boolean))].sort();
+  const invalidTags = contraindications.filter((tag) => !(tag in CHECKLIST_CONTRAINDICATION_LABELS));
+  if (invalidTags.length > 0) {
+    errors.push(`Dòng mục ${rowIndex}: Tag chống chỉ định không hợp lệ: ${invalidTags.join(', ')}.`);
+  }
+  return {
+    rowIndex, checklistCode, order, itemText, description, isRequired, supportFunction, sourceUrl,
+    contraindications, errors,
+  };
 }
 
 function sheetMatrix(sheet: XLSX.WorkSheet): string[][] {

@@ -5,6 +5,7 @@ import com.carebridge.backend.checklist.entity.ChecklistTaskInstance;
 import com.carebridge.backend.checklist.model.ChecklistInstanceStatus;
 import com.carebridge.backend.checklist.model.ChecklistRecipientRole;
 import com.carebridge.backend.checklist.model.ChecklistTaskStatus;
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import com.carebridge.backend.checklist.policy.ChecklistTemplateVisibilityPolicy;
 import com.carebridge.backend.checklist.repository.ChecklistInstanceRepository;
 import com.carebridge.backend.checklist.repository.ChecklistTaskInstanceRepository;
@@ -58,6 +59,7 @@ public class ChecklistTodayTaskProvider implements TodayTaskProvider {
     private final ChecklistCurrentScopePolicy currentScopePolicy;
     private final ChecklistItemRepository itemRepository;
     private final ExpertReviewerResolver reviewerResolver;
+    private final ChecklistContraindicationPolicy contraindicationPolicy;
 
     public ChecklistTodayTaskProvider(
             ChecklistInstanceRepository instanceRepository,
@@ -99,6 +101,19 @@ public class ChecklistTodayTaskProvider implements TodayTaskProvider {
                 templateRepository, currentScopePolicy, itemRepository, null);
     }
 
+    public ChecklistTodayTaskProvider(
+            ChecklistInstanceRepository instanceRepository,
+            ChecklistTaskInstanceRepository taskRepository,
+            UnifiedTaskAccessPolicy accessPolicy,
+            ChecklistSequenceResolver sequenceResolver,
+            ChecklistTemplateRepository templateRepository,
+            ChecklistCurrentScopePolicy currentScopePolicy,
+            ChecklistItemRepository itemRepository,
+            ExpertReviewerResolver reviewerResolver) {
+        this(instanceRepository, taskRepository, accessPolicy, sequenceResolver,
+                templateRepository, currentScopePolicy, itemRepository, reviewerResolver, null);
+    }
+
     @Autowired
     public ChecklistTodayTaskProvider(
             ChecklistInstanceRepository instanceRepository,
@@ -108,7 +123,8 @@ public class ChecklistTodayTaskProvider implements TodayTaskProvider {
             ChecklistTemplateRepository templateRepository,
             ChecklistCurrentScopePolicy currentScopePolicy,
             ChecklistItemRepository itemRepository,
-            @Autowired(required = false) ExpertReviewerResolver reviewerResolver) {
+            @Autowired(required = false) ExpertReviewerResolver reviewerResolver,
+            @Autowired(required = false) ChecklistContraindicationPolicy contraindicationPolicy) {
         this.instanceRepository = instanceRepository;
         this.taskRepository = taskRepository;
         this.accessPolicy = accessPolicy;
@@ -117,6 +133,7 @@ public class ChecklistTodayTaskProvider implements TodayTaskProvider {
         this.currentScopePolicy = currentScopePolicy;
         this.itemRepository = itemRepository;
         this.reviewerResolver = reviewerResolver;
+        this.contraindicationPolicy = contraindicationPolicy;
     }
 
     @Override
@@ -165,6 +182,16 @@ public class ChecklistTodayTaskProvider implements TodayTaskProvider {
                 .toList();
         Map<UUID, List<ChecklistTaskInstance>> tasksByInstanceId = new HashMap<>();
         List<ChecklistTaskInstance> allTasks = taskRepository.findAllByChecklistInstanceIds(instanceIds);
+        // Ẩn mục chống chỉ định với hồ sơ khảo sát hiện tại của người mẹ (chủ ngữ cảnh).
+        Set<UUID> contraindicatedTaskIds = contraindicationPolicy == null
+                ? Set.of()
+                : contraindicationPolicy.hiddenTaskIds(
+                        authorizedInstances.stream().map(AuthorizedInstance::instance).toList(), allTasks);
+        if (!contraindicatedTaskIds.isEmpty()) {
+            allTasks = allTasks.stream()
+                    .filter(task -> !contraindicatedTaskIds.contains(task.getId()))
+                    .toList();
+        }
         for (var task : allTasks) {
             tasksByInstanceId.computeIfAbsent(task.getChecklistInstanceId(), ignored -> new ArrayList<>())
                     .add(task);

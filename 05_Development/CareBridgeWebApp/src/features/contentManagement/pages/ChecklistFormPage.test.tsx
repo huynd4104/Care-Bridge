@@ -236,6 +236,35 @@ describe('ChecklistFormPage version', () => {
     expect(payloadItem).toHaveProperty('sourceUrl', 'https://carebridge.example/updated-guidance');
   });
 
+  it('keeps existing contraindications and serializes newly toggled tags', async () => {
+    const user = userEvent.setup();
+    routeId = 'checklist-123';
+    harness.fetchChecklistTemplateDetail.mockResolvedValue({
+      ...checklistDetail(),
+      items: [{
+        id: 'item-1',
+        itemText: 'Đi bộ vừa sức',
+        order: 1,
+        isRequired: true,
+        targetSubject: 'MOTHER',
+        sourceUrl: 'https://carebridge.example/exercise',
+        contraindications: ['CARDIOVASCULAR_DISEASE'],
+      }],
+    });
+    harness.updateChecklistTemplate.mockResolvedValue(undefined);
+    render(<ChecklistFormPage />);
+
+    const hypertension = await screen.findByRole('button', { name: 'Chống chỉ định Tăng huyết áp cho mục 1' });
+    expect(screen.getByRole('button', { name: 'Chống chỉ định Bệnh tim cho mục 1' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(hypertension);
+    expect(hypertension).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Save draft' }));
+
+    await waitFor(() => expect(harness.updateChecklistTemplate).toHaveBeenCalled());
+    const payloadItem = harness.updateChecklistTemplate.mock.calls[0][1].items[0];
+    expect(payloadItem.contraindications).toEqual(['CARDIOVASCULAR_DISEASE', 'HYPERTENSION']);
+  });
+
   it.each([
     ['PRE_PREGNANCY', 2],
     ['PREGNANCY', 2],

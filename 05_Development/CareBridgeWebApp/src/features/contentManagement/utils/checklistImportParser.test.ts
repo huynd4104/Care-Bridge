@@ -119,10 +119,10 @@ describe('checklistImportParser', () => {
     const itemRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Checklist_Items, { header: 1, defval: '' });
     const guideRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Huong_dan, { header: 1, defval: '' });
     expect(rootRows[0]).toEqual(ROOT_HEADERS);
-    expect(itemRows[0]).toEqual(ITEM_HEADERS);
+    expect(itemRows[0]).toEqual([...ITEM_HEADERS, 'contraindications']);
     expect(rootRows).toHaveLength(33);
     expect(itemRows).toHaveLength(121);
-    expect(guideRows).toHaveLength(28);
+    expect(guideRows).toHaveLength(36);
     expect(rootRows[1]?.[0]).toBe('PRE_PREG_01');
     expect(rootRows[32]?.[0]).toBe('BABY_SAFETY_0_24M');
     expect(itemRows[120]?.[0]).toBe('BABY_SAFETY_0_24M');
@@ -132,5 +132,26 @@ describe('checklistImportParser', () => {
     expect(parsedGroups).toHaveLength(32);
     expect(parsedGroups.every((group) => group.isValid)).toBe(true);
     expect(parsedGroups.reduce((total, group) => total + group.itemCount, 0)).toBe(120);
+
+    const exerciseGroup = parsedGroups.find((group) => group.checklistCode === 'PREG_DAILY_03');
+    const walkingItem = exerciseGroup?.template?.items.find((item) => item.itemText.startsWith('Đi bộ nhẹ nhàng'));
+    expect(walkingItem?.contraindications).toEqual(['CARDIOVASCULAR_DISEASE', 'HYPERTENSION', 'PRIOR_PRETERM_BIRTH']);
+  });
+
+  it('parses optional contraindication tags and rejects unknown tags', () => {
+    const root = ['PREG_X', 'Vận động', '', 'PREGNANCY', 'OPTIONAL', 1, 42, 'TRUE', 0, 'DAILY'];
+    const valid = parseChecklistWorkbook(workbookBytes([root], [
+      ['PREG_X', 1, 'Đi bộ', '', 'TRUE', '', 'https://www.acog.org', 'hypertension; CARDIOVASCULAR_DISEASE'],
+      ['PREG_X', 2, 'Kegel', '', 'TRUE', '', 'https://www.acog.org', ''],
+    ]));
+    expect(valid[0]?.isValid).toBe(true);
+    expect(valid[0]?.template?.items[0]?.contraindications).toEqual(['CARDIOVASCULAR_DISEASE', 'HYPERTENSION']);
+    expect(valid[0]?.template?.items[1]).not.toHaveProperty('contraindications');
+
+    const invalid = parseChecklistWorkbook(workbookBytes([root], [
+      ['PREG_X', 1, 'Đi bộ', '', 'TRUE', '', 'https://www.acog.org', 'NONE_KNOWN'],
+    ]));
+    expect(invalid[0]?.isValid).toBe(false);
+    expect(invalid[0]?.errors.join(' ')).toContain('NONE_KNOWN');
   });
 });

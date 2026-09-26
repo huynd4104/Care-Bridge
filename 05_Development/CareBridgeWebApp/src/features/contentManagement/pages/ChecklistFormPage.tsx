@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, CalendarRange, ClipboardList, Plus, Save, Send, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ContraindicationPicker from '../components/ContraindicationPicker';
 import ReviewFeedbackNotice from '../components/ReviewFeedbackNotice';
 import type {
   ChecklistRecipientRole,
@@ -34,6 +35,7 @@ interface ItemRow {
   supportFunction: ChecklistSupportFunction | '';
   repeatWeekly: boolean;
   repeatDaily: boolean;
+  contraindications: string[];
 }
 
 
@@ -107,6 +109,7 @@ function newRow(targetless = false, repeatWeekly = false, repeatDaily = false): 
     supportFunction: '',
     repeatWeekly,
     repeatDaily,
+    contraindications: [],
   };
 }
 
@@ -233,6 +236,7 @@ export default function ChecklistFormPage() {
           supportFunction: item.supportFunction ?? '',
           repeatWeekly: Boolean(item.repeatWeekly),
           repeatDaily: Boolean(item.repeatDaily),
+          contraindications: item.contraindications ?? [],
         }))
         : [newRow(loadedContractVersion === 2)]);
     } catch {
@@ -404,6 +408,7 @@ export default function ChecklistFormPage() {
         ...(row.supportFunction ? { supportFunction: row.supportFunction } : {}),
         repeatWeekly: row.repeatWeekly,
         repeatDaily: row.repeatDaily,
+        contraindications: row.contraindications,
       };
     });
 
@@ -664,6 +669,12 @@ export default function ChecklistFormPage() {
                       {CHECKLIST_SUPPORT_FUNCTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
+                  <ContraindicationPicker
+                    itemLabel={`mục ${index + 1}`}
+                    value={row.contraindications}
+                    disabled={isImmutable}
+                    onChange={(contraindications) => updateItem(row.key, { contraindications })}
+                  />
                 </div>
                 );
               })}

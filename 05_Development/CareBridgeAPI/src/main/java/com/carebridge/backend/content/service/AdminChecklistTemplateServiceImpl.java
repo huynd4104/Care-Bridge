@@ -1,5 +1,6 @@
 package com.carebridge.backend.content.service;
 
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import com.carebridge.backend.audit.entity.AuditAction;
 import com.carebridge.backend.audit.service.AuditService;
 import com.carebridge.backend.audit.entity.AuditLog;
@@ -580,7 +581,33 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
         for (ChecklistItemRequest item : items) {
             validateItem(item.targetSubject(), item.isRequired(), contractVersion);
             validateSourceUrl(item.sourceUrl());
+            validateContraindications(item.contraindications());
         }
+    }
+
+    private void validateContraindications(List<String> contraindications) {
+        if (contraindications == null) {
+            return;
+        }
+        for (String tag : contraindications) {
+            if (tag == null || !ChecklistContraindicationPolicy.ALLOWED_TAGS.contains(tag.trim())) {
+                throw ContentException.validationFailed(
+                        "contraindications", "Tag chống chỉ định không hợp lệ: " + tag);
+            }
+        }
+    }
+
+    private static List<String> normalizeContraindications(List<String> contraindications) {
+        if (contraindications == null) {
+            return List.of();
+        }
+        return contraindications.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .filter(ChecklistContraindicationPolicy.ALLOWED_TAGS::contains)
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     private void validateSourceUrl(String sourceUrl) {
@@ -650,9 +677,11 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
     private String itemConfiguration(ChecklistItemRequest item) {
         String sourceUrl = item.sourceUrl() == null || item.sourceUrl().isBlank()
                 ? null : item.sourceUrl().trim();
+        List<String> contraindications = normalizeContraindications(item.contraindications());
         if (!Boolean.TRUE.equals(item.repeatWeekly())
                 && !Boolean.TRUE.equals(item.repeatDaily())
-                && sourceUrl == null) {
+                && sourceUrl == null
+                && contraindications.isEmpty()) {
             return "{}";
         }
         ObjectNode node = objectMapper.createObjectNode();
@@ -660,6 +689,9 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
         node.put("repeatDaily", Boolean.TRUE.equals(item.repeatDaily()));
         if (sourceUrl != null) {
             node.put("sourceUrl", sourceUrl);
+        }
+        if (!contraindications.isEmpty()) {
+            contraindications.forEach(node.putArray(ChecklistContraindicationPolicy.CONFIG_KEY)::add);
         }
         try {
             return objectMapper.writeValueAsString(node);

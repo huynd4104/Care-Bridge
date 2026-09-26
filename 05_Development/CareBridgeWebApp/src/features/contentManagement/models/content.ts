@@ -46,6 +46,102 @@ export const CHECKLIST_SUPPORT_FUNCTION_OPTIONS: ReadonlyArray<{
   { value: 'AI_TRIAGE', label: 'Sàng lọc AI' },
 ];
 
+/**
+ * Tag khảo sát cá nhân hóa của mẹ (trùng mã với questionnaire trên mobile) dùng để khai báo
+ * chống chỉ định cho từng mục checklist. Mẹ có tag trùng sẽ không thấy mục đó.
+ * Phải khớp với ChecklistContraindicationPolicy.ALLOWED_TAGS ở backend.
+ */
+export const CHECKLIST_CONTRAINDICATION_GROUPS: ReadonlyArray<{
+  label: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+}> = [
+  {
+    label: 'Bệnh nền',
+    options: [
+      { value: 'DIABETES', label: 'Đái tháo đường' },
+      { value: 'HYPERTENSION', label: 'Tăng huyết áp' },
+      { value: 'CARDIOVASCULAR_DISEASE', label: 'Bệnh tim' },
+      { value: 'KIDNEY_DISEASE', label: 'Bệnh thận' },
+      { value: 'THYROID_DISORDER', label: 'Bệnh tuyến giáp' },
+      { value: 'ASTHMA', label: 'Hen' },
+      { value: 'EPILEPSY', label: 'Động kinh' },
+      { value: 'LUPUS', label: 'Lupus' },
+      { value: 'AUTOIMMUNE_DISEASE', label: 'Bệnh tự miễn' },
+      { value: 'ANEMIA', label: 'Thiếu máu' },
+      { value: 'PCOS', label: 'PCOS' },
+      { value: 'ENDOMETRIOSIS', label: 'Lạc nội mạc tử cung' },
+      { value: 'INFERTILITY', label: 'Hiếm muộn' },
+      { value: 'MENTAL_HEALTH_CONDITION', label: 'Tình trạng sức khỏe tâm thần' },
+    ],
+  },
+  {
+    label: 'Tiền sử sinh sản',
+    options: [
+      { value: 'PRIOR_PREGNANCY_LOSS', label: 'Từng sảy thai' },
+      { value: 'PRIOR_RECURRENT_PREGNANCY_LOSS', label: 'Từng sảy thai nhiều lần' },
+      { value: 'PRIOR_STILLBIRTH', label: 'Từng thai lưu' },
+      { value: 'PRIOR_PRETERM_BIRTH', label: 'Từng sinh non' },
+      { value: 'PRIOR_MULTIPLE_PREGNANCY', label: 'Từng mang đa thai' },
+      { value: 'PRIOR_ECTOPIC_PREGNANCY', label: 'Từng mang thai ngoài tử cung' },
+      { value: 'PRIOR_PREECLAMPSIA', label: 'Từng bị tiền sản giật' },
+      { value: 'PRIOR_GESTATIONAL_DIABETES', label: 'Từng mắc đái tháo đường thai kỳ' },
+    ],
+  },
+  {
+    label: 'Lối sống',
+    options: [
+      { value: 'SMOKING', label: 'Hút thuốc' },
+      { value: 'ALCOHOL_USE', label: 'Uống rượu bia' },
+      { value: 'SUBSTANCE_USE', label: 'Sử dụng ma túy hoặc chất kích thích' },
+      { value: 'SLEEP_CONCERN', label: 'Thiếu ngủ' },
+      { value: 'STRESS', label: 'Stress' },
+      { value: 'LOW_ACTIVITY', label: 'Ít vận động' },
+      { value: 'UNHEALTHY_DIET', label: 'Chế độ ăn không lành mạnh' },
+    ],
+  },
+  {
+    label: 'Dinh dưỡng',
+    options: [
+      { value: 'FOLIC_ACID_NOT_STARTED', label: 'Chưa sử dụng acid folic' },
+      { value: 'IODINE_UNASSESSED_OR_INSUFFICIENT', label: 'Chưa đánh giá / có thể thiếu iod' },
+      { value: 'VITAMIN_D_INSUFFICIENT_OR_SUPPLEMENT', label: 'Có thể thiếu vitamin D' },
+      { value: 'IRON_INSUFFICIENT_OR_SUPPLEMENT', label: 'Có thể thiếu sắt' },
+      { value: 'CALCIUM_INSUFFICIENT_OR_SUPPLEMENT', label: 'Có thể thiếu canxi' },
+    ],
+  },
+  {
+    label: 'Tiêm chủng',
+    options: [
+      { value: 'NOT_ASSESSED', label: 'Chưa được đánh giá tiêm chủng' },
+      { value: 'RUBELLA_NONIMMUNE', label: 'Chưa có miễn dịch Rubella/MMR' },
+      { value: 'HEPATITIS_B_INCOMPLETE', label: 'Chưa được bảo vệ đủ với viêm gan B' },
+      { value: 'INFLUENZA_DUE', label: 'Cần tiêm cúm mùa' },
+      { value: 'COVID_19_UPDATE', label: 'Cần cập nhật vắc xin COVID-19' },
+    ],
+  },
+  {
+    label: 'Thuốc đang dùng',
+    options: [
+      { value: 'HIGH_RISK_OR_CONTRAINDICATED', label: 'Thuốc chống chỉ định / nguy cơ cao khi mang thai' },
+      { value: 'NEEDS_ADJUSTMENT', label: 'Thuốc cần điều chỉnh' },
+    ],
+  },
+  {
+    label: 'Sức khỏe tình dục',
+    options: [
+      { value: 'SAFE_SEX_COUNSELING_NEEDED', label: 'Chưa được tư vấn tình dục an toàn' },
+      { value: 'STI_RISK', label: 'Có nguy cơ mắc STIs' },
+      { value: 'REPRODUCTIVE_TRACT_INFECTION', label: 'Nghi ngờ/mắc nhiễm khuẩn đường sinh sản' },
+      { value: 'STI_SUSPECTED_OR_KNOWN', label: 'Nghi ngờ/mắc bệnh lây truyền qua đường tình dục' },
+      { value: 'NO_PREGNANCY_PLAN', label: 'Chưa có kế hoạch mang thai' },
+    ],
+  },
+];
+
+export const CHECKLIST_CONTRAINDICATION_LABELS: Readonly<Record<string, string>> = Object.fromEntries(
+  CHECKLIST_CONTRAINDICATION_GROUPS.flatMap((group) => group.options.map((option) => [option.value, option.label])),
+);
+
 export interface ChecklistSubstage {
   code: string;
   anchor: ChecklistAnchorType;
@@ -251,6 +347,8 @@ export interface ChecklistItem {
   /** Authoring metadata for recurrence labels shown on the checklist item. */
   repeatWeekly?: boolean | null;
   repeatDaily?: boolean | null;
+  /** Tag khảo sát mà mục này chống chỉ định (không bắt buộc). */
+  contraindications?: string[] | null;
 }
 
 export interface ChecklistItemInput {
@@ -264,6 +362,8 @@ export interface ChecklistItemInput {
   supportFunction?: ChecklistSupportFunction | null;
   repeatWeekly?: boolean | null;
   repeatDaily?: boolean | null;
+  /** Tag khảo sát mà mục này chống chỉ định (không bắt buộc). */
+  contraindications?: string[] | null;
 }
 
 export interface CreateChecklistTemplatePayload {

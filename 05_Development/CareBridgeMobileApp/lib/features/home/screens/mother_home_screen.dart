@@ -219,6 +219,8 @@ class _MotherHomeScreenState extends State<MotherHomeScreen>
       _recommendationLoading = false;
     });
     unawaited(_loadRecommendations());
+    // Gợi ý CareBridge bị lọc theo chống chỉ định của khảo sát: nạp lại ngay.
+    unawaited(_todayTasksController.refresh());
   }
 
   Future<void> _checkUnread({
