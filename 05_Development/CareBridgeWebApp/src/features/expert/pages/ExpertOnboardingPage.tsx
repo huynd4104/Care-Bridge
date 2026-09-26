@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, BadgeCheck, Camera, Check, FileBadg
 import {
   createMyProfile,
   getExpertOnboarding,
+  renewVerification,
   submitCredential,
   submitIdentityEvidence,
   verifyFace,
@@ -689,6 +690,8 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
 }
 
 function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardingResponse; reload: () => Promise<void>; setOverrideStep: (step: ExpertOnboardingStep) => void }) {
+  const [resubmitting, setResubmitting] = useState(false);
+  const [resubmitError, setResubmitError] = useState<string | null>(null);
   return (
     <StepCard icon={<ShieldCheck />} title="Đang chờ quản trị viên xét duyệt" description="CareBridge đang đối soát thông tin và bằng cấp của bạn.">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -702,6 +705,9 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
         </div>
       )}
       <div className="mt-6 flex flex-wrap gap-4">
+        {resubmitError && (
+          <p className="w-full text-sm text-red-600">{resubmitError}</p>
+        )}
         <button onClick={() => void reload()} className="inline-flex items-center gap-2 rounded-full border border-primary px-5 py-2.5 font-semibold text-primary">
           <RefreshCw size={17} />
           Kiểm tra trạng thái
@@ -711,6 +717,29 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
         {(state.identityStatus === 'REJECTED' || state.identityStatus === 'MANUAL_REVIEW_REQUIRED') && (
           <button onClick={() => setOverrideStep('IDENTITY')} className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-red-200 px-5 py-2.5 font-semibold text-red-700 hover:bg-red-100">
             Làm lại Định danh
+          </button>
+        )}
+        {/* Hồ sơ bị từ chối là trường hợp riêng: định danh và chứng chỉ có thể đã
+            duyệt xong, nên hai nút làm lại ở trên không hiện, và chuyên gia không
+            còn đường nào nộp lại. Nút này gọi /profiles/me/renew để đưa hồ sơ về
+            PENDING cho admin xét lại. */}
+        {state.verificationStatus === 'REJECTED' && (
+          <button
+            onClick={async () => {
+              setResubmitting(true);
+              try {
+                await renewVerification();
+                await reload();
+              } catch (error) {
+                setResubmitError('Không gửi lại được hồ sơ. Vui lòng thử lại.');
+              } finally {
+                setResubmitting(false);
+              }
+            }}
+            disabled={resubmitting}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-semibold text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {resubmitting ? 'Đang gửi lại...' : 'Gửi lại hồ sơ để duyệt'}
           </button>
         )}
         {(state.credentialStatus === 'REJECTED') && (
