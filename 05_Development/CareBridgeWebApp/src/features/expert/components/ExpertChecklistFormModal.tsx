@@ -12,6 +12,7 @@ import {
   type ChecklistShareData,
   type ChecklistItemShareData,
   savePersonalizedChecklist,
+  CAREBRIDGE_ROADMAP_TITLES,
 } from '../services/expertSharedRecordsService';
 import {
   CHECKLIST_SUPPORT_FUNCTION_OPTIONS,
@@ -152,6 +153,11 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
       return;
     }
 
+    if (mode === 'EDIT' && initialItem?.completed) {
+      setErrorMsg('Không thể chỉnh sửa việc cần làm đã hoàn thành.');
+      return;
+    }
+
     setSubmitting(true);
     setErrorMsg('');
 
@@ -179,26 +185,40 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
           ? `Tuần ${windowStart}${windowMode === 'RANGE' ? `-${windowEnd}` : ''}`
           : 'Đã qua';
 
-      const removedItems = [...(checklistData.removedItems || [])];
+      let removedItems = [...(checklistData.removedItems || [])];
 
       if (mode === 'EDIT') {
         const updatedRow = validItems[0];
-        const originalText = initialItem?.replacesText || initialItem?.text;
-        const isRenamed =
-          originalText && originalText.trim().toLowerCase() !== updatedRow.itemText.trim().toLowerCase();
+        const newText = updatedRow.itemText.trim();
+        const oldText = initialItem?.text?.trim() || '';
+        const originalRoadmapText = initialItem?.replacesText?.trim() || '';
+
+        const isRenamed = oldText && oldText.toLowerCase() !== newText.toLowerCase();
         if (isRenamed) {
-          if (originalText && !removedItems.includes(originalText.trim())) {
-            removedItems.push(originalText.trim());
-          }
-          if (initialItem?.text && !removedItems.includes(initialItem.text.trim())) {
-            removedItems.push(initialItem.text.trim());
+          const wasCareBridgeItem =
+            CAREBRIDGE_ROADMAP_TITLES.has(oldText.toLowerCase()) ||
+            initialItem?.origin === 'SYSTEM' ||
+            (!initialItem?.isExpertCustom && initialItem?.origin !== 'USER');
+          if (wasCareBridgeItem && !removedItems.includes(oldText)) {
+            removedItems.push(oldText);
           }
         }
-        const replacesText =
-          isRenamed ? originalText.trim() : (initialItem?.replacesText || undefined);
+
+        // CRITICAL: The newly chosen text is actively set by the doctor! It must NEVER be in removedItems
+        removedItems = removedItems.filter(
+          (r) => r.trim().toLowerCase() !== newText.toLowerCase()
+        );
+
+        // Replaces text calculation
+        let replacesText: string | undefined = undefined;
+        if (originalRoadmapText && originalRoadmapText.toLowerCase() !== newText.toLowerCase()) {
+          replacesText = originalRoadmapText;
+        } else if (!originalRoadmapText && isRenamed && oldText) {
+          replacesText = oldText;
+        }
 
         const newItem: ChecklistItemShareData = {
-          text: updatedRow.itemText.trim(),
+          text: newText,
           completed: updatedRow.completed,
           category: 'Khám thai & Y tế',
           timeLabel,
@@ -263,6 +283,14 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
           }
         }
       }
+
+      // Ensure no active item is in removedItems
+      const activeTexts = new Set([
+        ...currentList.map((i) => i.text.trim().toLowerCase()),
+        ...historyList.map((i) => i.text.trim().toLowerCase()),
+        ...futureList.map((i) => i.text.trim().toLowerCase()),
+      ]);
+      removedItems = removedItems.filter((r) => !activeTexts.has(r.trim().toLowerCase()));
 
       const allItems = [...currentList, ...historyList, ...futureList];
       const completedCount = allItems.filter((i) => i.completed).length;
