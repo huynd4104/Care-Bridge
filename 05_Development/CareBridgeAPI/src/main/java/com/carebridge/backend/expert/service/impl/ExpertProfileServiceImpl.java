@@ -27,12 +27,16 @@ import com.carebridge.backend.expertverification.enums.IdentityReviewStatus;
 import com.carebridge.backend.expertverification.repository.ExpertCredentialRepository;
 import com.carebridge.backend.expertverification.repository.ExpertIdentityVerificationRepository;
 import com.carebridge.backend.expertverification.reviewstatus.ReviewStatus;
+import com.carebridge.backend.security.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -46,6 +50,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@Slf4j
 @RequiredArgsConstructor
 public class ExpertProfileServiceImpl implements IExpertProfileService {
 
@@ -59,6 +64,7 @@ public class ExpertProfileServiceImpl implements IExpertProfileService {
 	private final CareFacilityRepository careFacilityRepository;
 	private final ProfessionalSpecialtyRepository professionalSpecialtyRepository;
 	private final com.carebridge.backend.expertavailability.repository.ExpertAvailabilityRepository expertAvailabilityRepository;
+	private final EmailService emailService;
 
 	// ADR-MEDI-001 mục 4 — displayName resolved alongside avatarUrl, email, phone from the same users row,
 	// 1 lookup, for every response that uses ExpertProfileResponse/ExpertProfileDetailResponse.
@@ -548,6 +554,7 @@ public class ExpertProfileServiceImpl implements IExpertProfileService {
 		if (profile.getVerificationStatus() == VerificationStatus.APPROVED || profile.getVerificationStatus() == VerificationStatus.REJECTED) {
 			throw new ExpertException(org.springframework.http.HttpStatus.CONFLICT, "EXPERT-409", "The profile has already been processed by another administrator.");
 		}
+		String rejectionReason = reason.trim();
 		profile.setVerificationStatus(VerificationStatus.REJECTED);
 		profile.setVerifiedAt(LocalDateTime.now());
 		profile.setVerifiedBy(adminId);
@@ -555,7 +562,41 @@ public class ExpertProfileServiceImpl implements IExpertProfileService {
 		auditService.log(AuditAction.EXPERT_VERIFICATION, adminId,
 			"ExpertProfile", expertProfileId.toString(),
 			Map.of("event", "FINAL_DECISION", "decision", "REJECTED",
-				"reason", reason.trim()));
+				"reason", rejectionReason));
+
+		notifyExpertOfRejectionAfterCommit(profile, rejectionReason);
+	}
+
+	private void notifyExpertOfRejectionAfterCommit(
+			ExpertProfile profile, String rejectionReason) {
+		UUID expertProfileId = profile.getExpertProfileId();
+		UUID userId = profile.getUserId();
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			sendExpertRejectionEmail(expertProfileId, userId, rejectionReason);
+			return;
+		}
+
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				sendExpertRejectionEmail(expertProfileId, userId, rejectionReason);
+			}
+		});
+	}
+
+	private void sendExpertRejectionEmail(
+			UUID expertProfileId, UUID userId, String rejectionReason) {
+		try {
+			UserInfo recipient = resolveUserInfo(userId);
+			if (recipient.email() == null || recipient.email().isBlank()) {
+				return;
+			}
+			emailService.sendExpertRejectionEmail(
+				recipient.email(), recipient.displayName(), rejectionReason);
+		} catch (RuntimeException mailFailure) {
+			log.warn("Failed to send expert rejection email for expertProfileId={}, failureType={}",
+				expertProfileId, mailFailure.getClass().getSimpleName());
+		}
 	}
 
 	// ── UC-71: Admin trust action ──────────────────────────────────────
