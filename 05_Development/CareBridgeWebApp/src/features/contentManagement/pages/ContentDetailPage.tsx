@@ -447,7 +447,7 @@ export default function ContentDetailPage() {
           {/* Action buttons — hidden for read-only reviewers (e.g. System Admin from the approval queue) */}
           {canManage && (
             <>
-              {(detail.status === 'DRAFT' || detail.status === 'PENDING_REVIEW') ? (
+              {(detail.status === 'DRAFT' || detail.status === 'PENDING_REVIEW' || detail.status === 'ARCHIVED') ? (
                 <button
                   onClick={() => navigate(`/content/${detail.id}/edit`)}
                   className="w-full py-3.5 rounded-2xl bg-primary text-on-primary border-0 text-sm font-semibold cursor-pointer flex items-center justify-center gap-2"
@@ -457,10 +457,10 @@ export default function ContentDetailPage() {
                 </button>
               ) : (
                 <p className="text-xs text-outline text-center px-2">
-                  Nội dung đã xuất bản hoặc lưu trữ không thể chỉnh sửa trực tiếp.
+                  Nội dung đã xuất bản không thể chỉnh sửa trực tiếp.
                 </p>
               )}
-              {detail.status === 'DRAFT' && (
+              {(detail.status === 'DRAFT' || detail.status === 'ARCHIVED') && (
                 <>
                   <button
                     onClick={submitForApproval}
@@ -480,13 +480,15 @@ export default function ContentDetailPage() {
                   )}
                 </>
               )}
-              <button
-                onClick={handleDelete}
-                className="w-full py-3.5 rounded-2xl bg-transparent text-error border border-error/40 text-sm font-semibold cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-lg">delete</span>
-                Xóa
-              </button>
+              {detail.status !== 'ARCHIVED' && (
+                <button
+                  onClick={handleDelete}
+                  className="w-full py-3.5 rounded-2xl bg-transparent text-error border border-error/40 text-sm font-semibold cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-lg">delete</span>
+                  Xóa
+                </button>
+              )}
             </>
           )}
 

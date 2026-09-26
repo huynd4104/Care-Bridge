@@ -18,6 +18,7 @@ const STATUS_TABS: { key: string; label: string; status?: ContentStatus }[] = [
   { key: 'approved', label: 'Đã duyệt', status: 'APPROVED' },
   { key: 'pending', label: 'Chờ duyệt', status: 'PENDING_REVIEW' },
   { key: 'draft', label: 'Bản nháp', status: 'DRAFT' },
+  { key: 'archived', label: 'Đã lưu trữ', status: 'ARCHIVED' },
 ];
 
 function statusBadgeClass(status: ContentStatus, returned: boolean): string {
@@ -403,19 +404,19 @@ export default function ContentTypeListPage({ type, title, subtitle, createLabel
                         </button>
                         <button
                           onClick={() => navigate(`/content/${item.id}/edit`)}
-                          disabled={item.status !== 'DRAFT' && item.status !== 'PENDING_REVIEW'}
+                          disabled={item.status !== 'DRAFT' && item.status !== 'PENDING_REVIEW' && item.status !== 'ARCHIVED'}
                           className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={item.status !== 'DRAFT' && item.status !== 'PENDING_REVIEW'
-                            ? 'Nội dung đã xuất bản/lưu trữ không thể chỉnh sửa trực tiếp'
+                          title={item.status !== 'DRAFT' && item.status !== 'PENDING_REVIEW' && item.status !== 'ARCHIVED'
+                            ? 'Nội dung đã xuất bản không thể chỉnh sửa trực tiếp'
                             : 'Chỉnh sửa'}
                         >
                           <span className="material-symbols-outlined text-primary text-base">edit</span>
                         </button>
                         <button
                           onClick={() => handleQuickSubmit(item)}
-                          disabled={item.status !== 'DRAFT' || submittingId === item.id}
+                          disabled={(item.status !== 'DRAFT' && item.status !== 'ARCHIVED') || submittingId === item.id}
                           className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={item.status !== 'DRAFT' ? 'Chỉ bài viết/FAQ dạng Bản nháp mới có thể gửi duyệt' : 'Gửi duyệt nhanh'}
+                          title={item.status !== 'DRAFT' && item.status !== 'ARCHIVED' ? 'Chỉ bài viết/FAQ dạng Bản nháp hoặc Đã lưu trữ mới có thể gửi duyệt' : 'Gửi duyệt nhanh'}
                         >
                           {submittingId === item.id ? (
                             <span className="material-symbols-outlined text-primary text-base animate-spin">sync</span>
@@ -423,13 +424,15 @@ export default function ContentTypeListPage({ type, title, subtitle, createLabel
                             <span className="material-symbols-outlined text-primary text-base">send</span>
                           )}
                         </button>
-                        <button
-                          onClick={() => handleDelete(item)}
-                          className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center"
-                          title="Xóa"
-                        >
-                          <span className="material-symbols-outlined text-error text-base">delete</span>
-                        </button>
+                        {item.status !== 'ARCHIVED' && (
+                          <button
+                            onClick={() => handleDelete(item)}
+                            className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center"
+                            title="Xóa"
+                          >
+                            <span className="material-symbols-outlined text-error text-base">delete</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
