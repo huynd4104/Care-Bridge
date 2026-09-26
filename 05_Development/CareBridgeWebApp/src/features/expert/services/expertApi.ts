@@ -391,6 +391,17 @@ export async function acceptContract(body: {
 	return data.data;
 }
 
+/**
+ * Nộp lại hồ sơ sau khi bị quản trị viên từ chối.
+ *
+ * Backend đã có sẵn endpoint này từ trước: nó chỉ chấp nhận khi hồ sơ đang ở
+ * REJECTED hoặc EXPIRED, và đưa trạng thái về PENDING để admin xét lại. Trước
+ * đây không có chỗ nào trong web gọi tới, nên chuyên gia bị từ chối là kẹt hẳn.
+ */
+export async function renewVerification(): Promise<void> {
+	await apiClient.post('/api/v1/expert/profiles/me/renew');
+}
+
 export async function getExpertOnboarding(): Promise<ExpertOnboardingResponse> {
 	const { data } = await apiClient.get('/api/v1/expert/onboarding');
 	return data.data;
