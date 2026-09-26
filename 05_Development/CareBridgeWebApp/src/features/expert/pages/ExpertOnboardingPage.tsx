@@ -749,7 +749,7 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
               try {
                 await renewVerification();
                 await reload();
-              } catch (error) {
+              } catch {
                 setResubmitError('Không gửi lại được hồ sơ. Vui lòng thử lại.');
               } finally {
                 setResubmitting(false);
