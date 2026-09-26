@@ -25,7 +25,6 @@ import java.util.UUID;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UnifiedTodayTaskServiceImpl implements UnifiedTodayTaskService {
@@ -93,20 +92,17 @@ public class UnifiedTodayTaskServiceImpl implements UnifiedTodayTaskService {
     }
 
     @Override
-    @Transactional
     public TodayTasksResponse getTodayTasks(UUID actorUserId, LocalDate date, String timezoneHeader) {
         return getTodayTasks(actorUserId, date, timezoneHeader, null, true);
     }
 
     @Override
-    @Transactional
     public TodayTasksResponse getTodayTasks(
             UUID actorUserId, LocalDate date, String timezoneHeader, Set<TaskKind> kinds) {
         return getTodayTasks(actorUserId, date, timezoneHeader, kinds, true);
     }
 
     @Override
-    @Transactional
     public TodayTasksResponse getTodayTasks(
             UUID actorUserId, LocalDate date, String timezoneHeader,
             Set<TaskKind> kinds, boolean reconcile) {

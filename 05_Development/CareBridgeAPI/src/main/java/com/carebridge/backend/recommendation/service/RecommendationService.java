@@ -323,7 +323,7 @@ public class RecommendationService implements RecommendationConsentCleanup {
         }
 
         // (2) Truy vấn hành trình thai kỳ chính thức (MotherJourney) của người mẹ (kèm kiểm tra quyền CareGroup nếu có)
-        MotherJourney journey = canonical(ownerUserId, careGroupId, careGroupId == null);
+        MotherJourney journey = canonical(ownerUserId, careGroupId, false);
         UUID targetMotherId = journey.getOwnerUserId();
         boolean isOwner = ownerUserId.equals(targetMotherId);
 

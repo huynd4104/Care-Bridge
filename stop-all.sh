@@ -20,7 +20,7 @@ kill_by_port() {
   local port=$1
   local name=$2
   local pids
-  pids=$(lsof -ti :"$port" 2>/dev/null)
+  pids=$(lsof -ti :"$port" -sTCP:LISTEN 2>/dev/null)
   if [ -n "$pids" ]; then
     echo -e "${YELLOW}Stopping $name on port $port (PID: $pids)...${NC}"
     for pid in $pids; do
@@ -28,7 +28,7 @@ kill_by_port() {
     done
     sleep 1
     local remaining
-    remaining=$(lsof -ti :"$port" 2>/dev/null)
+    remaining=$(lsof -ti :"$port" -sTCP:LISTEN 2>/dev/null)
     if [ -n "$remaining" ]; then
       for pid in $remaining; do
         kill -9 "$pid" 2>/dev/null || true

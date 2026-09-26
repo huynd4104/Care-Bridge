@@ -12,6 +12,9 @@ import '../../../core/network/api_error_message.dart';
 class ConversationListScreen extends StatefulWidget {
   const ConversationListScreen({super.key});
 
+  static String formatLastMessagePreview(String? preview) =>
+      _ConversationTile.formatLastMessagePreview(preview);
+
   @override
   State<ConversationListScreen> createState() => _ConversationListScreenState();
 }
@@ -417,11 +420,58 @@ class _ConversationTile extends StatelessWidget {
     required this.onTap,
   });
 
+  static String formatLastMessagePreview(String? preview) {
+    if (preview == null || preview.trim().isEmpty) return '';
+    final trimmed = preview.trim();
+
+    if (trimmed.startsWith('[CAREBRIDGE_CHECKLIST_SHARE]') ||
+        trimmed.contains('[CAREBRIDGE_CHECKLIST_SHARE]')) {
+      final noteMatch =
+          RegExp(r'"note"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"').firstMatch(trimmed);
+      final note = noteMatch?.group(1);
+      if (note != null && note.trim().isNotEmpty) {
+        return '[Chia sẻ việc cần làm] ${note.trim()}';
+      }
+      return '[Chia sẻ việc cần làm]';
+    }
+
+    if (trimmed.startsWith('[CAREBRIDGE_HEALTH_SHARE]') ||
+        trimmed.contains('[CAREBRIDGE_HEALTH_SHARE]')) {
+      final noteMatch =
+          RegExp(r'"note"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"').firstMatch(trimmed);
+      final note = noteMatch?.group(1);
+      if (note != null && note.trim().isNotEmpty) {
+        return '[Chia sẻ chỉ số sức khỏe] ${note.trim()}';
+      }
+      return '[Chia sẻ chỉ số sức khỏe]';
+    }
+
+    if (trimmed.startsWith('[CAREBRIDGE_BABY_GROWTH_SHARE]') ||
+        trimmed.contains('[CAREBRIDGE_BABY_GROWTH_SHARE]')) {
+      final noteMatch =
+          RegExp(r'"note"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"').firstMatch(trimmed);
+      final note = noteMatch?.group(1);
+      if (note != null && note.trim().isNotEmpty) {
+        return '[Chia sẻ phát triển của bé] ${note.trim()}';
+      }
+      return '[Chia sẻ phát triển của bé]';
+    }
+
+    if (trimmed.contains(RegExp(r'\[CAREBRIDGE_[A-Z0-9_]+\]'))) {
+      return trimmed
+          .replaceAll(RegExp(r'\[CAREBRIDGE_[A-Z0-9_]+\]'), '[Nội dung đính kèm]')
+          .replaceAll(RegExp(r'[\r\n]+'), ' ')
+          .trim();
+    }
+
+    return trimmed.replaceAll(RegExp(r'[\r\n]+'), ' ');
+  }
+
   String get _subtitle {
     if (!isExpertViewer && conversation.counterpartSpecialty != null) {
       return conversation.counterpartSpecialty!;
     }
-    return conversation.lastMessagePreview ?? '';
+    return formatLastMessagePreview(conversation.lastMessagePreview);
   }
 
   String _relativeTime(DateTime? dt) {

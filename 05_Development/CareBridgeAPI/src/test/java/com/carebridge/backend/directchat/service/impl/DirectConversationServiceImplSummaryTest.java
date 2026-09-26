@@ -195,6 +195,25 @@ class DirectConversationServiceImplSummaryTest {
         assertThat(summaries.get(0).getLastMessageAt()).isNull();
     }
 
+    @Test
+    void listMyConversations_standardizesShareTagPreviews() {
+        when(conversationRepository.findByMotherUserIdOrExpertUserIdOrderByLastActivityAtDesc(EXPERT_USER_ID, EXPERT_USER_ID))
+                .thenReturn(List.of(conversation()));
+        when(userRepository.findAllById(anySet())).thenReturn(List.of());
+        when(expertProfileRepository.findByUserIdIn(anySet())).thenReturn(List.of(approvedExpert()));
+        Instant lastAt = Instant.parse("2026-07-15T09:30:00Z");
+        when(aggregateRepository.fetchLastMessages(any()))
+                .thenReturn(Map.of(CONVERSATION_ID, new LastMessageRow(
+                        UUID.randomUUID(),
+                        "[CAREBRIDGE_CHECKLIST_SHARE]\n{\"journeyId\":\"j-1\",\"items\":[]}",
+                        lastAt)));
+        when(aggregateRepository.fetchUnreadCounts(any(), eq(EXPERT_USER_ID))).thenReturn(Map.of());
+
+        List<DirectConversationSummaryResponse> summaries = service.listMyConversations(EXPERT_USER_ID);
+
+        assertThat(summaries.get(0).getLastMessagePreview()).isEqualTo("[Chia sẻ việc cần làm]");
+    }
+
     // MEDI-TC-011 — unreadCount comes straight from the aggregate map, per conversation
     @Test
     void listMyConversations_unreadCountFromAggregateMap() {

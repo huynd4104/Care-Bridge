@@ -76,6 +76,8 @@ class _DirectChatScreenState extends State<DirectChatScreen>
   /// Con gui duoc tin nhan hay khong. Chuyen gia phai con nhan tu van, VA buoi tu
   /// van phai chua het gio.
   bool get _canWrite => _expertAvailable && _conversationOpen;
+  bool get _isMother =>
+      (AuthState.instance.role ?? '').trim().toUpperCase() == 'MOTHER';
   String? _nextCursor;
   String? _previousCursor;
   bool _hasMoreOlder = false;
@@ -497,7 +499,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
   }
 
   Future<void> _openShareHealthMetrics() async {
-    if (_sending || !_canWrite) return;
+    if (!_isMother || _sending || !_canWrite) return;
     final result = await ShareHealthMetricsDialog.show(context);
     if (result == null || !mounted) return;
     final clientMessageId = _uuid.v4();
@@ -539,7 +541,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
   }
 
   Future<void> _openShareBabyGrowth() async {
-    if (_sending || !_canWrite) return;
+    if (!_isMother || _sending || !_canWrite) return;
     final result = await ShareBabyGrowthDialog.show(context);
     if (result == null || !mounted) return;
     final clientMessageId = _uuid.v4();
@@ -581,7 +583,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
   }
 
   Future<void> _openShareChecklist() async {
-    if (_sending || !_canWrite) return;
+    if (!_isMother || _sending || !_canWrite) return;
     final result = await ShareChecklistDialog.show(context);
     if (result == null || !mounted) return;
     final clientMessageId = _uuid.v4();
@@ -1082,6 +1084,7 @@ class _DirectChatScreenState extends State<DirectChatScreen>
   }
 
   void _showAttachmentMenu() {
+    final isMother = _isMother;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1129,13 +1132,13 @@ class _DirectChatScreenState extends State<DirectChatScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Đính kèm & Chia sẻ',
-                          style: TextStyle(
+                          isMother ? 'Đính kèm & Chia sẻ' : 'Đính kèm tệp',
+                          style: const TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -1143,8 +1146,10 @@ class _DirectChatScreenState extends State<DirectChatScreen>
                           ),
                         ),
                         Text(
-                          'Chọn nội dung muốn gửi cho chuyên gia',
-                          style: TextStyle(
+                          isMother
+                              ? 'Chọn nội dung muốn gửi cho chuyên gia'
+                              : 'Chọn hình ảnh, tài liệu hoặc vị trí muốn gửi',
+                          style: const TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 12,
                             color: _onSurfaceVariant,
@@ -1183,30 +1188,32 @@ class _DirectChatScreenState extends State<DirectChatScreen>
                 subtitle: 'Tệp PDF, Word, Excel...',
                 onTap: _attachDocument,
               ),
-              _buildAttachmentOption(
-                sheetContext: sheetContext,
-                icon: Icons.monitor_heart_outlined,
-                iconColor: const Color(0xFFE11D48),
-                title: 'Chia sẻ chỉ số sức khỏe',
-                subtitle: 'Gửi số liệu huyết áp, đường huyết, BMI...',
-                onTap: _openShareHealthMetrics,
-              ),
-              _buildAttachmentOption(
-                sheetContext: sheetContext,
-                icon: Icons.child_care_rounded,
-                iconColor: const Color(0xFFD48B47),
-                title: 'Chia sẻ phát triển của bé',
-                subtitle: 'Gửi biểu đồ cân nặng, chiều cao, vòng đầu của bé',
-                onTap: _openShareBabyGrowth,
-              ),
-              _buildAttachmentOption(
-                sheetContext: sheetContext,
-                icon: Icons.checklist_rtl_rounded,
-                iconColor: const Color(0xFF16A34A),
-                title: 'Chia sẻ việc cần làm',
-                subtitle: 'Gửi tiến độ và các việc chăm sóc thai kỳ',
-                onTap: _openShareChecklist,
-              ),
+              if (isMother) ...[
+                _buildAttachmentOption(
+                  sheetContext: sheetContext,
+                  icon: Icons.monitor_heart_outlined,
+                  iconColor: const Color(0xFFE11D48),
+                  title: 'Chia sẻ chỉ số sức khỏe',
+                  subtitle: 'Gửi số liệu huyết áp, đường huyết, BMI...',
+                  onTap: _openShareHealthMetrics,
+                ),
+                _buildAttachmentOption(
+                  sheetContext: sheetContext,
+                  icon: Icons.child_care_rounded,
+                  iconColor: const Color(0xFFD48B47),
+                  title: 'Chia sẻ phát triển của bé',
+                  subtitle: 'Gửi biểu đồ cân nặng, chiều cao, vòng đầu của bé',
+                  onTap: _openShareBabyGrowth,
+                ),
+                _buildAttachmentOption(
+                  sheetContext: sheetContext,
+                  icon: Icons.checklist_rtl_rounded,
+                  iconColor: const Color(0xFF16A34A),
+                  title: 'Chia sẻ việc cần làm',
+                  subtitle: 'Gửi tiến độ và các việc chăm sóc thai kỳ',
+                  onTap: _openShareChecklist,
+                ),
+              ],
               _buildAttachmentOption(
                 sheetContext: sheetContext,
                 icon: Icons.location_on_outlined,
