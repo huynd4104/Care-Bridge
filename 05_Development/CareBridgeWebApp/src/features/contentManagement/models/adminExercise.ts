@@ -78,3 +78,25 @@ export const statusLabels: Record<ExerciseStatus, string> = {
   PUBLISHED: "Đã xuất bản",
   ARCHIVED: "Đã lưu trữ",
 };
+
+export function validateAdminExerciseForm(form: AdminExerciseForm): AdminExerciseFieldErrors {
+  const errors: AdminExerciseFieldErrors = {};
+  if (!form.title.trim()) {
+    errors.title = 'Vui lòng nhập tên bài tập.';
+  } else if (form.title.length > adminExerciseLimits.titleMaxLength) {
+    errors.title = `Tên bài tập không được vượt quá ${adminExerciseLimits.titleMaxLength} ký tự.`;
+  }
+
+  if (!form.safetyWarning.trim()) {
+    errors.safetyWarning = 'Vui lòng nhập hướng dẫn an toàn.';
+  } else if (form.safetyWarning.length > adminExerciseLimits.safetyWarningMaxLength) {
+    errors.safetyWarning = `Hướng dẫn an toàn không được vượt quá ${adminExerciseLimits.safetyWarningMaxLength} ký tự.`;
+  }
+
+  if (!Number.isInteger(form.durationMinutes)
+      || form.durationMinutes < adminExerciseLimits.durationMinutesMin
+      || form.durationMinutes > adminExerciseLimits.durationMinutesMax) {
+    errors.durationMinutes = 'Thời lượng phải là số nguyên từ 1 đến 180 phút.';
+  }
+  return errors;
+}

@@ -800,7 +800,7 @@ class ApiException implements Exception {
         final nestedCode = error['code']?.toString();
         if (nestedCode != null && nestedCode.isNotEmpty) return nestedCode;
       }
-      final code = decoded['code']?.toString();
+      final code = decoded['code']?.toString() ?? decoded['errorCode']?.toString();
       return code == null || code.isEmpty ? null : code;
     } catch (_) {
       return null;

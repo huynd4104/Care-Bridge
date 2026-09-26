@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../core/utils/decimal_input.dart';
 import '../models/baby_daily_log_model.dart';
 import '../services/baby_log_service.dart';
 
@@ -235,7 +235,14 @@ class _EditBabyDailyLogScreenState extends State<EditBabyDailyLogScreen> {
       switch (_selectedType) {
         case LogType.feeding:
           final raw = _quantityCtrl.text.trim();
-          qty = raw.isNotEmpty ? double.tryParse(raw) : null;
+          qty = raw.isNotEmpty ? parseDecimalInput(raw) : null;
+          if (raw.isNotEmpty &&
+              (qty == null || qty <= 0 || qty > _maxFeedingMl)) {
+            _showQuantityError(
+              'Lượng sữa phải lớn hơn 0 và không quá ${_maxFeedingMl.toInt()} ml.',
+            );
+            return;
+          }
           unit = 'ml';
           note = _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim();
           break;
@@ -261,7 +268,14 @@ class _EditBabyDailyLogScreenState extends State<EditBabyDailyLogScreen> {
           break;
         case LogType.medicine:
           final raw = _quantityCtrl.text.trim();
-          qty = raw.isNotEmpty ? double.tryParse(raw) : null;
+          qty = raw.isNotEmpty ? parseDecimalInput(raw) : null;
+          if (raw.isNotEmpty &&
+              (qty == null || qty <= 0 || qty > _maxMedicineDose)) {
+            _showQuantityError(
+              'Liều lượng phải lớn hơn 0 và không quá ${_maxMedicineDose.toInt()} liều.',
+            );
+            return;
+          }
           unit = 'liều';
           note = _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim();
           break;
@@ -314,6 +328,17 @@ class _EditBabyDailyLogScreenState extends State<EditBabyDailyLogScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  // Khớp BabyDailyLogServiceImpl.validateQuantityRange (trẻ 0–24 tháng).
+  static const double _maxFeedingMl = 360;
+  static const double _maxMedicineDose = 10;
+  static const int _maxDiaperCount = 10;
+
+  void _showQuantityError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _confirmDelete() async {
@@ -557,7 +582,10 @@ class _EditBabyDailyLogScreenState extends State<EditBabyDailyLogScreen> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                DecimalTextInputFormatter(
+                  maxIntegerDigits: 4,
+                  maxFractionDigits: 2,
+                ),
               ],
               style: const TextStyle(
                 fontFamily: 'Lexend',
@@ -591,7 +619,10 @@ class _EditBabyDailyLogScreenState extends State<EditBabyDailyLogScreen> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                DecimalTextInputFormatter(
+                  maxIntegerDigits: 4,
+                  maxFractionDigits: 2,
+                ),
               ],
               style: const TextStyle(
                 fontFamily: 'Lexend',
@@ -825,7 +856,9 @@ class _EditBabyDailyLogScreenState extends State<EditBabyDailyLogScreen> {
                 ),
               ),
               IconButton.filled(
-                onPressed: () => setState(() => _diaperCount++),
+                onPressed: _diaperCount < _maxDiaperCount
+                    ? () => setState(() => _diaperCount++)
+                    : null,
                 icon: const Icon(Icons.add, size: 20),
                 style: IconButton.styleFrom(
                   backgroundColor: _primary,

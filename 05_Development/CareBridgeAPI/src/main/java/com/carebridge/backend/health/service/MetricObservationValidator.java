@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class MetricObservationValidator {
 
+    private static final BigDecimal MAX_STORABLE_VALUE = new BigDecimal("99999999.99");
     private static final String[] GLUCOSE_CONTEXTS = {
             "FASTING", "PRE_MEAL", "POST_MEAL_1H", "POST_MEAL_2H", "RANDOM", "OTHER_APPROVED"
     };
@@ -100,6 +101,20 @@ public class MetricObservationValidator {
             requireRange(primary, BigDecimal.ZERO, new BigDecimal("100"),
                     "Stress value must be between 0 and 100");
         }
+        if ("HYDRATION".equals(metricCode)) {
+            requireRange(primary, BigDecimal.ONE, new BigDecimal("10000"),
+                    "Hydration must be between 1 and 10000 ml");
+        }
+        if ("FETAL_MOVEMENT_SESSION".equals(metricCode)) {
+            // Một phiên đếm (thường ≤ 2 giờ, mốc 10 cử động) hiếm khi vượt vài chục lần.
+            requireRange(primary, BigDecimal.ZERO, new BigDecimal("100"),
+                    "Fetal movement count must be between 0 and 100");
+            if (primary.stripTrailingZeros().scale() > 0) {
+                reject("METRIC-039", "Fetal movement count must be a whole number");
+            }
+        }
+        requireStorable(primary);
+        requireStorable(secondary);
         if ("EPDS_SCORE".equals(metricCode)) {
             requireRange(primary, BigDecimal.ZERO, new BigDecimal("30"),
                     "EPDS score must be between 0 and 30");
@@ -255,6 +270,13 @@ public class MetricObservationValidator {
     private void requireRange(BigDecimal value, BigDecimal min, BigDecimal max, String message) {
         if (value == null || value.compareTo(min) < 0 || value.compareTo(max) > 0) {
             reject("METRIC-039", message);
+        }
+    }
+
+    /** health_observations.value_numeric/value_secondary are numeric(10,2). */
+    private void requireStorable(BigDecimal value) {
+        if (value != null && value.abs().compareTo(MAX_STORABLE_VALUE) > 0) {
+            reject("METRIC-039", "Metric value is out of the supported range");
         }
     }
 

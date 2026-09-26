@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, Stethoscope, CheckCircle2 } from 'lucide-react';
 import { registerExpert } from '../services/authApi';
 import { normalizeVietnamesePhone, VIETNAMESE_PHONE_ERROR } from '../../../shared/utils/vietnamesePhone';
+import { INVALID_EMAIL_ERROR, isDeliverableEmail } from '../../../shared/utils/email';
 
 type FormState = {
   name: string;
@@ -13,6 +14,11 @@ type FormState = {
 };
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
+
+// Họ và tên chỉ gồm chữ cái (kể cả tiếng Việt có dấu) và khoảng trắng;
+// khớp @Pattern của RegisterRequest ở backend.
+const NAME_DISALLOWED_CHARS = /[^\p{L}\p{M} ]/gu;
+const NAME_PATTERN = /^[\p{L}\p{M}]+(?: [\p{L}\p{M}]+)*$/u;
 
 const initialForm: FormState = { name: '', email: '', phone: '', password: '', confirmPassword: '' };
 
@@ -42,7 +48,10 @@ export default function ExpertRegisterPage() {
   const [termsError, setTermsError] = useState<string | null>(null);
 
   const update = (key: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((current) => ({ ...current, [key]: event.target.value }));
+    const value = key === 'name'
+      ? event.target.value.replace(NAME_DISALLOWED_CHARS, '')
+      : event.target.value;
+    setForm((current) => ({ ...current, [key]: value }));
     setFieldErrors((current) => {
       if (!current[key]) return current;
       const next = { ...current };
@@ -76,6 +85,19 @@ export default function ExpertRegisterPage() {
       });
       return;
     }
+    const normalizedName = form.name.trim().replace(/\s+/g, ' ');
+    if (normalizedName.length < 2 || normalizedName.length > 120) {
+      setFieldErrors({ name: 'Họ và tên phải có từ 2 đến 120 ký tự.' });
+      return;
+    }
+    if (!NAME_PATTERN.test(normalizedName)) {
+      setFieldErrors({ name: 'Họ và tên chỉ được chứa chữ cái và khoảng trắng.' });
+      return;
+    }
+    if (!isDeliverableEmail(form.email)) {
+      setFieldErrors({ email: INVALID_EMAIL_ERROR });
+      return;
+    }
     // Người dùng gõ 0912345678; máy chủ lưu +84912345678. Quy đổi ngay tại đây để
     // màn hình nhận đúng thứ người ta quen gõ mà dữ liệu gửi đi vẫn ở dạng chuẩn.
     const normalizedPhone = normalizeVietnamesePhone(form.phone);
@@ -95,7 +117,7 @@ export default function ExpertRegisterPage() {
     setSubmitting(true);
     try {
       const result = await registerExpert({
-        name: form.name.trim(),
+        name: normalizedName,
         email: form.email.trim(),
         phone: normalizedPhone,
         password: form.password,

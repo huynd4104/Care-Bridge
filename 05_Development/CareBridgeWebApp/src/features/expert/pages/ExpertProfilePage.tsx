@@ -31,6 +31,7 @@ export default function ExpertProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [experienceError, setExperienceError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const [form, setForm] = useState({
@@ -143,6 +144,14 @@ export default function ExpertProfilePage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const experienceText = form.experienceYears.trim();
+    const experienceYears = experienceText === '' ? undefined : Number(experienceText);
+    if (experienceYears !== undefined
+        && (!Number.isInteger(experienceYears) || experienceYears < 0 || experienceYears > 80)) {
+      setExperienceError('Số năm kinh nghiệm phải là số nguyên từ 0 đến 80.');
+      return;
+    }
+    setExperienceError(null);
     setSaving(true);
     setSuccess(false);
     try {
@@ -153,7 +162,7 @@ export default function ExpertProfilePage() {
         workplaceProvinceId: form.workplaceProvinceId || undefined,
         consultationScope: form.consultationScope,
       };
-      if (form.experienceYears) body.experienceYears = parseInt(form.experienceYears);
+      if (experienceYears !== undefined) body.experienceYears = experienceYears;
       const updated = await updateMyProfile(body);
       setProfile(updated);
       setSuccess(true);
@@ -298,11 +307,23 @@ export default function ExpertProfilePage() {
               <input
                 type="number"
                 min="0"
+                max="80"
+                step="1"
                 className="w-full py-2.5 px-4 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface outline-none focus:border-primary font-sans"
                 value={form.experienceYears}
-                onChange={(e) => setForm({ ...form, experienceYears: e.target.value })}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-', '.', ','].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => {
+                  setForm({ ...form, experienceYears: e.target.value });
+                  setExperienceError(null);
+                }}
+                aria-invalid={Boolean(experienceError)}
                 placeholder="Số năm..."
               />
+              {experienceError && (
+                <p className="mt-1 text-xs text-error">{experienceError}</p>
+              )}
             </div>
           </div>
         </div>

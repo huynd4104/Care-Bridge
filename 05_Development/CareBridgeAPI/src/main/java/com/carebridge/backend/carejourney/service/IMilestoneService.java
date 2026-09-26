@@ -20,6 +20,7 @@ public interface IMilestoneService {
      * @throws com.carebridge.backend.common.exception.BusinessException (BABY-062) when baby is archived
      * @throws com.carebridge.backend.common.exception.BusinessException (BABY-063) when milestone type is invalid
      * @throws com.carebridge.backend.common.exception.BusinessException (BABY-064) when achieved date is in future
+     * @throws com.carebridge.backend.common.exception.BusinessException (BABY-065) when achieved date is before baby birth date
      */
     MilestoneResponse addMilestone(UUID userId, UUID babyId, AddMilestoneRequest request);
 

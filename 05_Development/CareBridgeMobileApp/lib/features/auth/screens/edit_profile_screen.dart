@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/auth/auth_state.dart';
 import '../../../core/network/api_client.dart';
@@ -140,13 +141,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // Khớp @Pattern của UpdateProfileRequest.phoneNumber ở backend.
+  static final _phonePattern = RegExp(r'^(0[3-9][0-9]{8}|\+84[3-9][0-9]{8})$');
+
   Future<void> _save() async {
     if (_isSaving) return;
+    final phone = _phoneController.text.trim();
+    if (phone.isNotEmpty && !_phonePattern.hasMatch(phone)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Số điện thoại không hợp lệ. Nhập dạng 0912345678 hoặc +84912345678.',
+          ),
+        ),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final body = <String, dynamic>{
         'displayName': _nameController.text.trim(),
-        'phoneNumber': _phoneController.text.trim(),
+        'phoneNumber': phone,
         if (_dateOfBirth != null)
           'dateOfBirth':
               '${_dateOfBirth!.year.toString().padLeft(4, '0')}-${_dateOfBirth!.month.toString().padLeft(2, '0')}-${_dateOfBirth!.day.toString().padLeft(2, '0')}',
@@ -317,6 +332,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _phoneController,
           'Nhập số điện thoại',
           keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+            LengthLimitingTextInputFormatter(12),
+          ],
         ),
         const SizedBox(height: 20),
         _buildLabel('Ngày sinh'),
@@ -347,10 +366,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     TextEditingController controller,
     String hint, {
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: const TextStyle(
         fontFamily: 'Lexend',
         fontSize: 16,

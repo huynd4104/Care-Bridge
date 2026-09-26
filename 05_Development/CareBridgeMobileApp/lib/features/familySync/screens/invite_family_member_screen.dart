@@ -26,7 +26,7 @@ class _InviteFamilyMemberScreenState extends State<InviteFamilyMemberScreen> {
       _isValid =
           trimmed.isNotEmpty &&
           (RegExp(r'^\+?[0-9]{9,15}$').hasMatch(trimmed) ||
-              RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(trimmed));
+              RegExp(r'^[^@\s]+@[^@\s.]+(\.[^@\s.]+)*\.[A-Za-z]{2,}$').hasMatch(trimmed));
     });
   }
 

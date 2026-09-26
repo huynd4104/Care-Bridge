@@ -72,6 +72,12 @@ public class MilestoneServiceImpl implements IMilestoneService {
                     "Achieved date cannot be in the future");
         }
 
+        // BABY-065: achievedDate must not be before baby birthDate
+        if (baby.getBirthDate() != null && request.getAchievedDate().isBefore(baby.getBirthDate())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-065",
+                    "Achieved date cannot be before baby birth date");
+        }
+
         // C4: recordedBy = JWT userId (not from request body)
         // sourceType defaults to "MANUAL" when not provided
         DevelopmentMilestone milestone = DevelopmentMilestone.builder()
@@ -115,6 +121,14 @@ public class MilestoneServiceImpl implements IMilestoneService {
         }
 
         if (hasAchievedDate) {
+            if (request.getAchievedDate().isAfter(LocalDate.now())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-064",
+                        "Achieved date cannot be in the future");
+            }
+            if (baby.getBirthDate() != null && request.getAchievedDate().isBefore(baby.getBirthDate())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-065",
+                        "Achieved date cannot be before baby birth date");
+            }
             milestone.setAchievedDate(request.getAchievedDate());
         }
         if (hasNote) {

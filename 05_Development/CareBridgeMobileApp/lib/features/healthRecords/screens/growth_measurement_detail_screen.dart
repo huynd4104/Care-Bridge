@@ -7,11 +7,13 @@ import '../../../core/network/api_error_message.dart';
 class GrowthMeasurementDetailScreen extends StatefulWidget {
   final String babyId;
   final GrowthMeasurement measurement;
+  final DateTime? birthDate;
 
   const GrowthMeasurementDetailScreen({
     super.key,
     required this.babyId,
     required this.measurement,
+    this.birthDate,
   });
 
   @override
@@ -75,6 +77,7 @@ class _GrowthMeasurementDetailScreenState
         builder: (_) => GrowthMeasurementFormScreen(
           babyId: widget.babyId,
           measurement: widget.measurement,
+          birthDate: widget.birthDate,
         ),
       ),
     );

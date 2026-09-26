@@ -456,7 +456,10 @@ class _BabyProfileDetailScreenState extends State<BabyProfileDetailScreen> {
   }
 
   Future<void> _openAddMilestone() async {
-    await context.push('/babies/${widget.babyId}/milestones/add');
+    await context.push(
+      '/babies/${widget.babyId}/milestones/add',
+      extra: _profile?.birthDate,
+    );
     if (mounted) {
       await _refreshAfterReturn();
     }

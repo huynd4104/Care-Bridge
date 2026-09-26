@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Shared visual language for the unauthenticated CareBridge flow.
 ///
@@ -271,6 +272,7 @@ class AuthTextField extends StatelessWidget {
     this.onChanged,
     this.errorText,
     this.textInputAction,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -282,6 +284,7 @@ class AuthTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final String? errorText;
   final TextInputAction? textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -291,6 +294,7 @@ class AuthTextField extends StatelessWidget {
       keyboardType: keyboardType,
       onChanged: onChanged,
       textInputAction: textInputAction,
+      inputFormatters: inputFormatters,
       style: const TextStyle(
         fontFamily: 'Lexend',
         fontSize: 16,

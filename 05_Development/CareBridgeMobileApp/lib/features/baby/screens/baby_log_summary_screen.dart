@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/utils/decimal_input.dart';
 import '../models/baby_daily_log_model.dart';
 import '../models/baby_model.dart';
 import '../services/baby_log_service.dart';
@@ -1132,6 +1133,29 @@ class _AddBabyLogSheetState extends State<_AddBabyLogSheet> {
     });
   }
 
+  double _maxQuantityFor(LogType type) {
+    switch (type) {
+      case LogType.feeding:
+        return 360;
+      case LogType.medicine:
+        return 10;
+      default:
+        return 1440;
+    }
+  }
+
+  String _quantityRangeError(LogType type) {
+    final max = _maxQuantityFor(type).toInt();
+    switch (type) {
+      case LogType.feeding:
+        return 'Lượng sữa phải lớn hơn 0 và không quá $max ml';
+      case LogType.medicine:
+        return 'Liều lượng phải lớn hơn 0 và không quá $max liều';
+      default:
+        return 'Số lượng phải lớn hơn 0 và không quá $max';
+    }
+  }
+
   String _quantityLabelFor(LogType type) {
     switch (type) {
       case LogType.feeding:
@@ -1184,21 +1208,21 @@ class _AddBabyLogSheetState extends State<_AddBabyLogSheet> {
             : _noteController.text.trim();
       } else if (_selectedType == LogType.feeding) {
         final raw = _quantityController.text.trim();
-        qty = raw.isEmpty ? null : double.tryParse(raw);
+        qty = raw.isEmpty ? null : parseDecimalInput(raw);
         unit = 'ml';
         note = _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim();
       } else if (_selectedType == LogType.medicine) {
         final raw = _quantityController.text.trim();
-        qty = raw.isEmpty ? null : double.tryParse(raw);
+        qty = raw.isEmpty ? null : parseDecimalInput(raw);
         unit = 'liều';
         note = _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim();
       } else {
         final raw = _quantityController.text.trim();
-        qty = raw.isEmpty ? null : double.tryParse(raw);
+        qty = raw.isEmpty ? null : parseDecimalInput(raw);
         unit = null;
         note = _noteController.text.trim().isEmpty
             ? null
@@ -1394,7 +1418,9 @@ class _AddBabyLogSheetState extends State<_AddBabyLogSheet> {
               ),
               IconButton.filled(
                 key: const Key('baby-log-diaper-plus'),
-                onPressed: () => setState(() => _diaperCount++),
+                onPressed: _diaperCount < 10
+                    ? () => setState(() => _diaperCount++)
+                    : null,
                 icon: const Icon(Icons.add, size: 20),
                 style: IconButton.styleFrom(
                   backgroundColor: _primary,
@@ -1526,15 +1552,23 @@ class _AddBabyLogSheetState extends State<_AddBabyLogSheet> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  inputFormatters: [
+                    DecimalTextInputFormatter(
+                      maxIntegerDigits: 5,
+                      maxFractionDigits: 2,
+                    ),
+                  ],
                   decoration: InputDecoration(
                     labelText: _quantityLabelFor(_selectedType),
                   ),
                   validator: (value) {
                     final raw = value?.trim() ?? '';
                     if (raw.isEmpty) return null;
-                    final parsed = double.tryParse(raw);
-                    if (parsed == null || !parsed.isFinite || parsed <= 0) {
-                      return 'Nhập số dương hợp lệ';
+                    final parsed = parseDecimalInput(raw);
+                    if (parsed == null ||
+                        parsed <= 0 ||
+                        parsed > _maxQuantityFor(_selectedType)) {
+                      return _quantityRangeError(_selectedType);
                     }
                     return null;
                   },

@@ -1,5 +1,6 @@
 package com.carebridge.backend.carejourney.dto;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -15,6 +16,7 @@ public class UpdateBabyDailyLogRequest {
     private Instant endedAt;
 
     @DecimalMin(value = "0", message = "quantity must be non-negative")
+    @DecimalMax(value = "1440", message = "quantity must not exceed 1440")
     private BigDecimal quantity;
 
     @Size(max = 20, message = "unit must not exceed 20 characters")

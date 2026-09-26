@@ -319,9 +319,13 @@ class _VaccinationRecordFormScreenState
                       prefixIcon: Icons.format_list_numbered_rounded,
                     ),
                     validator: (value) {
-                      final dose = int.tryParse(value?.trim() ?? '');
-                      if (dose == null || dose < 1 || dose > 32767) {
-                        return 'Mũi tiêm phải là số nguyên từ 1 đến 32767';
+                      final text = value?.trim() ?? '';
+                      if (text.isEmpty) {
+                        return 'Vui lòng nhập số mũi tiêm';
+                      }
+                      final dose = int.tryParse(text);
+                      if (dose == null || dose < 1 || dose > 20) {
+                        return 'Số mũi tiêm phải từ 1 đến 20';
                       }
                       return null;
                     },

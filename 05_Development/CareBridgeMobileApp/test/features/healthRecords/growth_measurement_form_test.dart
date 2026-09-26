@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:untitled/core/network/api_client.dart';
+import 'package:untitled/features/baby/models/baby_model.dart';
+import 'package:untitled/features/baby/services/baby_service.dart';
 import 'package:untitled/features/healthRecords/models/growth_measurement_model.dart';
 import 'package:untitled/features/healthRecords/screens/growth_measurement_form_screen.dart';
 import 'package:untitled/features/healthRecords/services/growth_measurement_service.dart';
@@ -31,6 +34,26 @@ class _FakeGrowthMeasurementService extends GrowthMeasurementService {
   }
 }
 
+class _FakeBabyService extends BabyService {
+  final BabyProfile? profile;
+  bool throwError = false;
+
+  _FakeBabyService({this.profile});
+
+  @override
+  Future<BabyProfile> getBabyProfile(String babyId) async {
+    if (throwError) throw StateError('offline');
+    return profile ??
+        BabyProfile(
+          id: babyId,
+          nickname: 'Bé Bi',
+          birthDate: DateTime(2026, 1, 1),
+          gender: BabyGender.male,
+          isActive: true,
+        );
+  }
+}
+
 GrowthMeasurement _measurement() => GrowthMeasurement(
   id: 'growth-1',
   measuredAt: DateTime(2026, 7, 14),
@@ -52,6 +75,8 @@ GrowthMeasurement _measurementWithoutNote() => GrowthMeasurement(
 Future<void> _pumpForm(
   WidgetTester tester, {
   GrowthMeasurementService? service,
+  BabyService? babyService,
+  DateTime? birthDate,
   Future<void> Function(String babyId, Map<String, dynamic> payload)? onAdd,
   Future<void> Function(
     String babyId,
@@ -73,6 +98,8 @@ Future<void> _pumpForm(
         babyId: 'baby-1',
         measurement: measurement,
         service: service,
+        babyService: babyService,
+        birthDate: birthDate,
         onAdd: onAdd,
         onUpdate: onUpdate,
       ),
@@ -162,6 +189,35 @@ void main() {
       await tester.tap(find.byKey(const Key('growth-form-save')));
       await tester.pump();
       expect(find.byKey(const Key('growth-form-error')), findsOneWidget);
+      expect(service.addedPayload, isNull);
+    },
+  );
+
+  testWidgets(
+    'zero metrics are rejected without a request with clear message',
+    (tester) async {
+      final service = _FakeGrowthMeasurementService();
+      await _pumpForm(tester, service: service);
+
+      await tester.enterText(find.byKey(const Key('growth-form-weight')), '0');
+      await tester.tap(find.byKey(const Key('growth-form-save')));
+      await tester.pump();
+      expect(find.byKey(const Key('growth-form-error')), findsOneWidget);
+      expect(find.text('Số đo phải lớn hơn 0.'), findsOneWidget);
+      expect(service.addedPayload, isNull);
+
+      await tester.enterText(
+        find.byKey(const Key('growth-form-height')),
+        '0.0',
+      );
+      await tester.enterText(
+        find.byKey(const Key('growth-form-head')),
+        '0',
+      );
+      await tester.tap(find.byKey(const Key('growth-form-save')));
+      await tester.pump();
+      expect(find.byKey(const Key('growth-form-error')), findsOneWidget);
+      expect(find.text('Số đo phải lớn hơn 0.'), findsOneWidget);
       expect(service.addedPayload, isNull);
     },
   );
@@ -263,6 +319,29 @@ void main() {
     expect(find.text('6.2'), findsOneWidget);
   });
 
+  testWidgets('specific server error message is displayed on save failure', (
+    tester,
+  ) async {
+    final service = _FakeGrowthMeasurementService();
+    await _pumpForm(
+      tester,
+      service: service,
+      onAdd: (id, body) async {
+        throw ApiException(
+          400,
+          '{"code":"BABY-072","message":"At least one measurement value is required"}',
+        );
+      },
+    );
+
+    await tester.enterText(find.byKey(const Key('growth-form-weight')), '6.2');
+    await tester.tap(find.byKey(const Key('growth-form-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('growth-form-error')), findsOneWidget);
+    expect(find.text('Vui lòng nhập ít nhất một chỉ số đo.'), findsOneWidget);
+  });
+
   testWidgets(
     'back button closes the form without submitting and no cancel button is shown',
     (tester) async {
@@ -282,4 +361,98 @@ void main() {
       expect(service.addedPayload, isNull);
     },
   );
+
+  testWidgets(
+    'displays birthDate hint and restricts date picker when birthDate is provided',
+    (tester) async {
+      final birth = DateTime(2026, 5, 10);
+      await _pumpForm(tester, birthDate: birth);
+
+      expect(find.text('Từ ngày sinh: 10/05/2026'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('growth-form-date')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      final datePicker =
+          tester.widget<DatePickerDialog>(find.byType(DatePickerDialog));
+      expect(
+        DateUtils.dateOnly(datePicker.firstDate),
+        equals(DateUtils.dateOnly(birth)),
+      );
+      expect(
+        DateUtils.dateOnly(datePicker.lastDate),
+        equals(DateUtils.dateOnly(DateTime.now())),
+      );
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'loads birthDate from BabyService when birthDate parameter is omitted',
+    (tester) async {
+      final babyService = _FakeBabyService(
+        profile: BabyProfile(
+          id: 'baby-1',
+          nickname: 'Bé Test',
+          birthDate: DateTime(2026, 3, 15),
+          gender: BabyGender.female,
+          isActive: true,
+        ),
+      );
+      await _pumpForm(tester, babyService: babyService);
+
+      expect(find.text('Từ ngày sinh: 15/03/2026'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'rejects save when measuredDate is before birthDate with clear message',
+    (tester) async {
+      final service = _FakeGrowthMeasurementService();
+      await _pumpForm(
+        tester,
+        service: service,
+        measurement: _measurement(),
+        birthDate: DateTime(2026, 8, 1),
+      );
+
+      await tester.tap(find.byKey(const Key('growth-form-save')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('growth-form-error')), findsOneWidget);
+      expect(
+        find.text('Ngày đo không thể trước ngày sinh của bé.'),
+        findsOneWidget,
+      );
+      expect(service.updatedPayload, isNull);
+    },
+  );
+
+  testWidgets('displays BABY-075 translated message on save failure', (
+    tester,
+  ) async {
+    final service = _FakeGrowthMeasurementService();
+    await _pumpForm(
+      tester,
+      service: service,
+      onAdd: (id, body) async {
+        throw ApiException(
+          400,
+          '{"code":"BABY-075","message":"Measured date cannot be before baby birth date"}',
+        );
+      },
+    );
+
+    await tester.enterText(find.byKey(const Key('growth-form-weight')), '6.2');
+    await tester.tap(find.byKey(const Key('growth-form-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('growth-form-error')), findsOneWidget);
+    expect(
+      find.text('Ngày đo không thể trước ngày sinh của bé.'),
+      findsOneWidget,
+    );
+  });
 }

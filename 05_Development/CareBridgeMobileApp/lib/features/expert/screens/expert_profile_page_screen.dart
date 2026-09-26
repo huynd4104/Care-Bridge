@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
@@ -199,6 +200,15 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
       );
       return;
     }
+    final experienceText = _experienceCtrl.text.trim();
+    final experienceYears = int.tryParse(experienceText);
+    if (experienceText.isNotEmpty &&
+        (experienceYears == null || experienceYears < 0 || experienceYears > 80)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Số năm kinh nghiệm phải từ 0 đến 80')),
+      );
+      return;
+    }
 
     setState(() {
       _saving = true;
@@ -213,8 +223,8 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
         'workplace': _workplaceCtrl.text.trim(),
         'consultationScope': _consultationScopeCtrl.text.trim(),
       };
-      if (_experienceCtrl.text.trim().isNotEmpty) {
-        body['experienceYears'] = int.tryParse(_experienceCtrl.text.trim());
+      if (experienceYears != null) {
+        body['experienceYears'] = experienceYears;
       }
 
       final res = await apiPatch('/api/v1/expert/profiles/me', body);
@@ -468,6 +478,10 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
                         TextField(
                           controller: _experienceCtrl,
                           keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(2),
+                          ],
                           decoration: _inputDecoration(hint: 'Số năm...'),
                         ),
                       ],

@@ -80,8 +80,33 @@ class ApiErrorMessages {
     'EXPERT-004': 'Không tìm thấy hồ sơ chuyên gia.',
     'EXPERT-013':
         'Những khung giờ đã chọn đều đã trôi qua. Vui lòng chọn giờ khác.',
-    'FILE-001':
-        'Định dạng tệp không được hỗ trợ. Chỉ hỗ trợ ảnh JPEG, PNG, WebP, HEIC hoặc GIF.',
+    'BABY-060': 'Không tìm thấy hồ sơ của bé.',
+    'BABY-061': 'Bạn không có quyền cập nhật mốc phát triển cho bé này.',
+    'BABY-062': 'Hồ sơ của bé đã lưu trữ, không thể thêm mốc phát triển.',
+    'BABY-063': 'Loại mốc phát triển không hợp lệ.',
+    'BABY-064': 'Ngày đạt được không được ở tương lai.',
+    'BABY-065': 'Ngày đạt được không thể trước ngày sinh của bé.',
+    'BABY-070': 'Không tìm thấy hồ sơ của bé.',
+    'BABY-071':
+        'Bạn không có quyền thực hiện thao tác này trên hồ sơ của bé.',
+    'BABY-072': 'Vui lòng nhập ít nhất một chỉ số đo.',
+    'BABY-073':
+        'Hồ sơ của bé đã được lưu trữ, không thể cập nhật thêm số đo.',
+    'BABY-074': 'Chỉ số đo phải là số dương lớn hơn 0.',
+    'BABY-075': 'Ngày đo không thể trước ngày sinh của bé.',
+    'BABY-076': 'Vui lòng nhập ít nhất một trường thông tin cần cập nhật.',
+    'BABY-077': 'Vui lòng nhập ít nhất một chỉ số đo.',
+    'BABY-078': 'Chỉ số đo phải là số dương lớn hơn 0.',
+    'BABY-079': 'Không tìm thấy số đo tăng trưởng.',
+    'BABY-GROWTH-400': 'Ngày đo hoặc nguồn đo không hợp lệ.',
+    'MILESTONE-001': 'Không tìm thấy mốc phát triển.',
+    'MILESTONE-002': 'Bạn không có quyền chỉnh sửa mốc phát triển này.',
+    'MILESTONE-003': 'Thông tin cập nhật mốc phát triển không hợp lệ.',
+    'METRIC-004': 'Thời điểm đo không được ở tương lai quá 5 phút.',
+    'METRIC-032': 'Huyết áp tâm thu phải lớn hơn huyết áp tâm trương.',
+    'METRIC-033': 'Đơn vị đo không hợp lệ. Vui lòng thử lại.',
+    'METRIC-038': 'Giá trị chỉ số phải lớn hơn 0.',
+    'METRIC-039': 'Giá trị chỉ số nằm ngoài giới hạn sinh lý hợp lệ.',
   };
 
   static const _statusMessages = <int, String>{

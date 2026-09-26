@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  adminExerciseLimits,
+  validateAdminExerciseForm,
   type AdminExercise,
+  type AdminExerciseFieldErrors,
   type AdminExerciseForm,
   type DifficultyLevel,
   type TrimesterScope,
 } from "../models/adminExercise";
 import {
   fetchAdminExercise,
+  toAdminExerciseRequestError,
   updateAdminExercise,
 } from "../services/adminExerciseApi";
 
@@ -33,6 +37,9 @@ export default function EditPregnancyExercisePage() {
   const [changeNote, setChangeNote] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<AdminExerciseFieldErrors>({});
+  const [saveError, setSaveError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!exerciseId) {
@@ -56,12 +63,35 @@ export default function EditPregnancyExercisePage() {
     value: AdminExerciseForm[K],
   ) => {
     setForm((current) => (current ? { ...current, [key]: value } : current));
+    setFieldErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setSaveError("");
   };
 
   const handleUpdate = async () => {
-    if (!exercise || !form) return;
-    await updateAdminExercise(exercise.exerciseId, form);
-    navigate(`/content/exercises/${exercise.exerciseId}`);
+    if (!exercise || !form || isSaving) return;
+    const validationErrors = validateAdminExerciseForm(form);
+    setFieldErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      setSaveError(Object.values(validationErrors).join(" "));
+      return;
+    }
+    setIsSaving(true);
+    setSaveError("");
+    try {
+      await updateAdminExercise(exercise.exerciseId, form);
+      navigate(`/content/exercises/${exercise.exerciseId}`);
+    } catch (updateError) {
+      const requestError = toAdminExerciseRequestError(updateError);
+      setFieldErrors(requestError.fieldErrors);
+      setSaveError(requestError.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -123,12 +153,19 @@ export default function EditPregnancyExercisePage() {
           </button>
           <button
             onClick={handleUpdate}
-            className="rounded-full bg-primary px-6 py-3 font-semibold text-on-primary"
+            disabled={isSaving}
+            className="rounded-full bg-primary px-6 py-3 font-semibold text-on-primary disabled:opacity-60"
           >
-            Cập nhật phiên bản
+            {isSaving ? "Đang cập nhật..." : "Cập nhật phiên bản"}
           </button>
         </div>
       </div>
+
+      {saveError && (
+        <div role="alert" className="mb-6 rounded-xl border border-error bg-error-container/40 px-4 py-3 text-sm text-error">
+          {saveError}
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
@@ -162,14 +199,33 @@ export default function EditPregnancyExercisePage() {
                   <option value="THIRD">3 tháng cuối</option>
                   <option value="ALL">Tất cả</option>
                 </select>
-                <input
-                  value={form.durationMinutes}
-                  onChange={(event) =>
-                    update("durationMinutes", Number(event.target.value))
-                  }
-                  type="number"
-                  className="rounded-xl border-2 border-outline-variant p-3 outline-none focus:border-primary-container"
-                />
+                <label className="block">
+                  <input
+                    id="exercise-durationMinutes"
+                    aria-label="Thời lượng (phút)"
+                    value={Number.isNaN(form.durationMinutes) ? "" : form.durationMinutes}
+                    onChange={(event) =>
+                      update(
+                        "durationMinutes",
+                        event.target.value === "" ? Number.NaN : Number(event.target.value),
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (["e", "E", "+", "-", ".", ","].includes(event.key)) event.preventDefault();
+                    }}
+                    type="number"
+                    min={adminExerciseLimits.durationMinutesMin}
+                    max={adminExerciseLimits.durationMinutesMax}
+                    step={1}
+                    aria-invalid={Boolean(fieldErrors.durationMinutes)}
+                    className="w-full rounded-xl border-2 border-outline-variant p-3 outline-none focus:border-primary-container"
+                  />
+                  {fieldErrors.durationMinutes && (
+                    <span className="mt-1 block text-xs text-error">
+                      {fieldErrors.durationMinutes}
+                    </span>
+                  )}
+                </label>
               </div>
               <select
                 value={form.difficultyLevel}

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/decimal_input.dart';
 import '../models/health_metric_model.dart';
 import '../models/maternal_metric_lifecycle_policy.dart';
 import '../services/health_metric_service.dart';
@@ -262,8 +262,8 @@ class _EditHealthMetricScreenState extends State<EditHealthMetricScreen> {
           weightKg > 300 ||
           heightCm == null ||
           heightCm < 100 ||
-          heightCm > 230) {
-        _showError('Nhập cân nặng 20–300 kg và chiều cao 100–230 cm.');
+          heightCm > 250) {
+        _showError('Nhập cân nặng 20–300 kg và chiều cao 100–250 cm.');
         return;
       }
       primaryVal = weightKg / ((heightCm / 100) * (heightCm / 100));
@@ -298,6 +298,11 @@ class _EditHealthMetricScreenState extends State<EditHealthMetricScreen> {
           _showError('Giá trị thứ hai không hợp lệ.');
           return;
         }
+      }
+      final rangeError = _rangeErrorFor(primaryVal, secondaryVal);
+      if (rangeError != null) {
+        _showError(rangeError);
+        return;
       }
     }
 
@@ -931,6 +936,42 @@ class _EditHealthMetricScreenState extends State<EditHealthMetricScreen> {
     return weight / ((height / 100) * (height / 100));
   }
 
+  /// Cùng giới hạn với màn Thêm chỉ số và MetricObservationValidator ở backend.
+  String? _rangeErrorFor(double primary, double? secondary) {
+    final code = widget.metric.metricCode.toUpperCase();
+    if (code.startsWith('BLOOD_PRESSURE')) {
+      if (secondary != null && primary <= secondary) {
+        return 'Huyết áp tâm thu phải lớn hơn huyết áp tâm trương.';
+      }
+      if (primary < 60 ||
+          primary > 260 ||
+          (secondary != null && (secondary < 40 || secondary > 160))) {
+        return 'Chỉ số huyết áp ngoài dải hợp lý (Tâm thu: 60–260 mmHg, Tâm trương: 40–160 mmHg).';
+      }
+    } else if (code == 'MATERNAL_HEART_RATE' || code == 'HEART_RATE') {
+      if (primary != primary.roundToDouble() || primary < 30 || primary > 250) {
+        return 'Nhập nhịp tim hợp lệ từ 30 đến 250 bpm (số nguyên).';
+      }
+    } else if (_isFetalMovement) {
+      if (primary != primary.roundToDouble() || primary < 0 || primary > 100) {
+        return 'Số cử động phải là số nguyên từ 0 đến 100.';
+      }
+    } else if (code == 'HYDRATION') {
+      if (primary < 1 || primary > 10000) {
+        return 'Lượng nước phải từ 1 đến 10000 ml.';
+      }
+    } else if (code == 'STRESS') {
+      if (primary < 0 || primary > 100) {
+        return 'Chỉ số căng thẳng phải từ 0 đến 100.';
+      }
+    } else if (code == 'EPDS_SCORE') {
+      if (primary < 0 || primary > 30) return 'Điểm EPDS phải từ 0 đến 30.';
+    } else if (primary <= 0 || primary > 99999999) {
+      return 'Giá trị chỉ số nằm ngoài giới hạn hợp lệ.';
+    }
+    return null;
+  }
+
   Widget _buildInput({
     required TextEditingController controller,
     required String label,
@@ -944,7 +985,9 @@ class _EditHealthMetricScreenState extends State<EditHealthMetricScreen> {
       enabled: enabled,
       keyboardType: keyboardType,
       onChanged: onChanged,
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+      inputFormatters: [
+        DecimalTextInputFormatter(maxIntegerDigits: 5, maxFractionDigits: 2),
+      ],
       validator: (v) =>
           (v == null || v.isEmpty) ? 'Vui lòng nhập giá trị' : null,
       style: const TextStyle(

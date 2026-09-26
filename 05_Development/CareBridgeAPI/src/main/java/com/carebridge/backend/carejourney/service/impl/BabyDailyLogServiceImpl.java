@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
@@ -49,6 +50,7 @@ public class BabyDailyLogServiceImpl implements IBabyDailyLogService {
         checkWriteAccess(baby, userId);
         checkActiveStatus(baby);
         validateFeedingUnit(request);
+        validateQuantityRange(request.getLogType(), request.getQuantity());
 
         // C3: recorded_by = JWT userId — server-side, never from request body (ADR-BABY-008)
         BabyDailyLog log = BabyDailyLog.builder()
@@ -122,7 +124,10 @@ public class BabyDailyLogServiceImpl implements IBabyDailyLogService {
         // C6: recorded_by must remain original recorder — do NOT update
         if (request.getStartedAt() != null) log.setStartedAt(request.getStartedAt());
         if (request.getEndedAt() != null) log.setEndedAt(request.getEndedAt());
-        if (request.getQuantity() != null) log.setQuantity(request.getQuantity());
+        if (request.getQuantity() != null) {
+            validateQuantityRange(log.getLogType(), request.getQuantity());
+            log.setQuantity(request.getQuantity());
+        }
         if (request.getUnit() != null) log.setUnit(request.getUnit());
         if (request.getNote() != null) log.setNote(request.getNote());
 
@@ -208,6 +213,24 @@ public class BabyDailyLogServiceImpl implements IBabyDailyLogService {
                 && (request.getUnit() == null || request.getUnit().isBlank())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-036",
                     "unit is required when quantity is provided for FEEDING log");
+        }
+    }
+
+    /**
+     * Giới hạn hợp lý cho trẻ 0–24 tháng: một cữ sữa tối đa ~360 ml (bình lớn nhất phổ biến),
+     * giấc ngủ một lần tối đa 24 giờ, thuốc và tã tối đa 10 mỗi lần ghi.
+     */
+    private void validateQuantityRange(String logType, BigDecimal quantity) {
+        if (quantity == null || logType == null) return;
+        BigDecimal max = switch (logType) {
+            case "FEEDING" -> new BigDecimal("360");
+            case "SLEEP" -> new BigDecimal("1440");
+            case "MEDICINE", "DIAPER" -> BigDecimal.TEN;
+            default -> null;
+        };
+        if (max != null && quantity.compareTo(max) > 0) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-037",
+                    "quantity for " + logType + " must not exceed " + max.toPlainString());
         }
     }
 

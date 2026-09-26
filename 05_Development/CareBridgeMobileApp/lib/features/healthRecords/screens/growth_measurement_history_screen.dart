@@ -136,7 +136,10 @@ class _GrowthMeasurementHistoryScreenState
     try {
       final changed = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
-          builder: (_) => GrowthMeasurementFormScreen(babyId: widget.babyId),
+          builder: (_) => GrowthMeasurementFormScreen(
+            babyId: widget.babyId,
+            birthDate: _babyProfile?.birthDate,
+          ),
         ),
       );
       if (changed == true && mounted) await _loadData();
@@ -404,6 +407,7 @@ class _GrowthMeasurementHistoryScreenState
             builder: (_) => GrowthMeasurementDetailScreen(
               babyId: widget.babyId,
               measurement: record,
+              birthDate: _babyProfile?.birthDate,
             ),
           ),
         );
