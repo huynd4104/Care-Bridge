@@ -85,12 +85,23 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                       _state!.identityStatus == 'REJECTED' ||
                       _state!.identityStatus == 'MANUAL_REVIEW_REQUIRED')) ...[
                 const SizedBox(height: 16),
-                _messageCard(
-                  Icons.info_outline_rounded,
-                  'Lý do quản trị viên từ chối',
-                  _state!.rejectionReason!,
-                  const Color(0xFF93000A),
-                ),
+                // MANUAL_REVIEW_REQUIRED nghĩa là chờ người duyệt tay, không phải bị
+                // từ chối. Gọi nó là "lý do từ chối" và tô đỏ là nói sai với chuyên
+                // gia, trong khi ba ô trạng thái ngay trên vẫn đang vàng "chờ duyệt".
+                if (_state!.canResubmit || _state!.identityStatus == 'REJECTED')
+                  _messageCard(
+                    Icons.info_outline_rounded,
+                    'Lý do quản trị viên từ chối',
+                    _state!.rejectionReason!,
+                    const Color(0xFF93000A),
+                  )
+                else
+                  _messageCard(
+                    Icons.hourglass_top_rounded,
+                    'Tình trạng đối chiếu hồ sơ',
+                    _state!.rejectionReason!,
+                    const Color(0xFF8A6100),
+                  ),
               ],
               const SizedBox(height: 22),
               if (_state!.approved)

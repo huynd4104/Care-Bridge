@@ -697,6 +697,10 @@ function stepLabel(step: ExpertOnboardingStep | null | undefined) {
 function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardingResponse; reload: () => Promise<void>; setOverrideStep: (step: ExpertOnboardingStep) => void }) {
   const [resubmitting, setResubmitting] = useState(false);
   const [resubmitError, setResubmitError] = useState<string | null>(null);
+  // MANUAL_REVIEW_REQUIRED nghĩa là chờ quản trị viên duyệt tay, không phải bị từ
+  // chối. Tô đỏ nó là mâu thuẫn với chính trang này: tiêu đề đang ghi "Đã hoàn thiện
+  // hồ sơ" và ba ô trạng thái ngay trên vẫn vàng "đang chờ duyệt".
+  const rejected = state.canResubmit || state.identityStatus === 'REJECTED';
   return (
     <StepCard
       icon={<ShieldCheck />}
@@ -723,8 +727,8 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
       )}
       {(state.rejectionReason || state.identityStatus === 'REJECTED' || state.identityStatus === 'MANUAL_REVIEW_REQUIRED')
         && (state.rejectionReason || state.latestIdentityAttempt?.reviewReason) && (
-        <div className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
-          <p className="m-0">Phản hồi xét duyệt: {state.rejectionReason ?? state.latestIdentityAttempt?.reviewReason}</p>
+        <div className={`mt-5 rounded-xl p-4 text-sm ${rejected ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>
+          <p className="m-0">{rejected ? 'Phản hồi xét duyệt' : 'Tình trạng đối chiếu hồ sơ'}: {state.rejectionReason ?? state.latestIdentityAttempt?.reviewReason}</p>
           {/* Máy chủ là nơi biết khâu nào bị chấm sai, nên bước cần sửa do máy chủ
               trả về chứ không suy đoán ở đây. */}
           {state.rejectedStep && (

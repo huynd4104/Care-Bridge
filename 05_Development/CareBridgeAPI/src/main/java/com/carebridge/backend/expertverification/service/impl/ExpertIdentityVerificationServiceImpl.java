@@ -165,7 +165,7 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
                             .faceProvider("COMPREFACE")
                             .faceStatus(FaceVerificationStatus.DISABLED.name())
                             .reviewStatus(IdentityReviewStatus.MANUAL_REVIEW_REQUIRED)
-                            .reviewReason("Pending CompreFace pipeline processing")
+                            .reviewReason("Đang đối chiếu khuôn mặt tự động…")
                             .detectionSelfieStatus("PENDING")
                             .detectionIdCardStatus("PENDING")
                             .pipelineStatus(PIPELINE_PROCESSING)
@@ -251,14 +251,29 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
                      NO_FACE,
                      MULTIPLE_FACES -> IdentityReviewStatus.MANUAL_REVIEW_REQUIRED;
             };
+            // Chuỗi này đi thẳng ra màn hình chuyên gia (web lẫn mobile đều đọc
+            // latestIdentityAttempt.reviewReason), nên phải là tiếng Việt và phải đọc
+            // như một trạng thái xử lý, không phải một lời từ chối — hồ sơ ở đây mới
+            // chỉ đang chờ người duyệt.
+            //
+            // Riêng trường hợp nghi trùng: không nói cho người nộp biết khuôn mặt vừa
+            // khớp với một tài khoản khác. Với người đang thử đăng ký bằng giấy tờ của
+            // người khác thì đó là tín hiệu dò tìm. Chi tiết (possibleDuplicate,
+            // matchedExpertProfileId, độ tương đồng) vẫn được ghi đủ ở audit log ngay
+            // bên dưới cho quản trị viên.
             String reviewReason = duplicateMatch.isPresent()
-                    ? "Possible duplicate identity detected; admin review is required"
+                    ? "Hồ sơ cần quản trị viên đối chiếu thêm trước khi duyệt."
                     : switch (faceResult.status()) {
-                case NOT_MATCHED -> "Face similarity is below the configured threshold";
-                case DISABLED -> "CompreFace service is disabled";
-                case RETRYABLE_ERROR -> "CompreFace provider error: " + faceResult.providerErrorCode();
-                case NO_FACE -> "No face detected in one or both images";
-                case MULTIPLE_FACES -> "Multiple faces detected in one or both images";
+                case NOT_MATCHED -> "Khuôn mặt trong ảnh chân dung và ảnh CCCD chưa đủ giống nhau. "
+                        + "Quản trị viên sẽ xem lại thủ công.";
+                case DISABLED -> "Hệ thống đối chiếu khuôn mặt tự động đang tạm tắt. "
+                        + "Quản trị viên sẽ duyệt thủ công.";
+                case RETRYABLE_ERROR -> "Chưa đối chiếu khuôn mặt tự động được. "
+                        + "Quản trị viên sẽ duyệt thủ công.";
+                case NO_FACE -> "Không nhận ra khuôn mặt rõ ràng trong ảnh chân dung hoặc ảnh CCCD. "
+                        + "Quản trị viên sẽ xem lại thủ công.";
+                case MULTIPLE_FACES -> "Ảnh có nhiều hơn một khuôn mặt. "
+                        + "Quản trị viên sẽ xem lại thủ công.";
                 default -> null;
             };
 
