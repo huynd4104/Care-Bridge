@@ -46,4 +46,9 @@ public class MockEmailService implements EmailService {
         // credential-delivery email would include it in the message body only.
         logger.info("[MOCK EMAIL] Staff account credentials issued to: {} for: {}", to, name);
     }
+
+    @Override
+    public void sendExpertRejectionEmail(String to, String name, String reason) {
+        logger.info("[MOCK EMAIL] Expert rejection notification requested");
+    }
 }

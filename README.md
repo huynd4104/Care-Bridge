@@ -42,6 +42,7 @@ CareBridge is an enterprise-grade, omnichannel healthcare platform designed to a
 ## 🌟 System Overview
 
 CareBridge provides a comprehensive digital ecosystem catering to multiple key user roles:
+
 - **Mothers & Expectant Parents**: Pregnancy tracking, fetal kick monitoring, hydration & vitals logging, EPDS postpartum depression screening, baby care logs, WHO growth charts, personalized medical reminders, and SOS emergency alerts.
 - **Healthcare Experts & Clinicians**: Biometric eKYC verification, two-tier credential audits, customizable availability calendars, end-to-end encrypted messaging, and 1-on-1 audio/video teleconsultations via ZegoCloud.
 - **Family Members & Caregivers**: Shared care groups, granular permissions, collaborative task delegation, synchronized baby daily logs, and instant emergency notifications.
@@ -56,6 +57,7 @@ Detailed requirements are formally documented in [Report3_Functional_Specificati
 CareBridge implements **88 complete, reachable use cases** categorized across 9 core business domains:
 
 ### 1. Access, Identity, and Trust (11 Use Cases)
+
 - **UC-AC-01**: Multi-channel account registration (Email, Phone, Federated OTP) and initial role assignment.
 - **UC-AC-02**: JWT authentication with RS256 signing, public key rotation ring, and secure session management.
 - **UC-AC-03**: Multi-device login session inspection and remote revocation.
@@ -66,6 +68,7 @@ CareBridge implements **88 complete, reachable use cases** categorized across 9 
 - **UC-AC-10 & UC-AC-11**: Self-service account deactivation and account lock appeals submission.
 
 ### 2. Expert and Teleconsultation (12 Use Cases)
+
 - **UC-EX-01 & UC-EX-02**: Expert onboarding, specialty classification (Doctor, Midwife, Lactation Consultant, Nutritionist, Psychologist), and digital contract acceptance.
 - **UC-EX-03 & UC-EX-04**: Biometric eKYC facial verification, medical certificate submission, and verification tracking.
 - **UC-EX-05 & UC-EX-06**: Public profile customization and interactive working hours/availability calendar.
@@ -76,6 +79,7 @@ CareBridge implements **88 complete, reachable use cases** categorized across 9 
 - **UC-EX-12**: Expert review of shared maternal vitals, health records, and daily care checklists.
 
 ### 3. Mother Journey and Health (19 Use Cases)
+
 - **UC-MH-01 & UC-MH-02**: Journey onboarding across 3 life stages (Planning, Pregnancy, Postpartum) and gestation tracking (LMP, EDD, trimester milestones).
 - **UC-MH-03 & UC-MH-04**: Pregnancy outcome recording (birth transition) and interactive maternal dashboard with weekly baby development timeline.
 - **UC-MH-05 & UC-MH-06**: Personalized health recommendation profiling and weekly tailored advice.
@@ -91,6 +95,7 @@ CareBridge implements **88 complete, reachable use cases** categorized across 9 
 - **UC-MH-18 & UC-MH-19**: Prenatal/postnatal exercise catalogue with contraindication safety screening and guided workout timer sessions.
 
 ### 4. Baby Care & Growth Tracking (8 Use Cases)
+
 - **UC-BC-01 & UC-BC-02**: Multiple infant profile management and unified Baby Care Hub dashboard.
 - **UC-BC-03 & UC-BC-04**: Comprehensive baby daily logging (Breastfeeding, Formula, Solid food, Diaper wet/dirty, Sleep, Bath, Symptoms) and 24-hour summary analytics.
 - **UC-BC-05**: WHO-standard child growth charts and percentiles (Weight, Height, Head Circumference).
@@ -98,6 +103,7 @@ CareBridge implements **88 complete, reachable use cases** categorized across 9 
 - **UC-BC-07 & UC-BC-08**: National immunization registry, vaccination history, and automated next-dose reminders.
 
 ### 5. Community and Verified Content (6 Use Cases)
+
 - **UC-CO-01 & UC-CO-02**: Community Q&A forum with stage-based filtering, keyword search, and optional anonymous question posting.
 - **UC-CO-03**: Peer and verified expert answer threads (with distinguished verified expert badges).
 - **UC-CO-04**: Bookmarking, liking, and following community questions and topics.
@@ -105,20 +111,24 @@ CareBridge implements **88 complete, reachable use cases** categorized across 9 
 - **UC-CO-06**: Community content reporting (spam, medical misinformation, harassment).
 
 ### 6. AI Nurse and Clinical Assistance (1 Use Case)
+
 - **UC-AI-01**: 24/7 AI Nurse assistant powered by Retrieval-Augmented Generation (RAG) using Google Gemini and `pgvector` on verified clinical guidelines, offering safe maternal triage recommendations with strict medical disclaimers.
 
 ### 7. Emergency, Safety, and Fall Detection (5 Use Cases)
+
 - **UC-ES-01**: Nearest healthcare facility locator and GPS navigation powered by TrackAsia Maps.
 - **UC-ES-02 & UC-ES-03**: One-tap SOS emergency trigger, real-time GPS location dispatch, and synchronized family emergency broadcast alerts.
 - **UC-ES-04 & UC-ES-05**: Accelerometer-based fall/impact detection, sensitivity calibration, and automated 30-second countdown safety check.
 
 ### 8. Family Cooperative Care (5 Use Cases)
+
 - **UC-FM-01 & UC-FM-02**: Maternal Care Group creation, QR code/invite link member onboarding.
 - **UC-FM-03**: Role-based granular permissions (Partner, Grandparent, Caregiver).
 - **UC-FM-04**: Shared family care task delegation, assignment, and completion tracking.
 - **UC-FM-05**: Real-time family care event feed and activity monitoring.
 
 ### 9. Administration and Operations (21 Use Cases)
+
 - **UC-AD-01 to UC-AD-05**: User account RBAC management, staff provisioning, account lock appeal review, immutable security audit logging, and system maintenance mode controls.
 - **UC-AD-06 & UC-AD-07**: Two-tier expert credential verification and teleconsultation audit oversight.
 - **UC-AD-08 & UC-AD-09**: Rich-text CMS for versioned health articles, FAQs, and community taxonomy/tagging hierarchy.
@@ -183,14 +193,14 @@ graph TD
 
 ## 🚀 Tech Stack
 
-| Layer                      | Technologies                                                                                                                                       |
-| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layer                            | Technologies                                                                                                                                       |
+| :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Backend API**            | Java 21, Spring Boot 3.5.x, Spring Data JPA, Spring Security (RS256 JWT ring), Flyway, Apache Tika, Lombok, Maven                                  |
-| **AI Nurse & RAG Service** | Python 3.11+, FastAPI, Uvicorn, LangChain, Google GenAI (Gemini API), SQLAlchemy, `asyncpg`, `pgvector`                                            |
+| **AI Nurse & RAG Service** | Python 3.11+, FastAPI, Uvicorn, LangChain, Google GenAI (Gemini API), SQLAlchemy,`asyncpg`, `pgvector`                                         |
 | **Exercise ML Sidecar**    | Python 3.10+, Google MediaPipe, Scikit-learn, NumPy, Dockerized Inference Service                                                                  |
 | **Web Portal**             | React 19, TypeScript, Vite, TanStack React Query, React Hook Form, Zod, Tiptap WYSIWYG, Lucide Icons, ZegoCloud UIKit, Zustand, Vitest, Playwright |
 | **Mobile App**             | Flutter 3.22+, Dart, Firebase Core / FCM / Firestore / Auth, Zego Express Engine, Sensors Plus, Geolocator, Flutter Secure Storage, GoRouter       |
-| **Database & Cache**       | PostgreSQL 16+ with `pgvector` extension, Flyway schema versioning, Supabase                                                                       |
+| **Database & Cache**       | PostgreSQL 16+ with`pgvector` extension, Flyway schema versioning, Supabase                                                                      |
 | **External Services**      | Google Gemini 1.5/2.0, ZegoCloud RTC, TrackAsia Maps API, Firebase Auth & FCM, VNPay Gateway, Gmail SMTP                                           |
 | **DevOps & Infra**         | Docker Compose, Cloudflare Tunnel, Nginx, GitLab CI/CD                                                                                             |
 
@@ -232,6 +242,7 @@ CareBridge_SEP490_G79/
 For complete local startup instructions, see [05_Development/STARTUP.md](file:///Users/huy/Documents/Đồ án/CareBridge_SEP490_G79/05_Development/STARTUP.md).
 
 ### Prerequisites
+
 - **Java**: JDK 21+
 - **Node.js**: v20+ & npm
 - **Flutter SDK**: 3.22+
@@ -259,6 +270,7 @@ For complete local startup instructions, see [05_Development/STARTUP.md](file://
    # Windows PowerShell
    .\mvnw.cmd spring-boot:run
    ```
+
    Backend starts at: `http://localhost:8080` (Swagger UI at `/swagger-ui.html` if enabled).
 
 ---
@@ -277,6 +289,7 @@ For complete local startup instructions, see [05_Development/STARTUP.md](file://
    ```bash
    ./venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
    ```
+
    AI Service starts at: `http://localhost:8001`.
 
 ---
@@ -290,6 +303,7 @@ cd "05_Development/MachineLearning/MediaPipe_Posture/exercise_correction_sidecar
 docker build -t exercise-correction .
 docker run -p 8002:8002 exercise-correction
 ```
+
 Exercise Correction Sidecar starts at: `http://localhost:8002`.
 
 ---
@@ -305,6 +319,7 @@ Exercise Correction Sidecar starts at: `http://localhost:8002`.
    ```bash
    npm run dev
    ```
+
    Web portal starts at: `http://localhost:5173`.
 
 ---
@@ -354,12 +369,14 @@ cd 05_Development/CareBridgeMobileApp && flutter run
 ## 🧪 Testing & Quality Assurance
 
 ### Backend Tests
+
 ```bash
 cd 05_Development/CareBridgeAPI
 ./mvnw test
 ```
 
 ### Web Portal Tests
+
 ```bash
 cd 05_Development/CareBridgeWebApp
 
@@ -371,6 +388,7 @@ npm run test:e2e
 ```
 
 ### Mobile App Tests
+
 ```bash
 cd 05_Development/CareBridgeMobileApp
 flutter test
@@ -383,8 +401,8 @@ flutter test
 > [!NOTE]
 > Synthetic demo accounts are populated only when the Spring `dev` profile is active, `prod` is absent, and `CAREBRIDGE_DEV_SEED_ENABLED=true` is set. Dev seeding is disabled by default. Passwords must be supplied via `CAREBRIDGE_DEV_SEED_PASSWORD` and never committed to Git.
 
-| Role              | Synthetic Email            | Primary Function                                            |
-| :---------------- | :------------------------- | :---------------------------------------------------------- |
+| Role                    | Synthetic Email              | Primary Function                                            |
+| :---------------------- | :--------------------------- | :---------------------------------------------------------- |
 | **SYSTEM_ADMIN**  | `admin@carebridge.dev`     | System settings, user role management, audit inspection     |
 | **MODERATOR**     | `moderator@carebridge.dev` | Community moderation, appeals review, topic taxonomy        |
 | **CONTENT_ADMIN** | `content@carebridge.dev`   | CMS health articles, FAQs, and checklist template authoring |

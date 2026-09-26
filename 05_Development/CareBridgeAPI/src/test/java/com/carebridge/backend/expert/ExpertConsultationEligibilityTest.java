@@ -1,14 +1,21 @@
 package com.carebridge.backend.expert;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.carebridge.backend.expert.entity.ExpertProfile;
+import com.carebridge.backend.audit.entity.AuditAction;
 import com.carebridge.backend.expert.exception.ExpertException;
 import com.carebridge.backend.expert.mapper.ExpertProfileMapper;
 import com.carebridge.backend.expert.repository.ExpertProfileRepository;
@@ -26,6 +33,14 @@ import com.carebridge.backend.expertverification.repository.ExpertIdentityVerifi
 import com.carebridge.backend.expertverification.reviewstatus.ReviewStatus;
 import com.carebridge.backend.masterdata.repository.SpecialtyRepository;
 import com.carebridge.backend.map.repository.CareFacilityRepository;
+import com.carebridge.backend.security.entity.User;
+import com.carebridge.backend.security.service.EmailService;
+import com.carebridge.backend.security.service.impl.GmailEmailService;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import java.util.Properties;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -33,6 +48,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.carebridge.backend.expertavailability.repository.ExpertAvailabilityRepository;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class ExpertConsultationEligibilityTest {
@@ -46,6 +64,7 @@ class ExpertConsultationEligibilityTest {
     @Mock private ExpertIdentityVerificationRepository identityRepository;
     @Mock private ExpertCredentialRepository credentialRepository;
     @Mock private AuditService auditService;
+    @Mock private EmailService emailService;
 
     private final ExpertProfileMapper mapper = new ExpertProfileMapper();
 
@@ -75,7 +94,7 @@ class ExpertConsultationEligibilityTest {
         ExpertProfileServiceImpl service =
                 new ExpertProfileServiceImpl(repository, userRepository, mapper,
                         identityRepository, credentialRepository, auditService,
-                        specialtyRepository, careFacilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository);
+                        specialtyRepository, careFacilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository, emailService);
 
         assertThatThrownBy(() -> service.getPublicProfile(suspended.getExpertProfileId()))
                 .isInstanceOfSatisfying(ExpertException.class,
@@ -106,7 +125,7 @@ class ExpertConsultationEligibilityTest {
         ExpertProfileServiceImpl service =
                 new ExpertProfileServiceImpl(repository, userRepository, mapper,
                         identityRepository, credentialRepository, auditService,
-                        specialtyRepository, careFacilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository);
+                        specialtyRepository, careFacilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository, emailService);
 
         service.approveExpert(profileId, adminId);
         service.rejectExpert(profileId, adminId, "reason");
@@ -115,6 +134,151 @@ class ExpertConsultationEligibilityTest {
         verify(repository, times(3)).findByIdForUpdate(profileId);
         verify(repository, never()).findById(profileId);
         verify(repository, times(3)).save(any());
+    }
+
+    @Test
+    void rejectionNotifiesTheExpertByEmail() {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = userId;
+        UUID adminId = UUID.randomUUID();
+        ExpertProfile profile = profile(VerificationStatus.UNDER_REVIEW, TrustStatus.ACTIVE);
+        profile.setExpertProfileId(profileId);
+        when(repository.findByIdForUpdate(profileId)).thenReturn(Optional.of(profile));
+        when(repository.save(profile)).thenReturn(profile);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder()
+                .id(userId)
+                .name("Bác sĩ An")
+                .email("expert@example.com")
+                .build()));
+
+        service().rejectExpert(profileId, adminId, "  Thiếu giấy phép hành nghề  ");
+
+        assertThat(profile.getVerificationStatus()).isEqualTo(VerificationStatus.REJECTED);
+        verify(emailService).sendExpertRejectionEmail(
+                "expert@example.com", "Bác sĩ An", "Thiếu giấy phép hành nghề");
+    }
+
+    @Test
+    void rejectionSkipsEmailWhenTheAccountHasNoEmailAddress() {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = userId;
+        ExpertProfile profile = profile(VerificationStatus.PENDING, TrustStatus.ACTIVE);
+        profile.setExpertProfileId(profileId);
+        when(repository.findByIdForUpdate(profileId)).thenReturn(Optional.of(profile));
+        when(repository.save(profile)).thenReturn(profile);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder()
+                .id(userId)
+                .name("Bác sĩ An")
+                .email(" ")
+                .build()));
+
+        service().rejectExpert(profileId, UUID.randomUUID(), "Thiếu giấy phép hành nghề");
+
+        assertThat(profile.getVerificationStatus()).isEqualTo(VerificationStatus.REJECTED);
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void rejectionStillSucceedsWhenEmailDeliveryFails() {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = userId;
+        UUID adminId = UUID.randomUUID();
+        ExpertProfile profile = profile(VerificationStatus.PENDING, TrustStatus.ACTIVE);
+        profile.setExpertProfileId(profileId);
+        when(repository.findByIdForUpdate(profileId)).thenReturn(Optional.of(profile));
+        when(repository.save(profile)).thenReturn(profile);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder()
+                .id(userId)
+                .name("Bác sĩ An")
+                .email("expert@example.com")
+                .build()));
+        doThrow(new IllegalStateException("SMTP unavailable"))
+                .when(emailService)
+                .sendExpertRejectionEmail(any(), any(), any());
+
+        assertThatCode(() -> service().rejectExpert(
+                profileId, adminId, "Thiếu giấy phép hành nghề"))
+                .doesNotThrowAnyException();
+        assertThat(profile.getVerificationStatus()).isEqualTo(VerificationStatus.REJECTED);
+        verify(repository).save(profile);
+        verify(auditService).log(
+                eq(AuditAction.EXPERT_VERIFICATION), eq(adminId), eq("ExpertProfile"),
+                eq(profileId.toString()), any());
+    }
+
+    @Test
+    void rejectionDefersEmailUntilTheTransactionCommits() {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = userId;
+        ExpertProfile profile = profile(VerificationStatus.PENDING, TrustStatus.ACTIVE);
+        profile.setExpertProfileId(profileId);
+        when(repository.findByIdForUpdate(profileId)).thenReturn(Optional.of(profile));
+        when(repository.save(profile)).thenReturn(profile);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder()
+                .id(userId)
+                .name("Bác sĩ An")
+                .email("expert@example.com")
+                .build()));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service().rejectExpert(profileId, UUID.randomUUID(), "Thiếu giấy phép hành nghề");
+            verifyNoInteractions(emailService);
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+
+            verify(emailService).sendExpertRejectionEmail(
+                    "expert@example.com", "Bác sĩ An", "Thiếu giấy phép hành nghề");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void rejectionEmailEscapesUntrustedHtmlContent() throws Exception {
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+        when(mailSender.createMimeMessage()).thenReturn(message);
+        doAnswer(invocation -> {
+            ((MimeMessage) invocation.getArgument(0)).saveChanges();
+            return null;
+        }).when(mailSender).send(any(MimeMessage.class));
+        GmailEmailService gmailEmailService = new GmailEmailService(mailSender);
+        ReflectionTestUtils.setField(gmailEmailService, "fromAddress", "noreply@carebridge.test");
+        ReflectionTestUtils.setField(gmailEmailService, "fromName", "CareBridge");
+
+        gmailEmailService.sendExpertRejectionEmail(
+                "expert@example.com", "<b>Doctor An</b>", "<script>alert('x')</script>");
+
+        String html = findHtmlContent(message);
+        assertThat(html)
+                .contains("&lt;b&gt;Doctor An&lt;/b&gt;")
+                .contains("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;")
+                .doesNotContain("<script>");
+    }
+
+    private static String findHtmlContent(Part part) throws Exception {
+        if (part.isMimeType("text/html")) {
+            return part.getContent().toString();
+        }
+        if (part.isMimeType("multipart/*")) {
+            Multipart multipart = (Multipart) part.getContent();
+            for (int index = 0; index < multipart.getCount(); index++) {
+                String html = findHtmlContent(multipart.getBodyPart(index));
+                if (!html.isEmpty()) {
+                    return html;
+                }
+            }
+        }
+        return "";
+    }
+
+    private ExpertProfileServiceImpl service() {
+        return new ExpertProfileServiceImpl(repository, userRepository, mapper,
+                identityRepository, credentialRepository, auditService,
+                specialtyRepository, careFacilityRepository,
+                professionalSpecialtyRepository, expertAvailabilityRepository, emailService);
     }
 
     private static ExpertProfile profile(
