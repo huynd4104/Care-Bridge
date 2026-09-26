@@ -13,7 +13,7 @@ export const CHECKLIST_APPROVAL_REASON_MESSAGES: Readonly<Record<string, string>
   CHECKLIST_REQUIRED_ITEM_MISSING:
     'Checklist trong chuỗi phải có ít nhất một mục bắt buộc.',
   CHECKLIST_DUPLICATE_SEQUENCE_POSITION:
-    'Vị trí bộ checklist đã được sử dụng. Hãy chọn vị trí khác hoặc tạo phiên bản thay thế cùng dòng.',
+    'Vị trí bộ checklist trong chuỗi Chuẩn bị mang thai đã có checklist khác đang hoạt động. Content Admin cần đổi "Vị trí bộ checklist" sang số chưa dùng (ví dụ bộ tiếp theo ở cuối chuỗi), hoặc tạo phiên bản mới từ chính checklist đang giữ vị trí đó nếu muốn thay thế.',
   CHECKLIST_SEQUENCE_POSITION_GAP:
     'Các bộ checklist phải liên tục từ bộ 1. Hãy xuất bản các bộ còn thiếu trước.',
   CHECKLIST_SEQUENCE_POSITION_IMMUTABLE:

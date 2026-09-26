@@ -17,6 +17,7 @@ import {
   checklistCoexistenceGuidance,
   checklistRecipientLabel,
   checklistSequenceLabel,
+  checklistApprovalErrorMessage,
   checklistWindowLabel,
 } from './checklistApprovalPresentation';
 import { useAuth } from '../../../shared/auth/useAuth';
@@ -124,7 +125,7 @@ export default function ChecklistDetailPage() {
         }
       }, 1000);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Không thể thực hiện thẩm định. Vui lòng thử lại.');
+      setActionError(checklistApprovalErrorMessage(err, decisionModal));
     } finally {
       setSubmittingDecision(false);
     }

@@ -37,6 +37,15 @@ describe('checklist approval presentation', () => {
     expect(unknown).toContain('Vui');
   });
 
+  it('explains a duplicate preconception sequence position with how to fix it', () => {
+    const message = checklistApprovalErrorMessage({
+      response: { status: 400, data: { metadata: { reasonCode: 'CHECKLIST_DUPLICATE_SEQUENCE_POSITION' } } },
+    });
+    expect(message).toContain('Vị trí bộ checklist');
+    expect(message).toContain('số chưa dùng');
+    expect(message).not.toContain('status code 400');
+  });
+
   it('renders inline pregnancy windows and cadence for V2 roots', () => {
     expect(checklistWindowLabel({ substage: null, eligibilityStartInclusive: 20, eligibilityEndInclusive: 24 })).toBe('Tuần 21–25');
     expect(checklistWindowLabel({ substage: null, eligibilityStartInclusive: 39, eligibilityEndInclusive: 2147483647 })).toBe('Tuần 40+');
