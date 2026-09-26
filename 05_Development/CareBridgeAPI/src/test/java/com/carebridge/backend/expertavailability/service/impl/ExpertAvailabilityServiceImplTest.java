@@ -20,6 +20,7 @@ import com.carebridge.backend.expert.truststatus.TrustStatus;
 import com.carebridge.backend.expert.verificationstatus.VerificationStatus;
 import com.carebridge.backend.expertavailability.dto.request.ShareLocationRequest;
 import com.carebridge.backend.expertavailability.dto.request.HourlyAvailabilitySlotRequest;
+import com.carebridge.backend.expertavailability.dto.request.CreateAvailabilityRequest;
 import com.carebridge.backend.expertavailability.dto.request.ReplaceAvailabilityRequest;
 import com.carebridge.backend.expertavailability.dto.response.AvailabilityResponse;
 import com.carebridge.backend.expertavailability.entity.ExpertAvailability;
@@ -116,6 +117,23 @@ class ExpertAvailabilityServiceImplTest {
                 .findByExpertProfileIdAndStartAtGreaterThanEqualAndStartAtLessThan(
                         org.mockito.ArgumentMatchers.eq(profileId), any(), any());
         verify(availabilityRepository, times(2)).deleteAll(any());
+    }
+
+    @Test
+    void createAvailabilityRejectsASingleSlotLongerThanTheWorkingDay() {
+        // Một khung 30 ngày liền từng được lưu, khiến chuyên gia hiện "đang rảnh" cả tháng.
+        CreateAvailabilityRequest request = CreateAvailabilityRequest.builder()
+                .startAt(NOW.plus(java.time.Duration.ofDays(1)))
+                .endAt(NOW.plus(java.time.Duration.ofDays(31)))
+                .channelType("ONLINE_CHAT")
+                .build();
+
+        assertExpertError(
+                () -> service.createAvailability(UUID.randomUUID(), request),
+                HttpStatus.BAD_REQUEST,
+                "EXPERT-011");
+
+        verify(availabilityRepository, never()).save(any());
     }
 
     @Test

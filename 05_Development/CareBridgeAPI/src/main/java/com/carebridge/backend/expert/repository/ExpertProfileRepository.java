@@ -49,7 +49,12 @@ public interface ExpertProfileRepository extends JpaRepository<ExpertProfile, UU
  @Query("SELECT ep FROM ExpertProfile ep JOIN FETCH ep.user u " +
         "WHERE (:search IS NULL OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
         "OR LOWER(ep.specialty) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
-        "AND (COALESCE(:statuses, NULL) IS NULL OR ep.verificationStatus IN :statuses)")
+        "AND (COALESCE(:statuses, NULL) IS NULL OR ep.verificationStatus IN :statuses) " +
+        // Hàng đợi duyệt phải đưa hồ sơ vừa gửi lên đầu. updatedAt đổi cả khi chuyên
+        // gia nộp lại sau khi bị từ chối, nên một hồ sơ nộp lại cũng nổi lên như hồ sơ
+        // mới — đúng thứ tự việc mà quản trị viên cần xử lý. createdAt chỉ để phá thế
+        // bằng nhau giữa các hồ sơ lưu trong cùng một thời điểm.
+        "ORDER BY ep.updatedAt DESC, ep.createdAt DESC")
  Page<ExpertProfile> findForReview(@Param("search") String search, @Param("statuses") java.util.List<VerificationStatus> statuses, Pageable pageable);
 
  @Query(value = """

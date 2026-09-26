@@ -3,6 +3,7 @@ package com.carebridge.backend.expertavailability.dto.request;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -24,7 +25,9 @@ public class ReplaceAvailabilityRequest {
     @NotNull
     private String timeZone;
 
-    @NotNull
+    @NotNull(message = "Vui lòng chọn hình thức tư vấn")
+    @Pattern(regexp = "ONLINE_CHAT|CHAT|VIDEO|VOICE|AUDIO|IN_PERSON",
+            message = "Hình thức tư vấn không hợp lệ")
     private String channelType;
 
     @NotNull

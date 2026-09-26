@@ -84,25 +84,27 @@ public class ExpertProfileMapper {
 	public ExpertProfile toEntity(CreateExpertProfileRequest request, UUID userId) {
 		return ExpertProfile.builder()
 			.expertProfileId(userId)
-			.specialty(request.getSpecialty())
-			.professionalTitle(request.getProfessionalTitle())
+			.specialty(strip(request.getSpecialty()))
+			.professionalTitle(strip(request.getProfessionalTitle()))
 			.experienceYears(request.getExperienceYears())
-			.workplace(request.getWorkplace())
+			.workplace(strip(request.getWorkplace()))
 			.workplaceProvinceId(request.getWorkplaceProvinceId())
-			.consultationScope(request.getConsultationScope())
-			.ratingAvg(request.getRatingAvg())
+			.consultationScope(strip(request.getConsultationScope()))
 			.consultationFeeVnd(request.getConsultationFeeVnd())
 			.verificationStatus(VerificationStatus.PENDING)
 			.build();
 	}
 
+	private static String strip(String value) {
+		return value == null ? null : value.strip();
+	}
+
 	public void updateEntity(ExpertProfile entity, UpdateExpertProfileRequest request) {
-		if (request.getSpecialty() != null) entity.setSpecialty(request.getSpecialty());
-		if (request.getProfessionalTitle() != null) entity.setProfessionalTitle(request.getProfessionalTitle());
+		if (request.getSpecialty() != null) entity.setSpecialty(request.getSpecialty().strip());
+		if (request.getProfessionalTitle() != null) entity.setProfessionalTitle(request.getProfessionalTitle().strip());
 		if (request.getExperienceYears() != null) entity.setExperienceYears(request.getExperienceYears());
-		if (request.getWorkplace() != null) entity.setWorkplace(request.getWorkplace());
-		if (request.getConsultationScope() != null) entity.setConsultationScope(request.getConsultationScope());
-		if (request.getRatingAvg() != null) entity.setRatingAvg(request.getRatingAvg());
+		if (request.getWorkplace() != null) entity.setWorkplace(request.getWorkplace().strip());
+		if (request.getConsultationScope() != null) entity.setConsultationScope(request.getConsultationScope().strip());
 		if (request.getConsultationFeeVnd() != null) entity.setConsultationFeeVnd(request.getConsultationFeeVnd());
 	}
 

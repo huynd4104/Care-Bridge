@@ -114,6 +114,9 @@ export interface ExpertOnboardingResponse {
 	verificationStatus: string | null;
 	rejectionReason?: string | null;
 	expertType?: ExpertType | null;
+	/** Bước máy chủ chấm là sai; null khi hồ sơ không bị từ chối. */
+	rejectedStep?: ExpertOnboardingStep | null;
+	canResubmit?: boolean;
 	nextStep: ExpertOnboardingStep;
 	latestIdentityAttempt: IdentityAttemptResponse | null;
 }

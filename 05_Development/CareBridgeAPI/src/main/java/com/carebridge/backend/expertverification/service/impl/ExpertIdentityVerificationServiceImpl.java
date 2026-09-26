@@ -165,7 +165,7 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
                             .faceProvider("COMPREFACE")
                             .faceStatus(FaceVerificationStatus.DISABLED.name())
                             .reviewStatus(IdentityReviewStatus.MANUAL_REVIEW_REQUIRED)
-                            .reviewReason("Pending CompreFace pipeline processing")
+                            .reviewReason("Đang đối chiếu khuôn mặt tự động…")
                             .detectionSelfieStatus("PENDING")
                             .detectionIdCardStatus("PENDING")
                             .pipelineStatus(PIPELINE_PROCESSING)
@@ -251,14 +251,29 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
                      NO_FACE,
                      MULTIPLE_FACES -> IdentityReviewStatus.MANUAL_REVIEW_REQUIRED;
             };
+            // Chuỗi này đi thẳng ra màn hình chuyên gia (web lẫn mobile đều đọc
+            // latestIdentityAttempt.reviewReason), nên phải là tiếng Việt và phải đọc
+            // như một trạng thái xử lý, không phải một lời từ chối — hồ sơ ở đây mới
+            // chỉ đang chờ người duyệt.
+            //
+            // Riêng trường hợp nghi trùng: không nói cho người nộp biết khuôn mặt vừa
+            // khớp với một tài khoản khác. Với người đang thử đăng ký bằng giấy tờ của
+            // người khác thì đó là tín hiệu dò tìm. Chi tiết (possibleDuplicate,
+            // matchedExpertProfileId, độ tương đồng) vẫn được ghi đủ ở audit log ngay
+            // bên dưới cho quản trị viên.
             String reviewReason = duplicateMatch.isPresent()
-                    ? "Possible duplicate identity detected; admin review is required"
+                    ? "Hồ sơ cần quản trị viên đối chiếu thêm trước khi duyệt."
                     : switch (faceResult.status()) {
-                case NOT_MATCHED -> "Face similarity is below the configured threshold";
-                case DISABLED -> "CompreFace service is disabled";
-                case RETRYABLE_ERROR -> "CompreFace provider error: " + faceResult.providerErrorCode();
-                case NO_FACE -> "No face detected in one or both images";
-                case MULTIPLE_FACES -> "Multiple faces detected in one or both images";
+                case NOT_MATCHED -> "Khuôn mặt trong ảnh chân dung và ảnh CCCD chưa đủ giống nhau. "
+                        + "Quản trị viên sẽ xem lại thủ công.";
+                case DISABLED -> "Hệ thống đối chiếu khuôn mặt tự động đang tạm tắt. "
+                        + "Quản trị viên sẽ duyệt thủ công.";
+                case RETRYABLE_ERROR -> "Chưa đối chiếu khuôn mặt tự động được. "
+                        + "Quản trị viên sẽ duyệt thủ công.";
+                case NO_FACE -> "Không nhận ra khuôn mặt rõ ràng trong ảnh chân dung hoặc ảnh CCCD. "
+                        + "Quản trị viên sẽ xem lại thủ công.";
+                case MULTIPLE_FACES -> "Ảnh có nhiều hơn một khuôn mặt. "
+                        + "Quản trị viên sẽ xem lại thủ công.";
                 default -> null;
             };
 
@@ -346,9 +361,17 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
                 .credentialStatus(credentialStatus)
                 .verificationStatus(profile.getVerificationStatus())
                 .expertType(profile.getExpertType() != null ? profile.getExpertType().name() : null)
-                .rejectionReason(profileRepository
-                        .findLatestProfileRejectionReason(profile.getExpertProfileId())
-                        .orElse(null))
+                // Lý do đọc từ bản ghi từ chối mới nhất trong audit log, và bản ghi đó
+                // vẫn nằm đó sau khi chuyên gia gửi lại. Không chặn theo trạng thái thì
+                // hồ sơ đã nộp lại, đang chờ duyệt, vẫn hiện khung đỏ "bị từ chối".
+                .rejectionReason(canResubmit(profile.getVerificationStatus())
+                        ? profileRepository
+                                .findLatestProfileRejectionReason(profile.getExpertProfileId())
+                                .orElse(null)
+                        : null)
+                .rejectedStep(determineRejectedStep(profile.getVerificationStatus(),
+                        identityStatus, credentialStatus))
+                .canResubmit(canResubmit(profile.getVerificationStatus()))
                 .nextStep(nextStep)
                 .latestIdentityAttempt(latest.map(this::toResponse).orElse(null))
                 .build();
@@ -542,6 +565,34 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
         if ("MISSING".equals(identityStatus) || "REJECTED".equals(identityStatus)) return "IDENTITY";
         if ("MISSING".equals(credentialStatus) || "REJECTED".equals(credentialStatus)) return "CREDENTIAL";
         return "UNDER_REVIEW";
+    }
+
+    /** Trạng thái mà /profiles/me/renew chấp nhận để đưa hồ sơ về chờ duyệt. */
+    private static boolean canResubmit(VerificationStatus verificationStatus) {
+        return verificationStatus == VerificationStatus.REJECTED
+                || verificationStatus == VerificationStatus.EXPIRED;
+    }
+
+    /**
+     * Hồ sơ bị từ chối thì chuyên gia phải biết sai ở khâu nào mới sửa được.
+     *
+     * Quản trị viên từ chối ở ba chỗ khác nhau: ảnh định danh, chứng chỉ hành nghề,
+     * hoặc toàn bộ hồ sơ. Hai khâu đầu tự mang trạng thái REJECTED nên đọc được
+     * trực tiếp. Từ chối toàn hồ sơ không gắn vào khâu nào, và lúc đó phần khai báo
+     * nghề nghiệp là chỗ duy nhất chuyên gia sửa được, nên trả về EXPERT_TYPE.
+     *
+     * Cố ý không đụng tới nextStep: giao diện vẫn phải dừng ở màn xét duyệt để hiện
+     * lý do từ chối và nút nộp lại. Nếu đẩy nextStep về bước sai thì tiến độ máy chủ
+     * tụt xuống, các bước sau bị khoá và chuyên gia mất luôn đường nộp lại.
+     */
+    private static String determineRejectedStep(
+            VerificationStatus verificationStatus, String identityStatus, String credentialStatus) {
+        if (!canResubmit(verificationStatus)) {
+            return null;
+        }
+        if ("REJECTED".equals(identityStatus) || "MISSING".equals(identityStatus)) return "IDENTITY";
+        if ("REJECTED".equals(credentialStatus) || "MISSING".equals(credentialStatus)) return "CREDENTIAL";
+        return "EXPERT_TYPE";
     }
 
     private boolean hasFutureAvailability(UUID expertProfileId) {

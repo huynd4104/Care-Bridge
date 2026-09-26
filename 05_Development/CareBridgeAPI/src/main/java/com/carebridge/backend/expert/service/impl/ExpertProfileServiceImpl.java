@@ -70,6 +70,10 @@ public class ExpertProfileServiceImpl implements IExpertProfileService {
 	// 1 lookup, for every response that uses ExpertProfileResponse/ExpertProfileDetailResponse.
 	private record UserInfo(String displayName, String avatarUrl, String email, String phone) {}
 
+	private static String strip(String value) {
+		return value == null ? null : value.strip();
+	}
+
 	private UserInfo resolveUserInfo(UUID userId) {
 		return userRepository.findById(userId)
 			.map(u -> new UserInfo(u.getName(), u.getAvatarUrl(), u.getEmail(), u.getPhone()))
@@ -83,13 +87,12 @@ public class ExpertProfileServiceImpl implements IExpertProfileService {
 			ExpertProfile profile = existing.get();
 			MasterDataSelection selection = normalizeMasterData(request);
 			
-			profile.setSpecialty(request.getSpecialty());
-			profile.setProfessionalTitle(request.getProfessionalTitle());
+			profile.setSpecialty(strip(request.getSpecialty()));
+			profile.setProfessionalTitle(strip(request.getProfessionalTitle()));
 			profile.setExperienceYears(request.getExperienceYears());
-			profile.setWorkplace(request.getWorkplace());
+			profile.setWorkplace(strip(request.getWorkplace()));
 			profile.setWorkplaceProvinceId(request.getWorkplaceProvinceId());
-			profile.setConsultationScope(request.getConsultationScope());
-			if (request.getRatingAvg() != null) profile.setRatingAvg(request.getRatingAvg());
+			profile.setConsultationScope(strip(request.getConsultationScope()));
 			if (request.getConsultationFeeVnd() != null) profile.setConsultationFeeVnd(request.getConsultationFeeVnd());
 			profile.setFacilityId(selection.facilityId());
 			if (profile.getVerificationStatus() == null) {
@@ -662,7 +665,12 @@ public class ExpertProfileServiceImpl implements IExpertProfileService {
 			.orElseThrow(() -> new ExpertException(
 				org.springframework.http.HttpStatus.NOT_FOUND, "EXPERT-003", "Expert profile not found"));
 		profile.setProfessionalTitle(customTitle);
-		profile.setRatingAvg(java.math.BigDecimal.valueOf(customPrice));
+		// Trước đây giá được ghi vào ratingAvg, tức giá 350.000đ thành điểm 350.000 sao.
+		if (customPrice < 0 || customPrice > 10_000_000) {
+			throw new ExpertException(org.springframework.http.HttpStatus.BAD_REQUEST, "EXPERT-015",
+				"Phí tư vấn phải từ 0 đến 10.000.000 đồng mỗi buổi");
+		}
+		profile.setConsultationFeeVnd((long) customPrice);
 		expertProfileRepository.save(profile);
 	}
 
