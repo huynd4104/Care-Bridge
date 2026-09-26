@@ -19,6 +19,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
   ExpertOnboardingState? _state;
   bool _loading = true;
   String? _error;
+  bool _resubmitting = false;
 
   @override
   void initState() {
@@ -105,8 +106,22 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Cập nhật trạng thái'),
                 ),
-                if (_state!.identityStatus == 'REJECTED' ||
-                    _state!.identityStatus == 'MANUAL_REVIEW_REQUIRED') ...[
+                // Máy chủ là nơi biết khâu nào bị chấm sai, nên app mở đúng bước đó
+                // thay vì suy đoán từ trạng thái tài liệu.
+                if (_state!.rejectedStep != null) ...[
+                  const SizedBox(height: 10),
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        context.go(_resumePath(_state!.rejectedStep!)),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: Text(
+                      'Sửa lại bước ${_stepLabel(_state!.rejectedStep!)}',
+                    ),
+                  ),
+                ],
+                // Kiểm tra thủ công không phải là từ chối nên máy chủ không đánh dấu
+                // bước sai, nhưng chuyên gia vẫn cần chụp lại ảnh cho rõ.
+                if (_state!.identityStatus == 'MANUAL_REVIEW_REQUIRED') ...[
                   const SizedBox(height: 10),
                   FilledButton.tonalIcon(
                     onPressed: () => context.go('/expert/identity'),
@@ -114,12 +129,18 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                     label: const Text('Làm lại định danh'),
                   ),
                 ],
-                if (_state!.credentialStatus == 'REJECTED') ...[
+                // Sửa xong vẫn phải có động tác gửi lại: từ chối toàn hồ sơ không gắn
+                // với tài liệu nào để tự kích hoạt xét duyệt.
+                if (_state!.canResubmit) ...[
                   const SizedBox(height: 10),
-                  FilledButton.tonalIcon(
-                    onPressed: () => context.go('/expert/credentials'),
-                    icon: const Icon(Icons.workspace_premium_outlined),
-                    label: const Text('Làm lại chứng chỉ'),
+                  FilledButton.icon(
+                    onPressed: _resubmitting ? null : _resubmit,
+                    icon: const Icon(Icons.send_rounded),
+                    label: Text(
+                      _resubmitting
+                          ? 'Đang gửi lại...'
+                          : 'Gửi lại hồ sơ để duyệt',
+                    ),
                   ),
                 ],
               ],
@@ -299,6 +320,46 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
         return 'Chưa gửi';
       default:
         return status.isEmpty ? 'Chưa có trạng thái' : status;
+    }
+  }
+
+  Future<void> _resubmit() async {
+    setState(() => _resubmitting = true);
+    try {
+      await (widget.service ?? ExpertOnboardingService.instance)
+          .renewVerification();
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không gửi lại được hồ sơ. Vui lòng thử lại.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resubmitting = false);
+    }
+  }
+
+  /// Tên bước, dùng đúng chữ trên thẻ tiến độ để chuyên gia khỏi phải đoán.
+  String _stepLabel(ExpertOnboardingStep step) {
+    switch (step) {
+      case ExpertOnboardingStep.profile:
+        return 'thông tin hồ sơ';
+      case ExpertOnboardingStep.expertType:
+        return 'hình thức hợp tác';
+      case ExpertOnboardingStep.identity:
+        return 'định danh';
+      case ExpertOnboardingStep.credential:
+        return 'chứng chỉ';
+      case ExpertOnboardingStep.contract:
+        return 'ký thoả thuận';
+      case ExpertOnboardingStep.availability:
+        return 'lịch làm việc';
+      case ExpertOnboardingStep.review:
+      case ExpertOnboardingStep.complete:
+        return 'hồ sơ';
     }
   }
 

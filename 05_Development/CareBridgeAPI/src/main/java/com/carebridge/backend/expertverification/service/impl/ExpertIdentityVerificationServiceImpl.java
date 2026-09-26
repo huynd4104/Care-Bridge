@@ -349,6 +349,10 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
                 .rejectionReason(profileRepository
                         .findLatestProfileRejectionReason(profile.getExpertProfileId())
                         .orElse(null))
+                .rejectedStep(determineRejectedStep(profile.getVerificationStatus(),
+                        identityStatus, credentialStatus))
+                .canResubmit(profile.getVerificationStatus() == VerificationStatus.REJECTED
+                        || profile.getVerificationStatus() == VerificationStatus.EXPIRED)
                 .nextStep(nextStep)
                 .latestIdentityAttempt(latest.map(this::toResponse).orElse(null))
                 .build();
@@ -542,6 +546,29 @@ public class ExpertIdentityVerificationServiceImpl implements IExpertIdentityVer
         if ("MISSING".equals(identityStatus) || "REJECTED".equals(identityStatus)) return "IDENTITY";
         if ("MISSING".equals(credentialStatus) || "REJECTED".equals(credentialStatus)) return "CREDENTIAL";
         return "UNDER_REVIEW";
+    }
+
+    /**
+     * Hồ sơ bị từ chối thì chuyên gia phải biết sai ở khâu nào mới sửa được.
+     *
+     * Quản trị viên từ chối ở ba chỗ khác nhau: ảnh định danh, chứng chỉ hành nghề,
+     * hoặc toàn bộ hồ sơ. Hai khâu đầu tự mang trạng thái REJECTED nên đọc được
+     * trực tiếp. Từ chối toàn hồ sơ không gắn vào khâu nào, và lúc đó phần khai báo
+     * nghề nghiệp là chỗ duy nhất chuyên gia sửa được, nên trả về EXPERT_TYPE.
+     *
+     * Cố ý không đụng tới nextStep: giao diện vẫn phải dừng ở màn xét duyệt để hiện
+     * lý do từ chối và nút nộp lại. Nếu đẩy nextStep về bước sai thì tiến độ máy chủ
+     * tụt xuống, các bước sau bị khoá và chuyên gia mất luôn đường nộp lại.
+     */
+    private static String determineRejectedStep(
+            VerificationStatus verificationStatus, String identityStatus, String credentialStatus) {
+        if (verificationStatus != VerificationStatus.REJECTED
+                && verificationStatus != VerificationStatus.EXPIRED) {
+            return null;
+        }
+        if ("REJECTED".equals(identityStatus) || "MISSING".equals(identityStatus)) return "IDENTITY";
+        if ("REJECTED".equals(credentialStatus) || "MISSING".equals(credentialStatus)) return "CREDENTIAL";
+        return "EXPERT_TYPE";
     }
 
     private boolean hasFutureAvailability(UUID expertProfileId) {

@@ -16,6 +16,13 @@ public class ExpertOnboardingResponse {
     /** COMMUNITY | PENDING_CONTRACT | CONTRACTED | null (chưa chọn hình thức). */
     private String expertType;
     private String rejectionReason;
+    /**
+     * Bước mà quản trị viên chấm là sai, để giao diện mở đúng chỗ đó cho chuyên gia
+     * sửa thay vì bắt họ dò lại cả luồng. null khi hồ sơ không bị từ chối.
+     */
+    private String rejectedStep;
+    /** Hồ sơ đang ở trạng thái được phép nộp lại cho quản trị viên xét lần nữa. */
+    private boolean canResubmit;
     private String nextStep;
     private IdentityVerificationResponse latestIdentityAttempt;
 }

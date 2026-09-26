@@ -689,6 +689,11 @@ function CredentialStep({ onDone }: { onDone: () => Promise<void> }) {
   );
 }
 
+/** Nhãn của bước, dùng lại đúng chữ trên thanh tiến độ để người đọc không phải đoán. */
+function stepLabel(step: ExpertOnboardingStep | null | undefined) {
+  return steps.find(([key]) => key === step)?.[1] ?? 'hồ sơ';
+}
+
 function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardingResponse; reload: () => Promise<void>; setOverrideStep: (step: ExpertOnboardingStep) => void }) {
   const [resubmitting, setResubmitting] = useState(false);
   const [resubmitError, setResubmitError] = useState<string | null>(null);
@@ -701,7 +706,14 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
       </div>
       {(state.rejectionReason || state.latestIdentityAttempt?.reviewReason) && (
         <div className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
-          Phản hồi xét duyệt: {state.rejectionReason ?? state.latestIdentityAttempt?.reviewReason}
+          <p className="m-0">Phản hồi xét duyệt: {state.rejectionReason ?? state.latestIdentityAttempt?.reviewReason}</p>
+          {/* Máy chủ là nơi biết khâu nào bị chấm sai, nên bước cần sửa do máy chủ
+              trả về chứ không suy đoán ở đây. */}
+          {state.rejectedStep && (
+            <p className="mt-2 mb-0 font-semibold">
+              Bước cần sửa: {stepLabel(state.rejectedStep)}
+            </p>
+          )}
         </div>
       )}
       <div className="mt-6 flex flex-wrap gap-4">
@@ -713,17 +725,24 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
           Kiểm tra trạng thái
         </button>
         
-        {/* Cho phép chuyên gia làm lại nếu bị lỗi hoặc yêu cầu kiểm tra thủ công */}
-        {(state.identityStatus === 'REJECTED' || state.identityStatus === 'MANUAL_REVIEW_REQUIRED') && (
+        {/* Bước sai do máy chủ chỉ ra: mở thẳng bước đó để chuyên gia sửa. */}
+        {state.rejectedStep && (
+          <button onClick={() => setOverrideStep(state.rejectedStep!)} className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-red-200 px-5 py-2.5 font-semibold text-red-700 hover:bg-red-100">
+            Sửa lại bước {stepLabel(state.rejectedStep)}
+          </button>
+        )}
+        {/* Kiểm tra thủ công không phải là từ chối nên máy chủ không đánh dấu bước sai,
+            nhưng chuyên gia vẫn cần chụp lại ảnh cho rõ. */}
+        {state.identityStatus === 'MANUAL_REVIEW_REQUIRED' && (
           <button onClick={() => setOverrideStep('IDENTITY')} className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-red-200 px-5 py-2.5 font-semibold text-red-700 hover:bg-red-100">
             Làm lại Định danh
           </button>
         )}
-        {/* Hồ sơ bị từ chối là trường hợp riêng: định danh và chứng chỉ có thể đã
-            duyệt xong, nên hai nút làm lại ở trên không hiện, và chuyên gia không
-            còn đường nào nộp lại. Nút này gọi /profiles/me/renew để đưa hồ sơ về
-            PENDING cho admin xét lại. */}
-        {state.verificationStatus === 'REJECTED' && (
+        {/* Sửa xong vẫn phải có động tác gửi lại, vì từ chối toàn hồ sơ không gắn
+            với tài liệu nào để tự kích hoạt xét duyệt. Nút này gọi
+            /profiles/me/renew, đưa hồ sơ về PENDING nên nó xuất hiện lại trong hàng
+            đợi của quản trị viên. Điều kiện được gửi lại do máy chủ quyết định. */}
+        {state.canResubmit && (
           <button
             onClick={async () => {
               setResubmitting(true);
@@ -740,11 +759,6 @@ function ReviewStep({ state, reload, setOverrideStep }: { state: ExpertOnboardin
             className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-semibold text-white hover:opacity-90 disabled:opacity-60"
           >
             {resubmitting ? 'Đang gửi lại...' : 'Gửi lại hồ sơ để duyệt'}
-          </button>
-        )}
-        {(state.credentialStatus === 'REJECTED') && (
-          <button onClick={() => setOverrideStep('CREDENTIAL')} className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-red-200 px-5 py-2.5 font-semibold text-red-700 hover:bg-red-100">
-            Làm lại Chứng chỉ
           </button>
         )}
       </div>
