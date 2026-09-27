@@ -98,8 +98,51 @@ echo -e "${GREEN}✓ Docker container 'exercise-correction' đã khởi tạo.${
 # 4. KHỞI ĐỘNG CÁC SERVICES CÒN LẠI
 # ------------------------------------------------------------------------------
 
-# 4.1 CareBridgeAITriageService (FastAPI - Port 8001)
-echo -e "\n${BLUE}[4/6] Khởi động CareBridgeAITriageService (FastAPI: 8001)...${NC}"
+# 4.1 CareBridgeWebApp (React/Vite - Port 5173)
+echo -e "\n${BLUE}[4/6] Khởi động CareBridgeWebApp (React/Vite: 5173)...${NC}"
+(
+  cd "$WEB_DIR"
+  exec npm run dev
+) > "$LOGS_DIR/carebridge_webapp.log" 2>&1 &
+WEB_PID=$!
+echo "$WEB_PID" > "$LOGS_DIR/carebridge_webapp.pid"
+
+# 4.2 CareBridgeAPI (Spring Boot - Port 8080)
+# API phải lên TRƯỚC AI service: Flyway (gồm V16 nạp sẵn maternal_knowledge_chunks) chạy xong
+# rồi Spring mới mở port 8080. Nếu AI service lên trước, nó thấy bảng chunk trống và tự
+# chunk + embed lại toàn bộ tài liệu (tốn thời gian, tốn quota Gemini, có thể trùng dữ liệu).
+echo -e "${BLUE}[5/6] Khởi động CareBridgeAPI (Spring Boot: 8080)...${NC}"
+(
+  cd "$API_DIR"
+  [ -f .env ] && set -a && source .env && set +a
+  exec ./mvnw spring-boot:run
+) > "$LOGS_DIR/carebridge_api.log" 2>&1 &
+API_PID=$!
+echo "$API_PID" > "$LOGS_DIR/carebridge_api.pid"
+
+# Lần đầu trên DB mới, V16 nạp ~54k chunk + build HNSW index (~40s) nên cho API timeout riêng.
+API_TIMEOUT="${API_TIMEOUT:-300}"
+API_ELAPSED=0
+SEED_NOTICE_SHOWN=0
+echo -e "${YELLOW}⏳ Chờ CareBridgeAPI chạy xong Flyway migration và mở port 8080 (tối đa ${API_TIMEOUT}s)...${NC}"
+while ! lsof -ti :8080 -sTCP:LISTEN >/dev/null 2>&1; do
+  if ! ps -p "$API_PID" >/dev/null 2>&1; then
+    abort_all "CareBridgeAPI dừng đột ngột trước khi mở port 8080!" "$LOGS_DIR/carebridge_api.log"
+  fi
+  if [ $SEED_NOTICE_SHOWN -eq 0 ] && grep -qF "seed maternal knowledge chunks" "$LOGS_DIR/carebridge_api.log" 2>/dev/null; then
+    SEED_NOTICE_SHOWN=1
+    echo -e "  ${YELLOW}↳ DB mới: đang nạp dữ liệu RAG đã chunk sẵn (V16), có thể mất khoảng 1 phút...${NC}"
+  fi
+  if [ $API_ELAPSED -ge $API_TIMEOUT ]; then
+    abort_all "CareBridgeAPI quá thời gian chờ (timeout ${API_TIMEOUT}s)!" "$LOGS_DIR/carebridge_api.log"
+  fi
+  sleep 2
+  API_ELAPSED=$((API_ELAPSED + 2))
+done
+echo -e "  ${GREEN}✓ CareBridgeAPI đã sẵn sàng trên port 8080!${NC}"
+
+# 4.3 CareBridgeAITriageService (FastAPI - Port 8001)
+echo -e "${BLUE}[6/6] Khởi động CareBridgeAITriageService (FastAPI: 8001)...${NC}"
 (
   cd "$AI_DIR"
   [ -f .env ] && set -a && source .env && set +a
@@ -112,31 +155,12 @@ echo -e "\n${BLUE}[4/6] Khởi động CareBridgeAITriageService (FastAPI: 8001)
 AI_PID=$!
 echo "$AI_PID" > "$LOGS_DIR/carebridge_ai_triage.pid"
 
-# 4.2 CareBridgeWebApp (React/Vite - Port 5173)
-echo -e "${BLUE}[5/6] Khởi động CareBridgeWebApp (React/Vite: 5173)...${NC}"
-(
-  cd "$WEB_DIR"
-  exec npm run dev
-) > "$LOGS_DIR/carebridge_webapp.log" 2>&1 &
-WEB_PID=$!
-echo "$WEB_PID" > "$LOGS_DIR/carebridge_webapp.pid"
-
-# 4.3 CareBridgeAPI (Spring Boot - Port 8080)
-echo -e "${BLUE}[6/6] Khởi động CareBridgeAPI (Spring Boot: 8080)...${NC}"
-(
-  cd "$API_DIR"
-  [ -f .env ] && set -a && source .env && set +a
-  exec ./mvnw spring-boot:run
-) > "$LOGS_DIR/carebridge_api.log" 2>&1 &
-API_PID=$!
-echo "$API_PID" > "$LOGS_DIR/carebridge_api.pid"
-
 # ------------------------------------------------------------------------------
 # 5. GIÁM SÁT TRẠNG THÁI KHỞI ĐỘNG (ALL-OR-NOTHING GATE)
 # ------------------------------------------------------------------------------
-echo -e "\n${YELLOW}⏳ Đang giám sát trạng thái mở port của cả 4 services...${NC}"
+echo -e "\n${YELLOW}⏳ Đang giám sát trạng thái mở port của các services còn lại...${NC}"
 
-API_READY=0
+API_READY=1
 AI_READY=0
 SIDECAR_READY=0
 WEB_READY=0

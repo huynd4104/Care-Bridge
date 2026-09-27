@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/appointment_notification_timing.dart';
 import '../models/reminder_model.dart';
 import '../services/reminder_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class ReminderDetailScreen extends StatefulWidget {
   final String reminderId;
@@ -108,7 +109,7 @@ class _ReminderDetailScreenState extends State<ReminderDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Thao tác thất bại: $e'),
+          content: Text('Thao tác thất bại: ${userErrorMessage(e)}'),
           backgroundColor: _error,
         ),
       );

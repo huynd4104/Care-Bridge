@@ -15,6 +15,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.carebridge.backend.audit.entity.AuditAction;
+import com.carebridge.backend.audit.entity.AuditLog;
+import com.carebridge.backend.audit.repository.AuditLogRepository;
 import com.carebridge.backend.audit.service.AuditService;
 import com.carebridge.backend.checklist.model.ChecklistAnchorType;
 import com.carebridge.backend.checklist.model.ChecklistRangeUnit;
@@ -76,6 +78,9 @@ class AdminChecklistTemplateServiceImplTest {
 
         @Mock
         private AuditService auditService;
+
+        @Mock
+        private AuditLogRepository auditLogRepository;
 
         // The service dispatches a resubmitted draft to an expert; without this mock
         // @InjectMocks leaves the field null and the resubmit path throws NPE.
@@ -159,6 +164,48 @@ class AdminChecklistTemplateServiceImplTest {
                 assertEquals(sourceUrl, response.getItems().getFirst().getSourceUrl());
                 assertEquals(Boolean.FALSE, response.getItems().getFirst().getRepeatWeekly());
                 assertEquals(Boolean.FALSE, response.getItems().getFirst().getRepeatDaily());
+        }
+
+        @Test
+        void create_withContraindications_persistsSortedTagsAndReturnsThem() {
+                when(checklistTemplateRepository.save(any(ChecklistTemplate.class)))
+                                .thenAnswer(inv -> {
+                                        ChecklistTemplate t = inv.getArgument(0);
+                                        t.setId(TEMPLATE_ID);
+                                        return t;
+                                });
+                when(checklistItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+                CreateChecklistTemplateRequest request = makeCreateRequest(List.of(
+                                new ChecklistItemRequest(null, "Đi bộ vừa sức", 1, true,
+                                                ChecklistTargetSubject.MOTHER, null, null, false, false,
+                                                "https://www.acog.org",
+                                                List.of("HYPERTENSION", "CARDIOVASCULAR_DISEASE", "HYPERTENSION")),
+                                new ChecklistItemRequest(null, "Kegel", 2, true)));
+
+                AdminChecklistTemplateDetailResponse response = service.create(request, ADMIN_ID);
+
+                ArgumentCaptor<List<ChecklistItem>> captor = ArgumentCaptor.forClass(List.class);
+                verify(checklistItemRepository).saveAll(captor.capture());
+                assertTrue(captor.getValue().getFirst().getConfigurationJson()
+                                .contains("\"contraindications\":[\"CARDIOVASCULAR_DISEASE\",\"HYPERTENSION\"]"));
+                assertEquals("{}", captor.getValue().get(1).getConfigurationJson());
+                assertEquals(List.of("CARDIOVASCULAR_DISEASE", "HYPERTENSION"),
+                                response.getItems().getFirst().getContraindications());
+                assertEquals(List.of(), response.getItems().get(1).getContraindications());
+        }
+
+        @Test
+        void create_withUnknownContraindication_rejectsBeforePersistence() {
+                CreateChecklistTemplateRequest request = makeCreateRequest(List.of(
+                                new ChecklistItemRequest(null, "Đi bộ", 1, true,
+                                                ChecklistTargetSubject.MOTHER, null, null, false, false,
+                                                null, List.of("NONE_KNOWN"))));
+
+                ContentException error = assertThrows(ContentException.class,
+                                () -> service.create(request, ADMIN_ID));
+                assertEquals("CNT-001", error.getCode());
+                verify(checklistTemplateRepository, never()).save(any(ChecklistTemplate.class));
         }
 
         @Test
@@ -367,9 +414,59 @@ class AdminChecklistTemplateServiceImplTest {
                                 TEMPLATE_ID, new HideChecklistTemplateRequest("Nội dung lỗi thời"), ADMIN_ID);
 
                 assertEquals(ChecklistTemplateStatus.ARCHIVED, response.newStatus());
+                assertEquals("Nội dung lỗi thời", template.getRevisionReason());
+                assertEquals(ADMIN_ID, template.getRevisionRequestedBy());
                 verify(checklistItemRepository, never()).deleteAll(anyList());
                 verify(auditService).log(eq(AuditAction.CHECKLIST_TEMPLATE_ARCHIVED), eq(ADMIN_ID),
                                 eq("ChecklistTemplate"), any(), any());
+        }
+
+        @Test
+        void getById_archivedTemplate_exposesArchiveReasonFromTemplate() {
+                ChecklistTemplate template = makeTemplate();
+                template.setStatus(ChecklistTemplateStatus.ARCHIVED);
+                template.setRevisionReason("Checklist đã hết hạn");
+                template.setRevisionRequestedBy(ADMIN_ID);
+                Instant now = Instant.now();
+                template.setRevisionRequestedAt(now);
+
+                when(checklistTemplateRepository.findById(TEMPLATE_ID)).thenReturn(Optional.of(template));
+                when(checklistItemRepository.findByTemplate_IdOrderByOrder(TEMPLATE_ID)).thenReturn(List.of());
+
+                AdminChecklistTemplateDetailResponse response = service.getById(TEMPLATE_ID);
+
+                assertEquals(ChecklistTemplateStatus.ARCHIVED, response.getStatus());
+                assertEquals("Checklist đã hết hạn", response.getArchiveReason());
+                assertEquals(ADMIN_ID, response.getArchivedBy());
+                assertEquals(now, response.getArchivedAt());
+        }
+
+        @Test
+        void getById_archivedTemplateWithNullRevisionReason_fallsBackToAuditLog() {
+                ChecklistTemplate template = makeTemplate();
+                template.setStatus(ChecklistTemplateStatus.ARCHIVED);
+                template.setRevisionReason(null);
+
+                Instant archiveTime = Instant.now();
+                AuditLog log = AuditLog.builder()
+                                .createdAt(archiveTime)
+                                .actorUserId(ADMIN_ID)
+                                .action(AuditAction.CHECKLIST_TEMPLATE_ARCHIVED)
+                                .newValueJson("\"reason=Đã thay thế bằng bộ mới previousStatus=APPROVED\"")
+                                .build();
+
+                when(checklistTemplateRepository.findById(TEMPLATE_ID)).thenReturn(Optional.of(template));
+                when(checklistItemRepository.findByTemplate_IdOrderByOrder(TEMPLATE_ID)).thenReturn(List.of());
+                when(auditLogRepository.findByEntityIdAndEntityTypeAndActionInOrderByCreatedAtDesc(
+                                eq(TEMPLATE_ID), eq("ChecklistTemplate"), any()))
+                                .thenReturn(List.of(log));
+
+                AdminChecklistTemplateDetailResponse response = service.getById(TEMPLATE_ID);
+
+                assertEquals(ChecklistTemplateStatus.ARCHIVED, response.getStatus());
+                assertEquals("Đã thay thế bằng bộ mới", response.getArchiveReason());
+                assertEquals(ADMIN_ID, response.getArchivedBy());
+                assertEquals(archiveTime, response.getArchivedAt());
         }
 
         // CHKTPL-TC-007

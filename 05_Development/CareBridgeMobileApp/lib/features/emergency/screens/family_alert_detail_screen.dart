@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../directChat/screens/direct_chat_location_navigation_screen.dart';
 import '../models/emergency_alert_model.dart';
 import '../services/emergency_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class FamilyAlertDetailScreen extends StatefulWidget {
   final String sessionId;
@@ -65,7 +66,7 @@ class _FamilyAlertDetailScreenState extends State<FamilyAlertDetailScreen> {
       setState(() => _alert = alert);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _errorText = 'Không thể tải chi tiết cảnh báo: $error');
+      setState(() => _errorText = 'Không thể tải chi tiết cảnh báo: ${userErrorMessage(error)}');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -80,7 +81,7 @@ class _FamilyAlertDetailScreenState extends State<FamilyAlertDetailScreen> {
       setState(() => _alert = alert);
       _showMessage('Đã ghi nhận bạn tiếp nhận cảnh báo.');
     } catch (error) {
-      if (mounted) _showMessage('Chưa thể tiếp nhận cảnh báo: $error');
+      if (mounted) _showMessage('Chưa thể tiếp nhận cảnh báo: ${userErrorMessage(error)}');
     } finally {
       if (mounted) setState(() => _acknowledging = false);
     }

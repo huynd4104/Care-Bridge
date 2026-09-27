@@ -9,7 +9,9 @@ import '../models/reminder_model.dart';
 import '../models/today_task_model.dart';
 import '../models/today_task_support_function.dart';
 import '../services/expert_checklist_sync.dart';
+import '../services/plan_disclaimer_storage.dart';
 import '../services/today_task_service.dart';
+import 'plan_disclaimer_banner.dart';
 
 enum TodayTasksAudience { mother, family }
 
@@ -54,6 +56,8 @@ class TodayTasksPanel extends StatefulWidget {
     this.controller,
     this.headingAction,
     this.belowHeading,
+    this.showPlanDisclaimer = false,
+    this.planDisclaimerStorage,
   });
 
   final TodayTaskService? service;
@@ -65,6 +69,8 @@ class TodayTasksPanel extends StatefulWidget {
   final TodayTasksPanelController? controller;
   final Widget? headingAction;
   final Widget? belowHeading;
+  final bool showPlanDisclaimer;
+  final PlanDisclaimerStorage? planDisclaimerStorage;
 
   @override
   State<TodayTasksPanel> createState() => _TodayTasksPanelState();
@@ -151,7 +157,9 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
       final snapshot = await _service.loadToday(
         careGroupId: widget.careGroupId,
       );
-      final expertTasks = await _fetchExpertChecklistTasks(snapshot.sections.all);
+      final expertTasks = await _fetchExpertChecklistTasks(
+        snapshot.sections.all,
+      );
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _snapshot = snapshot;
@@ -171,11 +179,13 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
     }
   }
 
-  Future<List<TodayTask>> _fetchExpertChecklistTasks([Iterable<TodayTask>? currentTasks]) async {
+  Future<List<TodayTask>> _fetchExpertChecklistTasks([
+    Iterable<TodayTask>? currentTasks,
+  ]) async {
     if (widget.audience == TodayTasksAudience.family) return const [];
     try {
-      final conversations =
-          await DirectChatService.instance.listMyConversations();
+      final conversations = await DirectChatService.instance
+          .listMyConversations();
       if (conversations.isEmpty) return const [];
 
       final existingTitles = {
@@ -189,8 +199,10 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
 
       for (final conv in conversations) {
         try {
-          final timeline =
-              await DirectChatService.instance.getTimeline(conv.conversationId, limit: 50);
+          final timeline = await DirectChatService.instance.getTimeline(
+            conv.conversationId,
+            limit: 50,
+          );
           for (final item in timeline.items.reversed) {
             if (item.kind == 'MESSAGE' &&
                 item.recalledAt == null &&
@@ -208,7 +220,8 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
                 // 2. Process each item in currentItems
                 for (int idx = 0; idx < shareData.currentItems.length; idx++) {
                   final cItem = shareData.currentItems[idx];
-                  final isExpert = cItem.origin == 'EXPERT' ||
+                  final isExpert =
+                      cItem.origin == 'EXPERT' ||
                       cItem.createdBy == 'EXPERT' ||
                       cItem.isExpertCustom == true;
                   final normalized = cItem.text.trim().toLowerCase();
@@ -257,37 +270,40 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
                       }
                     }
 
-                    expertTasks.add(TodayTask(
-                      id: taskId,
-                      kind: TodayTaskKind.checklist,
-                      sourceType: TodayTaskSourceType.checklist,
-                      type: ReminderType.other,
-                      title: cItem.text,
-                      description:
-                          cItem.doctorNote != null &&
-                              cItem.doctorNote!.trim().isNotEmpty
-                          ? 'Bác sĩ: ${cItem.doctorNote}'
-                          : 'Chuyên gia chỉ định',
-                      status: ReminderStatus.pending,
-                      taskStatus: cItem.completed
-                          ? TodayTaskStatus.completed
-                          : TodayTaskStatus.pending,
-                      priority: 1,
-                      target: TodayTaskTarget.mother,
-                      origin: TodayTaskOrigin.systemTemplate,
-                      bucket: TodayTimeBucket.today,
-                      allowedActions: const {
-                        TodayTaskAction.complete,
-                        TodayTaskAction.reopen,
-                      },
-                      careGroupId: widget.careGroupId,
-                      careContextType:
-                          shareData.journeyId != null ? 'JOURNEY' : null,
-                      careContextId: shareData.journeyId,
-                      careContextLabel: 'Chuyên gia chỉ định',
-                      sourceUrl: cItem.sourceUrl,
-                      supportFunction: supportFunc,
-                    ));
+                    expertTasks.add(
+                      TodayTask(
+                        id: taskId,
+                        kind: TodayTaskKind.checklist,
+                        sourceType: TodayTaskSourceType.checklist,
+                        type: ReminderType.other,
+                        title: cItem.text,
+                        description:
+                            cItem.doctorNote != null &&
+                                cItem.doctorNote!.trim().isNotEmpty
+                            ? 'Bác sĩ: ${cItem.doctorNote}'
+                            : 'Chuyên gia chỉ định',
+                        status: ReminderStatus.pending,
+                        taskStatus: cItem.completed
+                            ? TodayTaskStatus.completed
+                            : TodayTaskStatus.pending,
+                        priority: 1,
+                        target: TodayTaskTarget.mother,
+                        origin: TodayTaskOrigin.systemTemplate,
+                        bucket: TodayTimeBucket.today,
+                        allowedActions: const {
+                          TodayTaskAction.complete,
+                          TodayTaskAction.reopen,
+                        },
+                        careGroupId: widget.careGroupId,
+                        careContextType: shareData.journeyId != null
+                            ? 'JOURNEY'
+                            : null,
+                        careContextId: shareData.journeyId,
+                        careContextLabel: 'Chuyên gia chỉ định',
+                        sourceUrl: cItem.sourceUrl,
+                        supportFunction: supportFunc,
+                      ),
+                    );
                   }
                 }
 
@@ -408,8 +424,9 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
   }
 
   Future<void> _openDetail(TodayTask task) async {
-    final audienceParam =
-        widget.audience == TodayTasksAudience.family ? '?audience=family' : '';
+    final audienceParam = widget.audience == TodayTasksAudience.family
+        ? '?audience=family'
+        : '';
     final changed = await context.push<bool>(
       '/checklists/task-detail$audienceParam',
       extra: task,
@@ -545,29 +562,24 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
         ? 0
         : _checklistOnly(_snapshot!.sections.all.toList()).length;
     final systemTasks = sourceGroupedTasks
-        .where((task) => task.origin == TodayTaskOrigin.systemTemplate)
+        .where((task) => task.isCareBridgeSuggestion)
         .toList(growable: false);
     final userTasks = isFamily
         ? const <TodayTask>[]
         : sourceGroupedTasks
-            .where((task) => task.origin != TodayTaskOrigin.systemTemplate)
-            .toList(growable: false);
+              .where((task) => !task.isCareBridgeSuggestion)
+              .toList(growable: false);
     final hasVisibleTasks = widget.layout == TodayTasksLayout.sourceGroups
         ? (isFamily ? systemTasks.isNotEmpty : sourceGroupedTasks.isNotEmpty)
         : (checklistCount > 0 ||
-            (widget.audience == TodayTasksAudience.mother &&
-                _snapshot?.sequence != null));
+              (widget.audience == TodayTasksAudience.mother &&
+                  _snapshot?.sequence != null));
 
     final postpartumTasks = systemTasks
         .where((task) => task.stage == TodayChecklistStage.postpartum)
         .toList(growable: false);
     final babyCareTasks = systemTasks
-        .where(
-          (task) =>
-              task.stage == TodayChecklistStage.babyCare ||
-              (task.stage == TodayChecklistStage.unknown &&
-                  task.careContextType?.toUpperCase() == 'BABY'),
-        )
+        .where((task) => task.isBabyCare)
         .toList(growable: false);
     final babyCareGroups = <String, List<TodayTask>>{};
     for (final task in babyCareTasks) {
@@ -585,9 +597,7 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
 
     return Semantics(
       container: true,
-      label: isFamily
-          ? 'Việc cần làm của mẹ'
-          : 'Việc cần làm của tôi',
+      label: isFamily ? 'Việc cần làm của mẹ' : 'Việc cần làm của tôi',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -621,6 +631,8 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
               ],
             ),
             const SizedBox(height: 16),
+            if (widget.showPlanDisclaimer)
+              PlanDisclaimerBanner(storage: widget.planDisclaimerStorage),
             if (widget.belowHeading != null) ...[
               widget.belowHeading!,
               const SizedBox(height: 16),
@@ -671,34 +683,41 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
                           onAction: _act,
                           onDelete: _delete,
                           allowDelete: false,
-                          allowAction: widget.audience == TodayTasksAudience.mother,
+                          allowAction:
+                              widget.audience == TodayTasksAudience.mother,
                         ),
                       if (babyCareTasks.isNotEmpty)
                         Column(
                           key: const Key('today-baby-care-tasks'),
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: babyCareGroups.entries.map((entry) {
-                            final tasks = entry.value;
-                            final babyLabel = tasks
-                                .map((task) => task.careContextLabel?.trim())
-                                .whereType<String>()
-                                .firstWhere(
-                                  (label) => label.isNotEmpty,
-                                  orElse: () => 'Bé',
+                          children: babyCareGroups.entries
+                              .map((entry) {
+                                final tasks = entry.value;
+                                final babyLabel = tasks
+                                    .map(
+                                      (task) => task.careContextLabel?.trim(),
+                                    )
+                                    .whereType<String>()
+                                    .firstWhere(
+                                      (label) => label.isNotEmpty,
+                                      orElse: () => 'Bé',
+                                    );
+                                return _Section(
+                                  key: Key('today-baby-care-${entry.key}'),
+                                  title: 'Chăm bé · $babyLabel',
+                                  icon: Icons.child_care_rounded,
+                                  tasks: tasks,
+                                  acting: _acting,
+                                  onOpen: _openDetail,
+                                  onAction: _act,
+                                  onDelete: _delete,
+                                  allowDelete: false,
+                                  allowAction:
+                                      widget.audience ==
+                                      TodayTasksAudience.mother,
                                 );
-                            return _Section(
-                              key: Key('today-baby-care-${entry.key}'),
-                              title: 'Chăm bé · $babyLabel',
-                              icon: Icons.child_care_rounded,
-                              tasks: tasks,
-                              acting: _acting,
-                              onOpen: _openDetail,
-                              onAction: _act,
-                              onDelete: _delete,
-                              allowDelete: false,
-                              allowAction: widget.audience == TodayTasksAudience.mother,
-                            );
-                          }).toList(growable: false),
+                              })
+                              .toList(growable: false),
                         ),
                       if (otherSystemTasks.isNotEmpty)
                         _Section(
@@ -711,9 +730,11 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
                           onAction: _act,
                           onDelete: _delete,
                           allowDelete: false,
-                          allowAction: widget.audience == TodayTasksAudience.mother,
+                          allowAction:
+                              widget.audience == TodayTasksAudience.mother,
                           showTitle:
-                              postpartumTasks.isNotEmpty || babyCareTasks.isNotEmpty,
+                              postpartumTasks.isNotEmpty ||
+                              babyCareTasks.isNotEmpty,
                         ),
                     ],
                   )
@@ -1566,7 +1587,10 @@ class _TaskStatusControl extends StatelessWidget {
         onTap: () {},
         child: Semantics(
           label: task.statusLabel,
-          child: SizedBox.square(dimension: 48, child: Center(child: statusIcon)),
+          child: SizedBox.square(
+            dimension: 48,
+            child: Center(child: statusIcon),
+          ),
         ),
       );
     }

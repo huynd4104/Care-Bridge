@@ -188,7 +188,7 @@ class ExpertIdentityVerificationServiceTest {
         assertThat(persistedAttempt.getReviewStatus())
                 .isEqualTo(IdentityReviewStatus.MANUAL_REVIEW_REQUIRED);
         assertThat(persistedAttempt.getReviewReason())
-                .isEqualTo("Possible duplicate identity detected; admin review is required");
+                .isEqualTo("Hồ sơ cần quản trị viên đối chiếu thêm trước khi duyệt.");
         verify(duplicateIdentityFaceService).findPossibleDuplicate(
                 profileId, selfieCrop, "image/jpeg");
     }

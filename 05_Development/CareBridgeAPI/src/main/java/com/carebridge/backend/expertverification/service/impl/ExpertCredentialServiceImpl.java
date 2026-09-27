@@ -65,10 +65,11 @@ public class ExpertCredentialServiceImpl implements IExpertCredentialService {
         // Always create a new credential row — never overwrite
         if (file == null || file.isEmpty()) {
             throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPVER-006",
-                    "Professional credential file is required");
+                    "Vui lòng tải lên tệp chứng chỉ");
         }
         LocalDate issuedDate = parseDate(request.getIssuedDate());
         LocalDate expiryDate = parseDate(request.getExpiryDate());
+        validateCredentialDates(issuedDate, expiryDate);
         UploadFileResponse uploadResponse = fileService.uploadPrivateFile(file, userId);
 
         var credential = credentialMapper.toEntity(
@@ -89,13 +90,39 @@ public class ExpertCredentialServiceImpl implements IExpertCredentialService {
         }
     }
 
+    /**
+     * Web kiểm tra các ngày này trước khi gửi nhưng backend thì không, nên gọi thẳng API
+     * (hoặc từ trang Chứng chỉ & Giấy tờ, vốn không kiểm tra) vẫn nộp được chứng chỉ cấp
+     * ở tương lai hoặc hết hạn trước cả ngày cấp. So theo ngày Việt Nam vì người nộp chọn
+     * ngày theo lịch của họ; so theo UTC thì trước 7h sáng "hôm nay" thành "ngày mai".
+     */
+    private static void validateCredentialDates(LocalDate issuedDate, LocalDate expiryDate) {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        if (issuedDate != null && issuedDate.isAfter(today)) {
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPVER-005",
+                    "Ngày cấp không được ở tương lai");
+        }
+        if (issuedDate != null && issuedDate.isBefore(LocalDate.of(1950, 1, 1))) {
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPVER-005",
+                    "Ngày cấp không hợp lệ");
+        }
+        if (expiryDate != null && issuedDate != null && !expiryDate.isAfter(issuedDate)) {
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPVER-005",
+                    "Ngày hết hạn phải sau ngày cấp");
+        }
+        if (expiryDate != null && !expiryDate.isAfter(today)) {
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPVER-005",
+                    "Chứng chỉ đã hết hạn, vui lòng nộp chứng chỉ còn hiệu lực");
+        }
+    }
+
     private LocalDate parseDate(String value) {
         if (value == null || value.isBlank()) return null;
         try {
             return LocalDate.parse(value);
         } catch (DateTimeParseException e) {
             throw new ExpertException(
-                    HttpStatus.BAD_REQUEST, "EXPVER-005", "Invalid date format: " + value);
+                    HttpStatus.BAD_REQUEST, "EXPVER-005", "Ngày không đúng định dạng: " + value);
         }
     }
 

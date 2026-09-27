@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getApiErrorMessage, translateValidationMessage } from '../../../shared/api/apiErrorMessage';
 import apiClient from '../../../shared/api/apiClient';
 import type { ApiResponse } from '../../auth/models/user';
 import type {
@@ -54,23 +55,21 @@ export function toAdminExerciseRequestError(error: unknown): AdminExerciseReques
   const code = typeof payload?.error === 'string' && payload.error.trim()
     ? payload.error.trim()
     : undefined;
-  const backendMessage = typeof payload?.message === 'string' && payload.message.trim()
-    ? payload.message.trim()
-    : fallbackMessage;
+  const backendMessage = getApiErrorMessage(error, fallbackMessage);
   const fieldErrors: AdminExerciseFieldErrors = {};
 
   if (Array.isArray(payload?.details)) {
     for (const detail of payload.details) {
       if (!isBackendErrorDetail(detail)) continue;
       if (isFormField(detail.field) && typeof detail.message === 'string' && detail.message.trim()) {
-        fieldErrors[detail.field] = detail.message.trim();
+        fieldErrors[detail.field] = translateValidationMessage(detail.message);
       }
     }
   }
 
   return {
     code,
-    message: code ? `[${code}] ${backendMessage}` : backendMessage,
+    message: backendMessage,
     fieldErrors,
   };
 }

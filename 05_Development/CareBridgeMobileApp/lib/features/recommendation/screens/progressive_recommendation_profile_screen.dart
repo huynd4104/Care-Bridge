@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/auth/auth_state.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/decimal_input.dart';
 import '../../journey/services/journey_service.dart';
 import '../../healthRecords/services/health_metric_service.dart';
 import '../models/recommendation_model.dart';
@@ -796,6 +797,9 @@ class _RecommendationProfileScreenState
         key: const Key('recommendation-height-field'),
         controller: _heightController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          DecimalTextInputFormatter(maxIntegerDigits: 3, maxFractionDigits: 1),
+        ],
         style: const TextStyle(
           fontFamily: 'Lexend',
           fontSize: 15,
@@ -824,6 +828,9 @@ class _RecommendationProfileScreenState
         key: const Key('recommendation-weight-field'),
         controller: _weightController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          DecimalTextInputFormatter(maxIntegerDigits: 3, maxFractionDigits: 1),
+        ],
         style: const TextStyle(
           fontFamily: 'Lexend',
           fontSize: 15,
@@ -1595,22 +1602,28 @@ class _RecommendationProfileScreenState
     }
 
     if (question.kind == RecommendationQuestionKind.bmi) {
-      final height = double.tryParse(_heightController.text.trim());
-      final weight = double.tryParse(_weightController.text.trim());
+      final height = parseDecimalInput(_heightController.text);
+      final weight = parseDecimalInput(_weightController.text);
       final measuredOn = _formatDate(_today);
       final context = _defaultWeightContext;
       if (height == null ||
           weight == null ||
           !height.isFinite ||
           !weight.isFinite ||
-          height < 100 ||
+          !_allowedContexts.contains(context)) {
+        setState(() => _error = 'Vui lòng nhập cân nặng và chiều cao hiện tại của bạn.');
+        return false;
+      }
+      if (height < 100 ||
           height > 250 ||
           weight < 20 ||
           weight > 300 ||
           !_oneDecimal(height) ||
-          !_oneDecimal(weight) ||
-          !_allowedContexts.contains(context)) {
-        setState(() => _error = 'Vui lòng nhập cân nặng và chiều cao hiện tại của bạn.');
+          !_oneDecimal(weight)) {
+        setState(
+          () => _error =
+              'Nhập chiều cao 100–250 cm và cân nặng 20–300 kg, tối đa 1 chữ số thập phân.',
+        );
         return false;
       }
       _setDomain('bmi', <String, dynamic>{

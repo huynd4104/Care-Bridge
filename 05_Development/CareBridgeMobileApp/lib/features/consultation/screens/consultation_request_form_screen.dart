@@ -6,6 +6,7 @@ import '../../expert/models/expert_availability_slot.dart';
 import '../../expert/services/expert_availability_service.dart';
 import '../services/consultation_request_refresh_bus.dart';
 import '../services/consultation_request_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class ConsultationRequestFormScreen extends StatefulWidget {
   final String expertProfileId;
@@ -94,7 +95,7 @@ class _ConsultationRequestFormScreenState
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Không thể gửi yêu cầu: $error')));
+      ).showSnackBar(SnackBar(content: Text('Không thể gửi yêu cầu: ${userErrorMessage(error)}')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

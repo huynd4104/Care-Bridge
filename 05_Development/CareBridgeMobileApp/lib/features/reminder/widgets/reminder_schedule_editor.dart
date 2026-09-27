@@ -168,11 +168,10 @@ class _ReminderScheduleEditorState extends State<ReminderScheduleEditor> {
       if (mounted) {
         String msg = 'Không thể lưu lịch nhắc.';
         if (e is ApiException) {
-          final display = e.displayMessage;
-          if (display.contains('future configured time')) {
+          if (e.rawServerMessage.contains('future configured time')) {
             msg = 'Lịch nhắc một lần phải có thời gian ở tương lai.';
-          } else if (display.isNotEmpty) {
-            msg = display;
+          } else if (e.displayMessage.isNotEmpty) {
+            msg = e.displayMessage;
           }
         }
         setState(() => _errorText = msg);

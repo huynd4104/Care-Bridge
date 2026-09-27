@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getMyCredentials, submitCredential, deleteCredential } from '../services/expertApi';
+import {
+  EARLIEST_ISSUED_DATE,
+  MAX_CREDENTIAL_NUMBER,
+  MAX_ISSUER,
+  credentialDateErrors,
+  localToday,
+  textFieldError,
+} from '../utils/expertValidation';
 
 /* ── Vietnam medical licensing authorities ────────────────────────────── */
 const ISSUERS = [
@@ -143,13 +151,32 @@ export default function VerificationDocumentsPage() {
     setShowUpload(true);
   };
 
+  // Trang này từng gửi thẳng lên máy chủ mà không kiểm tra gì, nên nộp được chứng chỉ cấp ở
+  // tương lai hay hết hạn trước ngày cấp. Lỗi tính lại theo từng lần gõ để hiện ngay dưới ô.
+  const credentialNumberError = textFieldError(form.credentialNumber, {
+    label: 'số chứng chỉ',
+    max: MAX_CREDENTIAL_NUMBER,
+  });
+  const customIssuerError =
+    form.issuer === 'Khác'
+      ? textFieldError(customIssuer, { label: 'tên cơ quan cấp', max: MAX_ISSUER, required: true })
+      : null;
+  const dateErrors = credentialDateErrors(form.issuedDate, form.expiryDate);
+  const today = localToday();
+  const firstFormError =
+    credentialNumberError ?? customIssuerError ?? dateErrors.issuedDate ?? dateErrors.expiryDate ?? null;
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (firstFormError) {
+      setError(firstFormError);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      const body =
-        form.issuer === 'Khác' && customIssuer.trim() ? { ...form, issuer: customIssuer.trim() } : form;
+      const trimmed = { ...form, credentialNumber: form.credentialNumber.trim() };
+      const body = form.issuer === 'Khác' ? { ...trimmed, issuer: customIssuer.trim() } : trimmed;
       await submitCredential({ body, file: selectedFile! });
       setForm({ credentialType: '', credentialNumber: '', issuer: '', issuedDate: '', expiryDate: '' });
       setCustomIssuer('');
@@ -289,11 +316,16 @@ export default function VerificationDocumentsPage() {
                 Số chứng chỉ / Số hiệu
               </label>
               <input
-                className="w-full py-2.5 px-4 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface outline-none focus:border-primary font-sans"
+                aria-invalid={Boolean(credentialNumberError)}
+                maxLength={MAX_CREDENTIAL_NUMBER}
+                className={`w-full py-2.5 px-4 rounded-2xl border bg-surface text-sm text-on-surface outline-none font-sans ${
+                  credentialNumberError ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'
+                }`}
                 value={form.credentialNumber}
                 onChange={(e) => setForm({ ...form, credentialNumber: e.target.value })}
                 placeholder="VD: 012345/BYT-CCHN..."
               />
+              {credentialNumberError && <p className="mt-1.5 text-xs text-error">{credentialNumberError}</p>}
             </div>
           </div>
 
@@ -315,12 +347,21 @@ export default function VerificationDocumentsPage() {
                 ))}
               </select>
               {form.issuer === 'Khác' && (
-                <input
-                  className="mt-2 w-full py-2 px-3 rounded-xl border border-outline-variant bg-surface text-xs text-on-surface"
-                  placeholder="Nhập tên cơ quan cấp..."
-                  value={customIssuer}
-                  onChange={(e) => setCustomIssuer(e.target.value)}
-                />
+                <>
+                  <input
+                    aria-invalid={Boolean(customIssuer && customIssuerError)}
+                    maxLength={MAX_ISSUER}
+                    className={`mt-2 w-full py-2 px-3 rounded-xl border bg-surface text-xs text-on-surface ${
+                      customIssuer && customIssuerError ? 'border-error' : 'border-outline-variant'
+                    }`}
+                    placeholder="Nhập tên cơ quan cấp..."
+                    value={customIssuer}
+                    onChange={(e) => setCustomIssuer(e.target.value)}
+                  />
+                  {customIssuer && customIssuerError && (
+                    <p className="mt-1.5 text-xs text-error">{customIssuerError}</p>
+                  )}
+                </>
               )}
             </div>
 
@@ -332,10 +373,18 @@ export default function VerificationDocumentsPage() {
                 <input
                   type="date"
                   required
-                  className="w-full py-2.5 px-3 rounded-2xl border border-outline-variant bg-surface text-xs text-on-surface outline-none focus:border-primary"
+                  min={EARLIEST_ISSUED_DATE}
+                  max={today}
+                  aria-invalid={Boolean(form.issuedDate && dateErrors.issuedDate)}
+                  className={`w-full py-2.5 px-3 rounded-2xl border bg-surface text-xs text-on-surface outline-none ${
+                    form.issuedDate && dateErrors.issuedDate ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'
+                  }`}
                   value={form.issuedDate}
                   onChange={(e) => setForm({ ...form, issuedDate: e.target.value })}
                 />
+                {form.issuedDate && dateErrors.issuedDate && (
+                  <p className="mt-1.5 text-xs text-error">{dateErrors.issuedDate}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-outline uppercase tracking-wider mb-2">
@@ -343,10 +392,15 @@ export default function VerificationDocumentsPage() {
                 </label>
                 <input
                   type="date"
-                  className="w-full py-2.5 px-3 rounded-2xl border border-outline-variant bg-surface text-xs text-on-surface outline-none focus:border-primary"
+                  min={form.issuedDate && form.issuedDate > today ? form.issuedDate : today}
+                  aria-invalid={Boolean(dateErrors.expiryDate)}
+                  className={`w-full py-2.5 px-3 rounded-2xl border bg-surface text-xs text-on-surface outline-none ${
+                    dateErrors.expiryDate ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'
+                  }`}
                   value={form.expiryDate}
                   onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
                 />
+                {dateErrors.expiryDate && <p className="mt-1.5 text-xs text-error">{dateErrors.expiryDate}</p>}
               </div>
             </div>
           </div>
@@ -374,7 +428,7 @@ export default function VerificationDocumentsPage() {
             </button>
             <button
               type="submit"
-              disabled={submitting || !form.credentialType || !form.issuedDate || !selectedFile}
+              disabled={submitting || !form.credentialType || !form.issuedDate || !selectedFile || Boolean(firstFormError)}
               className="py-2.5 px-6 rounded-full bg-primary text-on-primary text-xs font-semibold cursor-pointer hover:brightness-110 disabled:opacity-50"
             >
               {submitting ? 'Đang gửi...' : 'Gửi xét duyệt'}

@@ -118,4 +118,39 @@ class ConsultationRequestNotificationServiceImplTest {
         verify(writer).complete(any(), eq(claimToken));
         verifyNoInteractions(auditService);
     }
+
+    @Test
+    void notifyRejectedWithReasonIncludesReasonInBody() {
+        when(preferenceRepository.isPushEnabled(RECIPIENT_ID, NotificationType.CONSULTATION))
+                .thenReturn(true);
+        when(writer.insertIfAbsent(any())).thenReturn(true);
+        when(writer.claim(any())).thenReturn(UUID.randomUUID());
+        when(writer.complete(any(), any())).thenReturn(true);
+        when(deviceTokenRepository.findByUserIdAndActiveTrue(RECIPIENT_ID))
+                .thenReturn(List.of(DeviceToken.builder()
+                        .userId(RECIPIENT_ID)
+                        .token("fcm-token")
+                        .active(true)
+                        .build()));
+        when(fcmService.sendWithRetry(
+                        eq("fcm-token"),
+                        any(),
+                        any(),
+                        any(),
+                        eq(3)))
+                .thenReturn(FcmDeliveryResult.success("message-id", 1));
+
+        service.notifyRejected(
+                RECIPIENT_ID, UUID.randomUUID(), REQUEST_ID, "Chuyên gia bận lịch công tác");
+
+        ArgumentCaptor<NotificationRecord> record =
+                ArgumentCaptor.forClass(NotificationRecord.class);
+        verify(writer).insertIfAbsent(record.capture());
+        assertThat(record.getValue().getType()).isEqualTo(NotificationType.CONSULTATION);
+        assertThat(record.getValue().getTitle()).isEqualTo("Yêu cầu đã bị từ chối");
+        assertThat(record.getValue().getBody())
+                .isEqualTo("Chuyên gia đã từ chối yêu cầu tư vấn. Lý do: Chuyên gia bận lịch công tác");
+        assertThat(record.getValue().getMetadata())
+                .containsEntry("eventType", "REQUEST_REJECTED");
+    }
 }

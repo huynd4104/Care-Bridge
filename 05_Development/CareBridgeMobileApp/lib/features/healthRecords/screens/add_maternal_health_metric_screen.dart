@@ -8,6 +8,7 @@ import 'package:universal_io/io.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/decimal_input.dart';
 import '../../emergency/services/emergency_service.dart';
 import '../../safety/services/safety_permission_service.dart';
 import '../models/health_metric_model.dart';
@@ -50,6 +51,9 @@ class _AddMaternalHealthMetricScreenState
   final _protocolCtrl = TextEditingController(text: 'COUNT_10_MINUTES');
   final _gestationalAgeCtrl = TextEditingController();
   late final HealthMetricService _service;
+
+  static const int _maxFetalMovementCount = 100;
+  static const double _maxHydrationMlPerEntry = 2000;
 
   static final _bmiDecimalFormatter = TextInputFormatter.withFunction((
     oldValue,
@@ -621,6 +625,26 @@ class _AddMaternalHealthMetricScreenState
           diastolic > 160) {
         _showError(
           'Chỉ số huyết áp ngoài dải sinh lý hợp lý (Tâm thu: 60–260 mmHg, Tâm trương: 40–160 mmHg).',
+        );
+        return;
+      }
+    }
+
+    if (_isFetalMovement) {
+      final count = int.tryParse(_primaryCtrl.text.trim());
+      if (count == null || count < 0 || count > _maxFetalMovementCount) {
+        _showError(
+          'Số cử động phải là số nguyên từ 0 đến $_maxFetalMovementCount.',
+        );
+        return;
+      }
+    }
+
+    if (_isHydration) {
+      final water = double.tryParse(_primaryCtrl.text.trim());
+      if (water == null || water < 1 || water > _maxHydrationMlPerEntry) {
+        _showError(
+          'Lượng nước mỗi lần phải từ 1 đến ${_maxHydrationMlPerEntry.toInt()} ml.',
         );
         return;
       }
@@ -1524,7 +1548,14 @@ class _AddMaternalHealthMetricScreenState
                           decimal: true,
                         ),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                          if (_isFetalMovement || _isHeartRate) ...[
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(3),
+                          ] else
+                            DecimalTextInputFormatter(
+                              maxIntegerDigits: 5,
+                              maxFractionDigits: 2,
+                            ),
                           if (_isBmi) _bmiDecimalFormatter,
                         ],
                         validator: _isFetalMovement
@@ -1542,8 +1573,9 @@ class _AddMaternalHealthMetricScreenState
                             decimal: true,
                           ),
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9.]'),
+                            DecimalTextInputFormatter(
+                              maxIntegerDigits: 3,
+                              maxFractionDigits: 2,
                             ),
                             if (_isBmi) _bmiDecimalFormatter,
                           ],

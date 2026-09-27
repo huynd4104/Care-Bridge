@@ -6,10 +6,14 @@ import '../calls/conversation_signal_hub.dart';
 import '../models/direct_conversation.dart';
 import '../services/direct_chat_service.dart';
 import '../services/conversation_refresh_bus.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// Shared between MOTHER, FAMILY, and EXPERT roles (TDS §13.5).
 class ConversationListScreen extends StatefulWidget {
   const ConversationListScreen({super.key});
+
+  static String formatLastMessagePreview(String? preview) =>
+      _ConversationTile.formatLastMessagePreview(preview);
 
   @override
   State<ConversationListScreen> createState() => _ConversationListScreenState();
@@ -76,7 +80,7 @@ class _ConversationListScreenState extends State<ConversationListScreen>
     } catch (e) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
-        _error = 'Lỗi tải danh sách: $e';
+        _error = 'Lỗi tải danh sách: ${userErrorMessage(e)}';
         _loading = false;
       });
     }
@@ -416,11 +420,58 @@ class _ConversationTile extends StatelessWidget {
     required this.onTap,
   });
 
+  static String formatLastMessagePreview(String? preview) {
+    if (preview == null || preview.trim().isEmpty) return '';
+    final trimmed = preview.trim();
+
+    if (trimmed.startsWith('[CAREBRIDGE_CHECKLIST_SHARE]') ||
+        trimmed.contains('[CAREBRIDGE_CHECKLIST_SHARE]')) {
+      final noteMatch =
+          RegExp(r'"note"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"').firstMatch(trimmed);
+      final note = noteMatch?.group(1);
+      if (note != null && note.trim().isNotEmpty) {
+        return '[Chia sẻ việc cần làm] ${note.trim()}';
+      }
+      return '[Chia sẻ việc cần làm]';
+    }
+
+    if (trimmed.startsWith('[CAREBRIDGE_HEALTH_SHARE]') ||
+        trimmed.contains('[CAREBRIDGE_HEALTH_SHARE]')) {
+      final noteMatch =
+          RegExp(r'"note"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"').firstMatch(trimmed);
+      final note = noteMatch?.group(1);
+      if (note != null && note.trim().isNotEmpty) {
+        return '[Chia sẻ chỉ số sức khỏe] ${note.trim()}';
+      }
+      return '[Chia sẻ chỉ số sức khỏe]';
+    }
+
+    if (trimmed.startsWith('[CAREBRIDGE_BABY_GROWTH_SHARE]') ||
+        trimmed.contains('[CAREBRIDGE_BABY_GROWTH_SHARE]')) {
+      final noteMatch =
+          RegExp(r'"note"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"').firstMatch(trimmed);
+      final note = noteMatch?.group(1);
+      if (note != null && note.trim().isNotEmpty) {
+        return '[Chia sẻ phát triển của bé] ${note.trim()}';
+      }
+      return '[Chia sẻ phát triển của bé]';
+    }
+
+    if (trimmed.contains(RegExp(r'\[CAREBRIDGE_[A-Z0-9_]+\]'))) {
+      return trimmed
+          .replaceAll(RegExp(r'\[CAREBRIDGE_[A-Z0-9_]+\]'), '[Nội dung đính kèm]')
+          .replaceAll(RegExp(r'[\r\n]+'), ' ')
+          .trim();
+    }
+
+    return trimmed.replaceAll(RegExp(r'[\r\n]+'), ' ');
+  }
+
   String get _subtitle {
     if (!isExpertViewer && conversation.counterpartSpecialty != null) {
       return conversation.counterpartSpecialty!;
     }
-    return conversation.lastMessagePreview ?? '';
+    return formatLastMessagePreview(conversation.lastMessagePreview);
   }
 
   String _relativeTime(DateTime? dt) {

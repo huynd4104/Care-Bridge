@@ -1,5 +1,8 @@
 package com.carebridge.backend.content.service;
 
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
+import com.carebridge.backend.common.util.SecurityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.carebridge.backend.content.dto.request.ContentFilterRequest;
 import com.carebridge.backend.content.dto.request.ContentSearchRequest;
 import com.carebridge.backend.content.dto.response.ChecklistTemplateResponse;
@@ -44,6 +47,7 @@ public class ContentServiceImpl implements ContentService {
     private final ChecklistItemRepository checklistItemRepository;
     private final ContentMapper contentMapper;
     private final LifecycleContentStageResolver lifecycleContentStageResolver;
+    private final ChecklistContraindicationPolicy contraindicationPolicy;
 
     @Override
     @Transactional(readOnly = true)
@@ -91,7 +95,38 @@ public class ContentServiceImpl implements ContentService {
     @Transactional(readOnly = true)
     public List<ChecklistTemplateResponse> getChecklists(ContentStage stage) {
         List<ChecklistTemplate> templates = findOptionalTemplates(stage);
-        return shapeApprovedChecklists(templates);
+        return hideContraindicatedItems(shapeApprovedChecklists(templates), currentMotherId());
+    }
+
+    /** Chỉ người mẹ xem lộ trình của chính mình mới bị lọc; admin/chuyên gia thấy đầy đủ. */
+    private static UUID currentMotherId() {
+        if (!SecurityUtils.hasRole("MOTHER")) {
+            return null;
+        }
+        return SecurityUtils.tryGetCurrentUserId(
+                SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    /** Bỏ các mục chống chỉ định với hồ sơ khảo sát hiện tại của người mẹ. */
+    private List<ChecklistTemplateResponse> hideContraindicatedItems(
+            List<ChecklistTemplateResponse> checklists, UUID motherId) {
+        if (motherId == null || contraindicationPolicy == null || checklists == null) {
+            return checklists;
+        }
+        Set<String> tags = contraindicationPolicy.profileTags(motherId);
+        if (tags.isEmpty()) {
+            return checklists;
+        }
+        for (ChecklistTemplateResponse checklist : checklists) {
+            if (checklist.getItems() == null) {
+                continue;
+            }
+            checklist.setItems(checklist.getItems().stream()
+                    .filter(item -> item.getContraindications() == null
+                            || item.getContraindications().stream().noneMatch(tags::contains))
+                    .toList());
+        }
+        return checklists;
     }
 
     @Override
@@ -110,7 +145,8 @@ public class ContentServiceImpl implements ContentService {
     public LifecycleContentEnvelope<List<ChecklistTemplateResponse>> getLifecycleChecklists(UUID ownerId) {
         ContentStage stage = lifecycleContentStageResolver.resolve(ownerId);
         List<ChecklistTemplate> templates = findOptionalTemplates(stage);
-        return new LifecycleContentEnvelope<>(stage, shapeApprovedChecklists(templates));
+        return new LifecycleContentEnvelope<>(stage,
+                hideContraindicatedItems(shapeApprovedChecklists(templates), ownerId));
     }
 
     @Override

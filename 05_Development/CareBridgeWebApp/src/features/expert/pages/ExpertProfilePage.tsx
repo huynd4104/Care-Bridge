@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { getMyProfile, updateMyProfile, searchTrackAsiaHospitals, uploadExpertAvatar, getProvinces } from '../services/expertApi';
 import { updateUserProfile } from '../../auth/services/authApi';
 import type { UserProfile } from '../../auth/models/user';
+import {
+  MAX_CONSULTATION_SCOPE,
+  MAX_EXPERIENCE_YEARS,
+  MAX_WORKPLACE,
+  experienceYearsError,
+  textFieldError,
+} from '../utils/expertValidation';
 
 const TITLES = [
   'Bác sĩ',
@@ -141,19 +148,31 @@ export default function ExpertProfilePage() {
     }
   };
 
+  // Lỗi tính lại mỗi lần gõ nên hiện ngay dưới ô, không phải đợi bấm Lưu.
+  const fieldErrors = {
+    experienceYears: experienceYearsError(form.experienceYears),
+    workplace: textFieldError(form.workplace, { label: 'nơi công tác', max: MAX_WORKPLACE }),
+    consultationScope: textFieldError(form.consultationScope, {
+      label: 'phạm vi tư vấn',
+      max: MAX_CONSULTATION_SCOPE,
+    }),
+  };
+  const hasFieldErrors = Object.values(fieldErrors).some(Boolean);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasFieldErrors) return;
     setSaving(true);
     setSuccess(false);
     try {
       const body: any = {
         specialty: form.specialty,
         professionalTitle: form.professionalTitle,
-        workplace: form.workplace,
+        workplace: form.workplace.trim(),
         workplaceProvinceId: form.workplaceProvinceId || undefined,
-        consultationScope: form.consultationScope,
+        consultationScope: form.consultationScope.trim(),
       };
-      if (form.experienceYears) body.experienceYears = parseInt(form.experienceYears);
+      if (form.experienceYears.trim()) body.experienceYears = Number(form.experienceYears.trim());
       const updated = await updateMyProfile(body);
       setProfile(updated);
       setSuccess(true);
@@ -298,11 +317,24 @@ export default function ExpertProfilePage() {
               <input
                 type="number"
                 min="0"
-                className="w-full py-2.5 px-4 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface outline-none focus:border-primary font-sans"
+                max={MAX_EXPERIENCE_YEARS}
+                step="1"
+                aria-invalid={Boolean(fieldErrors.experienceYears)}
+                className={`w-full py-2.5 px-4 rounded-2xl border bg-surface text-sm text-on-surface outline-none font-sans ${
+                  fieldErrors.experienceYears ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'
+                }`}
                 value={form.experienceYears}
-                onChange={(e) => setForm({ ...form, experienceYears: e.target.value })}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-', '.', ','].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => {
+                  setForm({ ...form, experienceYears: e.target.value });
+                }}
                 placeholder="Số năm..."
               />
+              {fieldErrors.experienceYears && (
+                <p className="mt-1.5 text-xs text-error">{fieldErrors.experienceYears}</p>
+              )}
             </div>
           </div>
         </div>
@@ -341,7 +373,10 @@ export default function ExpertProfilePage() {
               Bệnh viện / Phòng khám
             </label>
             <input
-              className="w-full py-2.5 px-4 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface outline-none focus:border-primary font-sans"
+              aria-invalid={Boolean(fieldErrors.workplace)}
+              className={`w-full py-2.5 px-4 rounded-2xl border bg-surface text-sm text-on-surface outline-none font-sans ${
+                fieldErrors.workplace ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'
+              }`}
               value={trackAsiaQuery}
               onChange={(e) => {
                 const typed = e.target.value;
@@ -353,6 +388,7 @@ export default function ExpertProfilePage() {
               }}
               placeholder="Gõ tên bệnh viện/phòng khám (VD: Bệnh viện Từ Dũ, Bệnh viện Chợ Rẫy)..."
             />
+            {fieldErrors.workplace && <p className="mt-1.5 text-xs text-error">{fieldErrors.workplace}</p>}
             {searchingHospitals && (
               <div className="absolute right-4 top-10">
                 <span className="material-symbols-outlined animate-spin text-primary text-lg">progress_activity</span>
@@ -394,11 +430,20 @@ export default function ExpertProfilePage() {
             </label>
             <textarea
               rows={4}
-              className="w-full py-3 px-4 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface outline-none focus:border-primary font-sans leading-relaxed resize-none"
+              aria-invalid={Boolean(fieldErrors.consultationScope)}
+              className={`w-full py-3 px-4 rounded-2xl border bg-surface text-sm text-on-surface outline-none font-sans leading-relaxed resize-none ${
+                fieldErrors.consultationScope ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'
+              }`}
               value={form.consultationScope}
               onChange={(e) => setForm({ ...form, consultationScope: e.target.value })}
               placeholder="Nhập phạm vi tư vấn sức khỏe thai kỳ, dinh dưỡng mẹ & bé, tư vấn tâm lý..."
             />
+            <div className="mt-1.5 flex justify-between gap-3 text-xs">
+              <span className="text-error">{fieldErrors.consultationScope}</span>
+              <span className={form.consultationScope.length > MAX_CONSULTATION_SCOPE ? 'text-error' : 'text-outline'}>
+                {form.consultationScope.length}/{MAX_CONSULTATION_SCOPE}
+              </span>
+            </div>
           </div>
 
           {profile?.verifiedAt && (
@@ -412,7 +457,7 @@ export default function ExpertProfilePage() {
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || hasFieldErrors}
             className="flex items-center gap-2 py-3 px-8 rounded-full bg-primary text-on-primary text-sm font-semibold cursor-pointer hover:brightness-110 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-lg">save</span>

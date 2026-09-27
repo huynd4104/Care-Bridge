@@ -3,6 +3,7 @@ import '../../../core/auth/auth_state.dart';
 import '../models/care_group_model.dart';
 import '../services/care_group_service.dart';
 import 'manage_family_permission_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// CB-168 — Care Group Members (UC-216, UC-71, UC-219)
 /// Full member list with avatar, role badge, permission chips, delete member option.
@@ -100,7 +101,7 @@ class _CareGroupMembersScreenState extends State<CareGroupMembersScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể xóa thành viên: $e')),
+        SnackBar(content: Text('Không thể xóa thành viên: ${userErrorMessage(e)}')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);

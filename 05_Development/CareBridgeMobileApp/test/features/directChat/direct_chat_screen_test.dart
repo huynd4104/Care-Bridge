@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:untitled/core/auth/auth_state.dart';
 import 'package:untitled/features/directChat/calls/direct_call_api.dart';
 import 'package:untitled/features/directChat/calls/direct_call_coordinator.dart';
 import 'package:untitled/features/directChat/calls/direct_call_host.dart';
@@ -150,8 +152,21 @@ class _OutgoingCallApi implements DirectCallApiPort {
 void main() {
   late DirectChatService original;
 
-  setUp(() => original = DirectChatService.instance);
-  tearDown(() => DirectChatService.instance = original);
+  setUp(() async {
+    original = DirectChatService.instance;
+    FlutterSecureStorage.setMockInitialValues({});
+    await AuthState.instance.setTokens(
+      accessToken: 'test-token',
+      refreshToken: 'test-refresh',
+      userId: 'mother-1',
+      role: 'MOTHER',
+    );
+  });
+
+  tearDown(() {
+    AuthState.instance.clearState();
+    DirectChatService.instance = original;
+  });
 
   testWidgets('outgoing call is not initiated before recording consent', (
     tester,
@@ -466,4 +481,102 @@ void main() {
     // Oldest message at index 0 should be scrolled off-screen above
     expect(find.text('Tin nhắn số 0 trong cuộc trò chuyện'), findsNothing);
   });
+
+  testWidgets(
+    'attachment menu hides health, baby growth and checklist for EXPERT role',
+    (tester) async {
+      await AuthState.instance.setTokens(
+        accessToken: 'test-token',
+        refreshToken: 'test-refresh',
+        userId: 'expert-1',
+        role: 'EXPERT',
+      );
+      DirectChatService.instance = _ScriptedDirectChatService();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: DirectChatScreen(conversationId: _conversationId),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Đính kèm & Chia sẻ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đính kèm tệp'), findsOneWidget);
+      expect(find.text('Chọn từ thư viện'), findsOneWidget);
+      expect(find.text('Chụp ảnh'), findsOneWidget);
+      expect(find.text('Chọn tài liệu'), findsOneWidget);
+      expect(find.text('Chia sẻ vị trí hiện tại'), findsOneWidget);
+
+      expect(find.text('Chia sẻ chỉ số sức khỏe'), findsNothing);
+      expect(find.text('Chia sẻ phát triển của bé'), findsNothing);
+      expect(find.text('Chia sẻ việc cần làm'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'attachment menu hides health, baby growth and checklist for FAMILY role',
+    (tester) async {
+      await AuthState.instance.setTokens(
+        accessToken: 'test-token',
+        refreshToken: 'test-refresh',
+        userId: 'family-1',
+        role: 'FAMILY',
+      );
+      DirectChatService.instance = _ScriptedDirectChatService();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: DirectChatScreen(conversationId: _conversationId),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Đính kèm & Chia sẻ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đính kèm tệp'), findsOneWidget);
+      expect(find.text('Chọn từ thư viện'), findsOneWidget);
+      expect(find.text('Chụp ảnh'), findsOneWidget);
+      expect(find.text('Chọn tài liệu'), findsOneWidget);
+      expect(find.text('Chia sẻ vị trí hiện tại'), findsOneWidget);
+
+      expect(find.text('Chia sẻ chỉ số sức khỏe'), findsNothing);
+      expect(find.text('Chia sẻ phát triển của bé'), findsNothing);
+      expect(find.text('Chia sẻ việc cần làm'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'attachment menu shows all sharing options for MOTHER role',
+    (tester) async {
+      await AuthState.instance.setTokens(
+        accessToken: 'test-token',
+        refreshToken: 'test-refresh',
+        userId: 'mother-1',
+        role: 'MOTHER',
+      );
+      DirectChatService.instance = _ScriptedDirectChatService();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: DirectChatScreen(conversationId: _conversationId),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Đính kèm & Chia sẻ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đính kèm & Chia sẻ'), findsOneWidget);
+      expect(find.text('Chọn từ thư viện'), findsOneWidget);
+      expect(find.text('Chụp ảnh'), findsOneWidget);
+      expect(find.text('Chọn tài liệu'), findsOneWidget);
+      expect(find.text('Chia sẻ chỉ số sức khỏe'), findsOneWidget);
+      expect(find.text('Chia sẻ phát triển của bé'), findsOneWidget);
+      expect(find.text('Chia sẻ việc cần làm'), findsOneWidget);
+      expect(find.text('Chia sẻ vị trí hiện tại'), findsOneWidget);
+    },
+  );
 }

@@ -80,7 +80,7 @@ public class GrowthServiceImpl implements IGrowthService {
         BabyProfile baby = getBabyOrThrow(babyId);
         assertWriteAccess(baby, userId);
         assertActive(baby);
-        validateNewMeasurementMetadata(request.getMeasuredDate(), request.getSourceType());
+        validateNewMeasurementMetadata(request.getMeasuredDate(), request.getSourceType(), baby.getBirthDate());
         if (!hasAnyMeasurement(request.getWeightKg(), request.getHeightCm(), request.getHeadCircumferenceCm())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-072",
                     "At least one measurement value is required");
@@ -116,7 +116,7 @@ public class GrowthServiceImpl implements IGrowthService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-076",
                     "At least one field is required");
         }
-        validateUpdatedMeasurementMetadata(request.getMeasuredDate(), request.getSourceType());
+        validateUpdatedMeasurementMetadata(request.getMeasuredDate(), request.getSourceType(), baby.getBirthDate());
 
         GrowthMeasurement measurement = growthMeasurementStore.findById(growthMeasurementId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "BABY-079",
@@ -251,7 +251,7 @@ public class GrowthServiceImpl implements IGrowthService {
                 && request.getNote() == null;
     }
 
-    private void validateNewMeasurementMetadata(LocalDate measuredDate, String sourceType) {
+    private void validateNewMeasurementMetadata(LocalDate measuredDate, String sourceType, LocalDate birthDate) {
         if (measuredDate == null
                 || measuredDate.isAfter(LocalDate.now(ZoneOffset.UTC))
                 || sourceType == null
@@ -259,13 +259,21 @@ public class GrowthServiceImpl implements IGrowthService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-GROWTH-400",
                     "Measurement date and source are required and the date cannot be in the future");
         }
+        if (birthDate != null && measuredDate.isBefore(birthDate)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-075",
+                    "Measured date cannot be before baby birth date");
+        }
     }
 
-    private void validateUpdatedMeasurementMetadata(LocalDate measuredDate, String sourceType) {
+    private void validateUpdatedMeasurementMetadata(LocalDate measuredDate, String sourceType, LocalDate birthDate) {
         if ((measuredDate != null && measuredDate.isAfter(LocalDate.now(ZoneOffset.UTC)))
                 || (sourceType != null && sourceType.isBlank())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-GROWTH-400",
                     "Measurement date and source are invalid");
+        }
+        if (birthDate != null && measuredDate != null && measuredDate.isBefore(birthDate)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BABY-075",
+                    "Measured date cannot be before baby birth date");
         }
     }
 

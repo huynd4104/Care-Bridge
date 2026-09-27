@@ -19,6 +19,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
   ExpertOnboardingState? _state;
   bool _loading = true;
   String? _error;
+  bool _resubmitting = false;
 
   @override
   void initState() {
@@ -77,14 +78,30 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
               _statusHero(_state!),
               const SizedBox(height: 18),
               _progressCard(_state!),
-              if (_state!.rejectionReason?.isNotEmpty == true) ...[
+              // Chỉ hiện khi còn thứ phải sửa. Model lấy cả lý do cũ của lần định danh
+              // trước, nên hồ sơ đã gửi lại xong không được hiện khung đỏ nữa.
+              if (_state!.rejectionReason?.isNotEmpty == true &&
+                  (_state!.canResubmit ||
+                      _state!.identityStatus == 'REJECTED' ||
+                      _state!.identityStatus == 'MANUAL_REVIEW_REQUIRED')) ...[
                 const SizedBox(height: 16),
-                _messageCard(
-                  Icons.info_outline_rounded,
-                  'Cần bổ sung',
-                  _state!.rejectionReason!,
-                  const Color(0xFF93000A),
-                ),
+                // MANUAL_REVIEW_REQUIRED nghĩa là chờ người duyệt tay, không phải bị
+                // từ chối. Gọi nó là "lý do từ chối" và tô đỏ là nói sai với chuyên
+                // gia, trong khi ba ô trạng thái ngay trên vẫn đang vàng "chờ duyệt".
+                if (_state!.canResubmit || _state!.identityStatus == 'REJECTED')
+                  _messageCard(
+                    Icons.info_outline_rounded,
+                    'Lý do quản trị viên từ chối',
+                    _state!.rejectionReason!,
+                    const Color(0xFF93000A),
+                  )
+                else
+                  _messageCard(
+                    Icons.hourglass_top_rounded,
+                    'Tình trạng đối chiếu hồ sơ',
+                    _state!.rejectionReason!,
+                    const Color(0xFF8A6100),
+                  ),
               ],
               const SizedBox(height: 22),
               if (_state!.approved)
@@ -105,8 +122,22 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Cập nhật trạng thái'),
                 ),
-                if (_state!.identityStatus == 'REJECTED' ||
-                    _state!.identityStatus == 'MANUAL_REVIEW_REQUIRED') ...[
+                // Máy chủ là nơi biết khâu nào bị chấm sai, nên app mở đúng bước đó
+                // thay vì suy đoán từ trạng thái tài liệu.
+                if (_state!.rejectedStep != null) ...[
+                  const SizedBox(height: 10),
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        context.go(_resumePath(_state!.rejectedStep!)),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: Text(
+                      'Sửa lại bước ${_stepLabel(_state!.rejectedStep!)}',
+                    ),
+                  ),
+                ],
+                // Kiểm tra thủ công không phải là từ chối nên máy chủ không đánh dấu
+                // bước sai, nhưng chuyên gia vẫn cần chụp lại ảnh cho rõ.
+                if (_state!.identityStatus == 'MANUAL_REVIEW_REQUIRED') ...[
                   const SizedBox(height: 10),
                   FilledButton.tonalIcon(
                     onPressed: () => context.go('/expert/identity'),
@@ -114,12 +145,18 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                     label: const Text('Làm lại định danh'),
                   ),
                 ],
-                if (_state!.credentialStatus == 'REJECTED') ...[
+                // Sửa xong vẫn phải có động tác gửi lại: từ chối toàn hồ sơ không gắn
+                // với tài liệu nào để tự kích hoạt xét duyệt.
+                if (_state!.canResubmit) ...[
                   const SizedBox(height: 10),
-                  FilledButton.tonalIcon(
-                    onPressed: () => context.go('/expert/credentials'),
-                    icon: const Icon(Icons.workspace_premium_outlined),
-                    label: const Text('Làm lại chứng chỉ'),
+                  FilledButton.icon(
+                    onPressed: _resubmitting ? null : _resubmit,
+                    icon: const Icon(Icons.send_rounded),
+                    label: Text(
+                      _resubmitting
+                          ? 'Đang gửi lại...'
+                          : 'Gửi lại hồ sơ để duyệt',
+                    ),
                   ),
                 ],
               ],
@@ -133,7 +170,11 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
   Widget _statusHero(ExpertOnboardingState state) {
     final approved = state.approved;
     final rejected = state.rejected;
-    final color = approved
+    // Hồ sơ đã nộp đủ (kể cả vừa gửi lại) là việc của chuyên gia đã xong, nên
+    // dùng màu xanh lá như trạng thái thành công, không dùng màu cảnh báo.
+    final submitted = !approved && !rejected &&
+        state.nextStep == ExpertOnboardingStep.review;
+    final color = approved || submitted
         ? const Color(0xFF287D55)
         : rejected
         ? const Color(0xFFB3261E)
@@ -141,13 +182,17 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
     final title = approved
         ? 'Đã xác minh chuyên gia'
         : rejected
-        ? 'Hồ sơ cần bổ sung'
-        : 'Đang chờ xét duyệt';
+        ? 'Hồ sơ cần chỉnh sửa'
+        : submitted
+        ? 'Đã hoàn thiện hồ sơ'
+        : 'Hồ sơ chưa hoàn tất';
     final detail = approved
         ? 'Bạn đã có thể sử dụng các chức năng dành cho chuyên gia.'
         : rejected
-        ? 'Xem lý do bên dưới và gửi lại phần được yêu cầu.'
-        : 'Danh tính và giấy tờ chuyên môn đang được quản trị viên kiểm tra.';
+        ? 'Sửa đúng bước được chỉ ra bên dưới rồi gửi lại hồ sơ.'
+        : submitted
+        ? 'Vui lòng đợi quản trị viên xác thực. Kết quả sẽ được gửi về email bạn đã đăng ký.'
+        : 'Hoàn thành các bước còn lại để gửi hồ sơ cho quản trị viên.';
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -161,6 +206,8 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                 ? Icons.verified_rounded
                 : rejected
                 ? Icons.assignment_late_rounded
+                : submitted
+                ? Icons.task_alt_rounded
                 : Icons.hourglass_top_rounded,
             size: 62,
             color: color,
@@ -287,9 +334,14 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
       case 'MANUAL_REVIEW_REQUIRED':
         return 'Cần quản trị viên kiểm tra thủ công';
       case 'PENDING':
+      case 'PENDING_REVIEW':
       case 'SUBMITTED':
       case 'UNDER_REVIEW':
         return 'Đang chờ xét duyệt';
+      case 'EXPIRED':
+        return 'Hết hạn — cần gửi lại';
+      case 'SUSPENDED':
+        return 'Tạm ngưng';
       case 'RETRYABLE':
       case 'RETRYABLE_ERROR':
         return 'Tạm thời chưa xử lý được — vui lòng thử lại';
@@ -298,7 +350,47 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
       case 'REQUIRED':
         return 'Chưa gửi';
       default:
-        return status.isEmpty ? 'Chưa có trạng thái' : status;
+        return status.isEmpty ? 'Chưa có trạng thái' : 'Đang xử lý';
+    }
+  }
+
+  Future<void> _resubmit() async {
+    setState(() => _resubmitting = true);
+    try {
+      await (widget.service ?? ExpertOnboardingService.instance)
+          .renewVerification();
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không gửi lại được hồ sơ. Vui lòng thử lại.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _resubmitting = false);
+    }
+  }
+
+  /// Tên bước, dùng đúng chữ trên thẻ tiến độ để chuyên gia khỏi phải đoán.
+  String _stepLabel(ExpertOnboardingStep step) {
+    switch (step) {
+      case ExpertOnboardingStep.profile:
+        return 'thông tin hồ sơ';
+      case ExpertOnboardingStep.expertType:
+        return 'hình thức hợp tác';
+      case ExpertOnboardingStep.identity:
+        return 'định danh';
+      case ExpertOnboardingStep.credential:
+        return 'chứng chỉ';
+      case ExpertOnboardingStep.contract:
+        return 'ký thoả thuận';
+      case ExpertOnboardingStep.availability:
+        return 'lịch làm việc';
+      case ExpertOnboardingStep.review:
+      case ExpertOnboardingStep.complete:
+        return 'hồ sơ';
     }
   }
 

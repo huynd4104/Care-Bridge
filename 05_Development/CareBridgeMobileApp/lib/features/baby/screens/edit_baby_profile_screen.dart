@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../core/utils/decimal_input.dart';
 import '../models/baby_model.dart';
 import '../services/baby_service.dart';
 
@@ -112,8 +112,8 @@ class _EditBabyProfileScreenState extends State<EditBabyProfileScreen> {
           nickname: _nicknameCtrl.text.trim(),
           birthDate: _birthDate,
           gender: _gender == BabyGender.unknown ? null : _gender,
-          birthWeightKg: double.tryParse(_weightCtrl.text.trim()),
-          birthLengthCm: double.tryParse(_lengthCtrl.text.trim()),
+          birthWeightKg: parseDecimalInput(_weightCtrl.text),
+          birthLengthCm: parseDecimalInput(_lengthCtrl.text),
         ),
       );
       setState(() => _showSuccess = true);
@@ -506,11 +506,15 @@ class _EditBabyProfileScreenState extends State<EditBabyProfileScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+      inputFormatters: [
+        DecimalTextInputFormatter(maxIntegerDigits: 3, maxFractionDigits: 2),
+      ],
       validator: (v) {
-        if (v == null || v.isEmpty) return null;
-        final n = double.tryParse(v);
-        if (n == null || n < min || n > max) return 'Không hợp lệ';
+        if (v == null || v.trim().isEmpty) return null;
+        final n = parseDecimalInput(v);
+        if (n == null || n < min || n > max) {
+          return 'Nhập từ ${formatDecimalBound(min)} đến ${formatDecimalBound(max)}';
+        }
         return null;
       },
       style: const TextStyle(

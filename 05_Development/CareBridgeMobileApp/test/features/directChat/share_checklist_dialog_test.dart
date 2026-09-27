@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:untitled/features/directChat/widgets/share_checklist_dialog.dart';
 import 'package:untitled/features/directChat/widgets/checklist_message_card.dart';
+import 'package:untitled/features/reminder/models/reminder_model.dart';
+import 'package:untitled/features/reminder/models/today_task_model.dart';
 
 void main() {
   group('ShareChecklistDialog Tests - Default Send All Without Selection', () {
@@ -364,6 +366,211 @@ void main() {
         result!.currentItems.every((i) => !(i.category?.contains('bé') ?? false)),
         isTrue,
       );
+    });
+  });
+
+  group('ShareChecklistDialog - khớp với "Gợi ý CareBridge" của mẹ', () {
+    TodayTask task(
+      String id,
+      String title, {
+      TodayTaskKind kind = TodayTaskKind.checklist,
+      TodayTaskOrigin origin = TodayTaskOrigin.systemTemplate,
+      bool completed = false,
+      TodayChecklistStage stage = TodayChecklistStage.pregnancy,
+      String? careContextType,
+      String? careContextLabel,
+    }) => TodayTask(
+      id: id,
+      kind: kind,
+      sourceType: kind == TodayTaskKind.checklist
+          ? TodayTaskSourceType.checklist
+          : TodayTaskSourceType.reminder,
+      type: ReminderType.other,
+      title: title,
+      status: ReminderStatus.pending,
+      taskStatus: completed ? TodayTaskStatus.completed : TodayTaskStatus.pending,
+      priority: 1,
+      target: TodayTaskTarget.unknown,
+      origin: origin,
+      bucket: TodayTimeBucket.today,
+      stage: stage,
+      careContextType: careContextType,
+      careContextLabel: careContextLabel,
+      allowedActions: const {TodayTaskAction.complete},
+    );
+
+    // 8 gợi ý CareBridge (3 đã xong, 1 việc của bé, 1 việc quá hạn), cộng việc cá nhân và
+    // việc nhắc lịch — những thứ mẹ không thấy trong tab "Gợi ý CareBridge".
+    final suggestionTitles = [
+      'Đi khám thai lần đầu',
+      'Uống axit folic mỗi ngày',
+      'Ăn đủ bữa, chia nhỏ bữa',
+      'Theo dõi cân nặng',
+      'Uống đủ nước',
+      'Ngủ đủ giấc',
+      'Đi bộ nhẹ nhàng 15 phút',
+      'Chuẩn bị đồ sơ sinh cho bé',
+    ];
+    TodayTasksSnapshot snapshot() => TodayTasksSnapshot(
+      asOf: DateTime(2026, 9, 27),
+      zoneId: 'Asia/Ho_Chi_Minh',
+      horizonDays: 7,
+      correlationId: 'test',
+      sections: TodayTaskSections(
+        overdue: [task('s1', suggestionTitles[0], completed: true)],
+        today: [
+          task('s2', suggestionTitles[1], completed: true),
+          task('s3', suggestionTitles[2], completed: true),
+          task('s4', suggestionTitles[3]),
+          task('s5', suggestionTitles[4]),
+          task('s6', suggestionTitles[5]),
+          task('s7', suggestionTitles[6]),
+          task(
+            's8',
+            suggestionTitles[7],
+            stage: TodayChecklistStage.babyCare,
+            careContextType: 'BABY',
+            careContextLabel: 'Bé Na',
+          ),
+          task(
+            'u1',
+            'Việc cá nhân của mẹ',
+            origin: TodayTaskOrigin.userCreated,
+            completed: true,
+          ),
+          task(
+            'r1',
+            'Nhắc uống thuốc sắt',
+            kind: TodayTaskKind.reminder,
+            origin: TodayTaskOrigin.unknown,
+            completed: true,
+          ),
+        ],
+        upcoming: const [],
+        unscheduled: const [],
+      ),
+    );
+
+    Future<ChecklistShareData?> openAndSend(
+      WidgetTester tester,
+      Future<TodayTasksSnapshot> Function() loader,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(800, 1200);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      ChecklistShareData? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  result = await ShareChecklistDialog.show(
+                    context,
+                    initialStage: 'PREGNANCY',
+                    initialGestationalWeek: 13,
+                    todayTasksLoader: loader,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Chia sẻ việc cần làm tuần này (8 việc)'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('share-all-checklist-btn')));
+      await tester.pumpAndSettle();
+      return result;
+    }
+
+    testWidgets('chia sẻ đúng 8 việc gợi ý, 3 việc đã xong như mẹ đang thấy', (
+      tester,
+    ) async {
+      final result = await openAndSend(tester, () async => snapshot());
+
+      expect(result, isNotNull);
+      expect(result!.totalCount, 8);
+      expect(result.completedCount, 3);
+      expect(result.progressPercent, 38);
+      expect(result.historyItems, isEmpty);
+      expect(result.futureItems, isEmpty);
+      expect(
+        result.currentItems.map((i) => i.text).toSet(),
+        suggestionTitles.toSet(),
+      );
+      expect(
+        result.currentItems.where((i) => i.completed).map((i) => i.text),
+        unorderedEquals(suggestionTitles.take(3)),
+      );
+    });
+
+    testWidgets('payload sau khi serialize vẫn giữ 8 việc / 3 đã xong cho chuyên gia', (
+      tester,
+    ) async {
+      final result = await openAndSend(tester, () async => snapshot());
+      final parsed = ChecklistShareData.parse(result!.serialize());
+
+      expect(parsed, isNotNull);
+      expect(parsed!.allItems.length, 8);
+      expect(parsed.totalCount, 8);
+      expect(parsed.completedCount, 3);
+      expect(parsed.allItems.where((i) => i.completed).length, 3);
+    });
+
+    testWidgets('snapshot hôm nay trống thì không gộp mẫu lộ trình vào "Hiện tại"', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(800, 1200);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => ShareChecklistDialog.show(
+                  context,
+                  initialStage: 'PREGNANCY',
+                  initialGestationalWeek: 13,
+                  todayTasksLoader: () async => TodayTasksSnapshot(
+                    asOf: DateTime(2026, 9, 27),
+                    zoneId: 'Asia/Ho_Chi_Minh',
+                    horizonDays: 7,
+                    correlationId: 'test',
+                    sections: const TodayTaskSections(
+                      overdue: [],
+                      today: [],
+                      upcoming: [],
+                      unscheduled: [],
+                    ),
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hiện tại (0)'), findsOneWidget);
+      expect(find.text('Đi khám thai lần đầu'), findsNothing);
     });
   });
 

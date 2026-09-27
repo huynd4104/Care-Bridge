@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -47,6 +48,12 @@ public class ChecklistTaskActionHandler implements TaskActionHandler {
     private final ChecklistCurrentScopePolicy currentScopePolicy;
     private final Clock clock;
     private final ChecklistTemplateRepository templateRepository;
+    private ChecklistContraindicationPolicy contraindicationPolicy;
+
+    @Autowired(required = false)
+    void setContraindicationPolicy(ChecklistContraindicationPolicy contraindicationPolicy) {
+        this.contraindicationPolicy = contraindicationPolicy;
+    }
 
     public ChecklistTaskActionHandler(
             ChecklistTaskInstanceRepository taskRepository,
@@ -244,8 +251,13 @@ public class ChecklistTaskActionHandler implements TaskActionHandler {
     private void updateParentStatus(com.carebridge.backend.checklist.entity.ChecklistInstance instance,
                                     List<ChecklistTaskInstance> lockedTasks,
                                     Instant appliedAt) {
+        // Mục bị chống chỉ định với hồ sơ hiện tại bị ẩn khỏi người mẹ nên không chặn hoàn thành.
+        Set<UUID> hiddenTaskIds = contraindicationPolicy == null
+                ? Set.of()
+                : contraindicationPolicy.hiddenTaskIds(instance, lockedTasks);
         boolean allTerminal = lockedTasks.stream()
-                .allMatch(task -> task.getStatus() == ChecklistTaskStatus.COMPLETED
+                .allMatch(task -> hiddenTaskIds.contains(task.getId())
+                        || task.getStatus() == ChecklistTaskStatus.COMPLETED
                         || task.getStatus() == ChecklistTaskStatus.SKIPPED
                         || task.getStatus() == ChecklistTaskStatus.CANCELLED);
         if (allTerminal) {

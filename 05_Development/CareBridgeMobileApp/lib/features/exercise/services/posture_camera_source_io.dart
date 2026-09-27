@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import 'pose_skeleton_painter.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// Native (Android / iOS) camera & pose detection source powered by Google ML Kit.
 class PostureCameraSource {
@@ -160,7 +161,7 @@ class PostureCameraSource {
     } catch (e) {
       _starting = false;
       _running = false;
-      final msg = 'Lỗi khởi động camera: ${e.toString()}';
+      final msg = 'Lỗi khởi động camera: ${userErrorMessage(e)}';
       _lastError = msg;
       if (!_errorsController.isClosed) {
         _errorsController.add(msg);

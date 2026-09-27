@@ -7,6 +7,7 @@ import '../../privacy/services/privacy_service.dart';
 import '../../familySync/models/care_group_model.dart';
 import '../../familySync/services/care_group_service.dart';
 import '../../familySync/screens/care_groups_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// Checks if at least one active care group has at least one family member
 /// (either memberCount > 1 or accepted member with non-OWNER role).
@@ -404,7 +405,7 @@ class _EnableFallDetectionScreenState extends State<EnableFallDetectionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể tắt phát hiện ngã: $e'),
+            content: Text('Không thể tắt phát hiện ngã: ${userErrorMessage(e)}'),
             backgroundColor: _error,
           ),
         );
@@ -532,7 +533,7 @@ class _EnableFallDetectionScreenState extends State<EnableFallDetectionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể bật phát hiện ngã: $e'),
+            content: Text('Không thể bật phát hiện ngã: ${userErrorMessage(e)}'),
             backgroundColor: _error,
           ),
         );

@@ -835,7 +835,7 @@ class _ChecklistMessageCardState extends State<ChecklistMessageCard> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
               children: [
-                ..._liveAllItems.take(4).map((item) {
+                ...(_currentItems.isNotEmpty ? _currentItems : _liveAllItems).take(4).map((item) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Row(

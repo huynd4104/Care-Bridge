@@ -11,12 +11,13 @@ import {
   updateChecklistTemplate,
 } from '../services/contentApi';
 import type { AdminChecklistTemplateDetail, ChecklistSupportFunction } from '../models/content';
-import { CHECKLIST_STATUS_LABELS, CHECKLIST_SUPPORT_FUNCTION_OPTIONS, STAGE_LABELS } from '../models/content';
+import { CHECKLIST_CONTRAINDICATION_LABELS, CHECKLIST_STATUS_LABELS, CHECKLIST_SUPPORT_FUNCTION_OPTIONS, STAGE_LABELS } from '../models/content';
 import {
   checklistCadenceLabel,
   checklistCoexistenceGuidance,
   checklistRecipientLabel,
   checklistSequenceLabel,
+  checklistApprovalErrorMessage,
   checklistWindowLabel,
 } from './checklistApprovalPresentation';
 import { useAuth } from '../../../shared/auth/useAuth';
@@ -124,7 +125,7 @@ export default function ChecklistDetailPage() {
         }
       }, 1000);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Không thể thực hiện thẩm định. Vui lòng thử lại.');
+      setActionError(checklistApprovalErrorMessage(err, decisionModal));
     } finally {
       setSubmittingDecision(false);
     }
@@ -320,6 +321,34 @@ export default function ChecklistDetailPage() {
       {actionError && <div role="alert" className="mb-4 rounded-2xl border border-error-container bg-error-container/60 p-4 text-sm font-semibold text-error">{actionError}</div>}
       {canManage && <ReviewFeedbackNotice feedback={detail.latestReviewFeedback} />}
 
+      {detail.status === 'ARCHIVED' && (
+        <section
+          role="alert"
+          aria-label="Thông báo checklist đã bị xóa"
+          className="mb-6 rounded-2xl border border-rose-200 bg-rose-50/80 p-5 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20"
+        >
+          <div className="flex items-start gap-3">
+            <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-2xl text-rose-600">
+              delete_forever
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="m-0 text-base font-bold text-rose-950 dark:text-rose-200">
+                Checklist này đã bị xóa (Đã lưu trữ)
+              </h2>
+              <div className="mt-2 rounded-xl border border-rose-200/80 bg-white/70 p-3.5 text-sm dark:border-rose-900/50 dark:bg-rose-900/10">
+                <span className="font-semibold text-rose-900 dark:text-rose-300">Lý do xóa / lưu trữ: </span>
+                <span className="text-rose-950 dark:text-rose-100 whitespace-pre-wrap">
+                  {detail.archiveReason || detail.latestReviewFeedback?.reason || 'Không có lý do cụ thể'}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-rose-700/80 dark:text-rose-400">
+                Checklist ở trạng thái này đã ngừng hoạt động và không thể chỉnh sửa hoặc phân phối.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       <div data-testid="checklist-detail-layout" className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Main content area */}
         <div>
@@ -366,7 +395,7 @@ export default function ChecklistDetailPage() {
             </div>
             <div>
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-outline">CỬA SỔ VÒNG ĐỜI</div>
-              <span className={warmBadge}>{checklistWindowLabel(detail)}</span>
+              <span title={detail.substage?.code ?? undefined} className={warmBadge}>{checklistWindowLabel(detail)}</span>
             </div>
             {detail.planNumber != null && (
               <div>
@@ -396,7 +425,7 @@ export default function ChecklistDetailPage() {
             </section>
           )}
 
-          {detail.stage === 'PRE_PREGNANCY' && detail.templateType === 'MANDATORY' && (
+          {detail.status !== 'ARCHIVED' && detail.stage === 'PRE_PREGNANCY' && detail.templateType === 'MANDATORY' && (
             <div role="note" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               {checklistCoexistenceGuidance(detail.displayOrder)}
               <span className="mt-1 block text-xs">Người nhận: {checklistRecipientLabel(detail.recipientRoles)}</span>
@@ -451,6 +480,15 @@ export default function ChecklistDetailPage() {
                         >
                           Chức năng hỗ trợ: {supportFunctionLabel(item.supportFunction)}
                         </span>
+                        {(item.contraindications ?? []).map((tag) => (
+                          <span
+                            key={tag}
+                            aria-label={`Chống chỉ định mục ${item.order}: ${CHECKLIST_CONTRAINDICATION_LABELS[tag] ?? tag}`}
+                            className="inline-flex items-center rounded-full bg-error-container/40 px-2.5 py-0.5 text-xs font-semibold text-error"
+                          >
+                            Chống chỉ định: {CHECKLIST_CONTRAINDICATION_LABELS[tag] ?? tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </li>
@@ -470,7 +508,11 @@ export default function ChecklistDetailPage() {
             <div className="flex items-center gap-2 mb-2">
               <span className={`w-2.5 h-2.5 rounded-full ${statusDotClass(detail.status)}`} />
               <span className="text-sm font-semibold text-on-surface">
-                {detail.latestReviewFeedback ? 'Cần chỉnh sửa' : CHECKLIST_STATUS_LABELS[detail.status]}
+                {detail.status === 'ARCHIVED'
+                  ? 'Đã lưu trữ (Đã xóa)'
+                  : detail.latestReviewFeedback
+                    ? 'Cần chỉnh sửa'
+                    : CHECKLIST_STATUS_LABELS[detail.status]}
               </span>
             </div>
           </div>
@@ -531,7 +573,9 @@ export default function ChecklistDetailPage() {
               ) : (
                 <>
                   <p className="px-2 text-center text-xs text-outline m-0">
-                    Phiên bản đã duyệt hoặc lưu trữ không thể chỉnh sửa trực tiếp.
+                    {detail.status === 'ARCHIVED'
+                      ? 'Checklist đã bị xóa (lưu trữ) không thể chỉnh sửa.'
+                      : 'Phiên bản đã duyệt hoặc lưu trữ không thể chỉnh sửa trực tiếp.'}
                   </p>
                   {detail.status === 'APPROVED' && (
                     <button
@@ -559,15 +603,17 @@ export default function ChecklistDetailPage() {
                   {submittingApproval ? 'Đang gửi...' : 'Gửi phê duyệt'}
                 </button>
               )}
-              <button
-                type="button"
-                aria-label="Delete checklist"
-                onClick={handleDelete}
+              {detail.status !== 'ARCHIVED' && (
+                <button
+                  type="button"
+                  aria-label="Delete checklist"
+                  onClick={handleDelete}
                   className="inline-flex min-h-12 py-3 px-6 w-full items-center justify-center gap-2 rounded-full border border-error-container bg-surface text-error text-sm font-semibold cursor-pointer hover:bg-error-container/20"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-lg">delete</span>
-                Xóa
-              </button>
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-lg">delete</span>
+                  Xóa
+                </button>
+              )}
             </>
           )}
           {canReview && detail.migrationReviewRequired && (

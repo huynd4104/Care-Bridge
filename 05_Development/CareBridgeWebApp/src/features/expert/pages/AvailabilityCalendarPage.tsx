@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import { getMyAvailability, replaceAvailability } from '../services/expertApi';
 import type { AvailabilityResponse } from '../services/expertApi';
 
@@ -71,12 +72,13 @@ function isHourPast(dateKeyValue: string, hour: number, now: Date) {
 }
 
 function translateError(error: any) {
-  const message = error.response?.data?.message || error.message || '';
+  // So khớp trên bản gốc của server; interceptor đã chuyển câu tiếng Anh sang rawMessage.
+  const message: string = error.response?.data?.rawMessage || error.response?.data?.message || '';
   if (message.includes('verified')) return 'Hồ sơ chuyên gia cần được duyệt trước khi thiết lập lịch làm việc.';
   if (message.includes('time zone')) return 'Múi giờ không hợp lệ. Vui lòng tải lại trang.';
   if (message.includes('already passed'))
     return 'Những khung giờ bạn chọn đều đã trôi qua. Hãy chọn giờ còn lại trong ngày hoặc một ngày khác.';
-  return message || 'Không thể lưu lịch làm việc. Vui lòng thử lại.';
+  return getApiErrorMessage(error, 'Không thể lưu lịch làm việc. Vui lòng thử lại.');
 }
 
 export default function AvailabilityCalendarPage() {

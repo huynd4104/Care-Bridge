@@ -1,5 +1,6 @@
 package com.carebridge.backend.content.service;
 
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import com.carebridge.backend.audit.entity.AuditAction;
 import com.carebridge.backend.audit.service.AuditService;
 import com.carebridge.backend.audit.entity.AuditLog;
@@ -288,10 +289,12 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
         // preparation_checklist_items remain stable when a template is archived.
         template.setStatus(ChecklistTemplateStatus.ARCHIVED);
         template.setDistributionEnabled(false);
-        clearReviewFeedback(template);
+        template.setRevisionReason(request.reason().trim());
+        Instant archivedAt = Instant.now();
+        template.setRevisionRequestedAt(archivedAt);
+        template.setRevisionRequestedBy(adminUserId);
         ChecklistTemplate saved = checklistTemplateRepository.save(template);
 
-        Instant archivedAt = Instant.now();
         auditService.log(AuditAction.CHECKLIST_TEMPLATE_ARCHIVED, adminUserId,
                 "ChecklistTemplate", saved.getId().toString(),
                 "reason=" + request.reason() + " previousStatus=" + previousStatus);
@@ -439,8 +442,63 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
 
     private AdminChecklistTemplateDetailResponse toResponseWithItems(ChecklistTemplate template) {
         List<ChecklistItem> items = checklistItemRepository.findByTemplate_IdOrderByOrder(template.getId());
-        return contentMapper.toAdminChecklistTemplateDetailResponse(
+        AdminChecklistTemplateDetailResponse response = contentMapper.toAdminChecklistTemplateDetailResponse(
                 template, items);
+        if (template.getStatus() == ChecklistTemplateStatus.ARCHIVED) {
+            populateArchiveDetails(response, template);
+        }
+        return response;
+    }
+
+    private void populateArchiveDetails(AdminChecklistTemplateDetailResponse response, ChecklistTemplate template) {
+        String archiveReason = template.getRevisionReason();
+        Instant archivedAt = template.getRevisionRequestedAt();
+        UUID archivedBy = template.getRevisionRequestedBy();
+
+        if (archiveReason == null || archiveReason.isBlank()) {
+            try {
+                List<AuditLog> logs = auditLogRepository.findByEntityIdAndEntityTypeAndActionInOrderByCreatedAtDesc(
+                        template.getId(), "ChecklistTemplate", Set.of(AuditAction.CHECKLIST_TEMPLATE_ARCHIVED));
+                if (logs != null && !logs.isEmpty()) {
+                    AuditLog log = logs.get(0);
+                    if (archivedAt == null) {
+                        archivedAt = log.getCreatedAt();
+                    }
+                    if (archivedBy == null) {
+                        archivedBy = log.getActorUserId();
+                    }
+                    archiveReason = parseArchiveReasonFromDetails(log.getNewValueJson());
+                }
+            } catch (Exception ignored) {
+                // Defensive fallback: failure to query or parse audit logs must not crash reading the template
+            }
+        }
+
+        response.setArchiveReason(archiveReason);
+        response.setArchivedAt(archivedAt);
+        response.setArchivedBy(archivedBy);
+    }
+
+    private String parseArchiveReasonFromDetails(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String text = raw.trim();
+        if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
+            try {
+                text = objectMapper.readValue(raw, String.class);
+            } catch (Exception e) {
+                text = text.substring(1, text.length() - 1);
+            }
+        }
+        int reasonIdx = text.indexOf("reason=");
+        if (reasonIdx >= 0) {
+            int start = reasonIdx + "reason=".length();
+            int end = text.indexOf(" previousStatus=", start);
+            if (end > start) {
+                return text.substring(start, end).trim();
+            }
+            return text.substring(start).trim();
+        }
+        return text;
     }
 
     private List<ChecklistItem> toEntities(List<ChecklistItemRequest> items, ChecklistTemplate template) {
@@ -580,7 +638,33 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
         for (ChecklistItemRequest item : items) {
             validateItem(item.targetSubject(), item.isRequired(), contractVersion);
             validateSourceUrl(item.sourceUrl());
+            validateContraindications(item.contraindications());
         }
+    }
+
+    private void validateContraindications(List<String> contraindications) {
+        if (contraindications == null) {
+            return;
+        }
+        for (String tag : contraindications) {
+            if (tag == null || !ChecklistContraindicationPolicy.ALLOWED_TAGS.contains(tag.trim())) {
+                throw ContentException.validationFailed(
+                        "contraindications", "Tag chống chỉ định không hợp lệ: " + tag);
+            }
+        }
+    }
+
+    private static List<String> normalizeContraindications(List<String> contraindications) {
+        if (contraindications == null) {
+            return List.of();
+        }
+        return contraindications.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .filter(ChecklistContraindicationPolicy.ALLOWED_TAGS::contains)
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     private void validateSourceUrl(String sourceUrl) {
@@ -650,9 +734,11 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
     private String itemConfiguration(ChecklistItemRequest item) {
         String sourceUrl = item.sourceUrl() == null || item.sourceUrl().isBlank()
                 ? null : item.sourceUrl().trim();
+        List<String> contraindications = normalizeContraindications(item.contraindications());
         if (!Boolean.TRUE.equals(item.repeatWeekly())
                 && !Boolean.TRUE.equals(item.repeatDaily())
-                && sourceUrl == null) {
+                && sourceUrl == null
+                && contraindications.isEmpty()) {
             return "{}";
         }
         ObjectNode node = objectMapper.createObjectNode();
@@ -660,6 +746,9 @@ public class AdminChecklistTemplateServiceImpl implements AdminChecklistTemplate
         node.put("repeatDaily", Boolean.TRUE.equals(item.repeatDaily()));
         if (sourceUrl != null) {
             node.put("sourceUrl", sourceUrl);
+        }
+        if (!contraindications.isEmpty()) {
+            contraindications.forEach(node.putArray(ChecklistContraindicationPolicy.CONFIG_KEY)::add);
         }
         try {
             return objectMapper.writeValueAsString(node);

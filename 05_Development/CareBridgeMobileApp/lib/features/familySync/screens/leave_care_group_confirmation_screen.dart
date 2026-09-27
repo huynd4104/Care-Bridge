@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/care_group_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class LeaveCareGroupConfirmationScreen extends StatefulWidget {
   final String groupId;
@@ -32,7 +33,7 @@ class _LeaveCareGroupConfirmationScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     } finally {
       if (mounted) {

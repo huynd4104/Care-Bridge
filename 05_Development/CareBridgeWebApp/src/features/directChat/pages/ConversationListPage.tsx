@@ -57,7 +57,7 @@ export default function ConversationListPage() {
               onClick={() => navigate(`/expert/direct-chats/${c.conversationId}`)}
               className="bg-surface rounded-2xl p-5 shadow-md flex items-center justify-between hover:shadow-lg transition-shadow cursor-pointer"
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 min-w-0">
                 <div className="w-12 h-12 rounded-full bg-primary-container text-primary font-bold text-sm flex items-center justify-center shrink-0 overflow-hidden">
                   {c.counterpartAvatarUrl ? (
                     <img src={c.counterpartAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
@@ -66,18 +66,13 @@ export default function ConversationListPage() {
                   )}
                 </div>
 
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-bold text-base text-on-surface m-0">
-                      {displayName}
-                    </h3>
-                    <span className="py-0.5 px-3 rounded-full text-xs font-semibold bg-[#E6F4EA] text-[#137333]">
-                      Đang mở
-                    </span>
-                  </div>
-                  <p className="text-xs text-outline m-0">
-                    {c.lastMessagePreview || (!c.expertAvailable ? 'Chuyên gia hiện tạm vắng' : 'Sẵn sàng nhắn tin tư vấn trực tiếp')}
-                  </p>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="font-bold text-base text-on-surface m-0 truncate">
+                    {displayName}
+                  </h3>
+                  <span className="py-0.5 px-3 rounded-full text-xs font-semibold bg-[#E6F4EA] text-[#137333] shrink-0">
+                    Đang mở
+                  </span>
                 </div>
               </div>
 
@@ -86,10 +81,10 @@ export default function ConversationListPage() {
                   e.stopPropagation();
                   navigate(`/expert/direct-chats/${c.conversationId}`);
                 }}
-                className="flex items-center gap-1.5 py-2 px-5 rounded-full bg-primary text-on-primary text-xs font-semibold hover:brightness-110 cursor-pointer"
+                className="flex items-center justify-center gap-2 py-2.5 px-6 rounded-full bg-primary text-on-primary text-sm font-semibold hover:brightness-110 cursor-pointer whitespace-nowrap shrink-0 transition-all shadow-sm"
               >
                 <span className="material-symbols-outlined text-base">forum</span>
-                Vào nhắn tin
+                Vào tin nhắn
               </button>
             </div>
           );

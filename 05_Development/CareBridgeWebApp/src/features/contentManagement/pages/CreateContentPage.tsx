@@ -7,12 +7,9 @@ import RichTextEditor from '../components/RichTextEditor';
 import { isRichTextEmpty } from '../components/richTextUtils';
 import RecommendationAudienceSelector from '../components/RecommendationAudienceSelector';
 import {
-  formatRecommendationTagLabel,
   recommendationApiErrorCode,
   recommendationApiErrorMessage,
-  recommendationClassification,
   recommendationMetadataError,
-  recommendationWindowLabel,
 } from './recommendationMetadata';
 
 type CreatableContentType = Exclude<ContentType, 'CHECKLIST'>;
@@ -99,7 +96,7 @@ export default function CreateContentPage({ contentType }: CreateContentPageProp
         summary: summary.trim() || undefined,
         stage,
         topicId: topicId || undefined,
-        tagIds: [...tagIds, ...recommendationTagIds],
+        tagIds: contentType === 'ARTICLE' ? recommendationTagIds : [...tagIds, ...recommendationTagIds],
         eligibleFromWeek: contentType === 'ARTICLE' && stage === 'PREGNANCY' ? from : null,
         eligibleToWeek: contentType === 'ARTICLE' && stage === 'PREGNANCY' ? to : null,
         recommendationPriority: contentType === 'ARTICLE' ? priority : 0,
@@ -113,7 +110,7 @@ export default function CreateContentPage({ contentType }: CreateContentPageProp
           summary: summary.trim() || undefined,
           stage,
           topicId: topicId || undefined,
-          tagIds: [...tagIds, ...recommendationTagIds],
+          tagIds: contentType === 'ARTICLE' ? recommendationTagIds : [...tagIds, ...recommendationTagIds],
           eligibleFromWeek: contentType === 'ARTICLE' && stage === 'PREGNANCY' ? from : null,
           eligibleToWeek: contentType === 'ARTICLE' && stage === 'PREGNANCY' ? to : null,
           recommendationPriority: contentType === 'ARTICLE' ? priority : 0,
@@ -206,86 +203,63 @@ export default function CreateContentPage({ contentType }: CreateContentPageProp
           </select>
         </div>
 
-        {contentType === 'ARTICLE' && (
-          <div className="mb-5 rounded-2xl border border-primary/30 bg-primary-container/10 p-4">
-            <p className="text-[11px] font-semibold text-outline uppercase tracking-[0.05em] mb-2">Recommendation audience</p>
-            <p className="text-xs text-outline mb-3">Tín hiệu kiểm soát; nội dung vẫn phải được System Admin duyệt.</p>
-            <div className="mb-4">
-              <RecommendationAudienceSelector
-                catalog={recommendationTags}
-                selectedTagIds={recommendationTagIds}
-                onChange={setRecommendationTagIds}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <label className="text-xs text-outline">Từ tuần
-                <input type="number" min={0} max={42} value={stage === 'PREGNANCY' ? eligibleFromWeek : ''} disabled={stage !== 'PREGNANCY'} onChange={(e) => setEligibleFromWeek(e.target.value)} className="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm" />
-              </label>
-              <label className="text-xs text-outline">Đến tuần
-                <input type="number" min={0} max={42} value={stage === 'PREGNANCY' ? eligibleToWeek : ''} disabled={stage !== 'PREGNANCY'} onChange={(e) => setEligibleToWeek(e.target.value)} className="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm" />
-              </label>
-              <label className="text-xs text-outline">Priority (0-100)
-                <input type="number" min={0} max={100} value={recommendationPriority} onChange={(e) => setRecommendationPriority(e.target.value)} className="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm" />
-              </label>
-            </div>
-            {metadataError && <p role="alert" className="mt-3 text-xs text-error">{metadataError}</p>}
-            {!metadataError && <div className="mt-3 rounded-xl bg-surface p-3 text-xs text-on-surface-variant">
-              <p className="font-semibold">Tóm tắt thiết lập đối tượng (Recommendation summary)</p>
-              <p>Phân loại: {recommendationClassification(recommendationTagIds)} · {recommendationWindowLabel(stage, from, to)} · Độ ưu tiên {priority}</p>
-              <p>Đối tượng: {recommendationTagIds.length === 0 ? 'Không có tag chỉ định (áp dụng toàn bộ người dùng đủ điều kiện)' : recommendationTags.filter((tag) => recommendationTagIds.includes(tag.id)).map((tag) => formatRecommendationTagLabel(tag)).join(', ')}</p>
-            </div>}
-            {stage !== 'PREGNANCY' && <p className="mt-2 text-[11px] text-outline">Pre-pregnancy/postpartum luôn stage-wide; không dùng khoảng tuần.</p>}
-          </div>
-        )}
-
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-semibold text-outline uppercase tracking-[0.05em]">Thẻ tag</span>
-            <span className="text-xs text-primary font-semibold">Đã chọn {tagIds.length}</span>
-          </div>
-          {tags.length > 0 ? (
-            <div className="flex flex-wrap gap-2 rounded-2xl border border-outline-variant bg-surface p-3">
-              {tags.map((tag) => {
-                const selected = tagIds.includes(tag.id);
-                return (
-                  <label
-                    key={tag.id}
-                    className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors ${
-                      selected ? 'border-primary bg-primary-container text-primary' : 'border-outline-variant bg-surface text-on-surface'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => toggleTag(tag.id)}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    {tag.name}
-                  </label>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-outline-variant p-4 text-sm text-outline">
-              Chưa có tag hiển thị. Hãy tạo tag tại trang Quản lý Chủ đề &amp; Danh mục.
-            </div>
-          )}
-          <p className="text-[11px] text-outline mt-1">Có thể chọn nhiều tag cho cùng một {contentTypeLabel.toLowerCase()}.</p>
-        </div>
-
         <div className="mb-5">
           <label className="block text-[11px] font-semibold text-outline uppercase tracking-[0.05em] mb-1.5">
-            Giai đoạn
+            Giai đoạn <span className="text-error">*</span>
           </label>
           <select
             value={stage}
-            onChange={(e) => setStage(e.target.value as ContentStage)}
+            onChange={(e) => {
+              const nextStage = e.target.value as ContentStage | '';
+              setStage(nextStage);
+              if (nextStage !== 'PREGNANCY') {
+                setEligibleFromWeek('');
+                setEligibleToWeek('');
+              }
+            }}
             className="w-full py-3 px-4 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface font-sans"
           >
             <option value="">Chọn giai đoạn</option>
             {STAGE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
+
+        {contentType !== 'ARTICLE' && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-semibold text-outline uppercase tracking-[0.05em]">Thẻ tag</span>
+              <span className="text-xs text-primary font-semibold">Đã chọn {tagIds.length}</span>
+            </div>
+            {tags.length > 0 ? (
+              <div className="flex flex-wrap gap-2 rounded-2xl border border-outline-variant bg-surface p-3">
+                {tags.map((tag) => {
+                  const selected = tagIds.includes(tag.id);
+                  return (
+                    <label
+                      key={tag.id}
+                      className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors ${
+                        selected ? 'border-primary bg-primary-container text-primary' : 'border-outline-variant bg-surface text-on-surface'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleTag(tag.id)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      {tag.name}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-outline-variant p-4 text-sm text-outline">
+                Chưa có tag hiển thị. Hãy tạo tag tại trang Quản lý Chủ đề &amp; Danh mục.
+              </div>
+            )}
+            <p className="text-[11px] text-outline mt-1">Có thể chọn nhiều tag cho cùng một {contentTypeLabel.toLowerCase()}.</p>
+          </div>
+        )}
 
         <div className="mb-5">
           <label className="block text-[11px] font-semibold text-outline uppercase tracking-[0.05em] mb-1.5">
@@ -298,6 +272,72 @@ export default function CreateContentPage({ contentType }: CreateContentPageProp
             className="w-full py-3 px-4 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface font-sans"
           />
         </div>
+
+        {contentType === 'ARTICLE' && (
+          <div className="mb-5 rounded-2xl border border-primary/30 bg-primary-container/10 p-4">
+            <p className="text-[11px] font-semibold text-outline uppercase tracking-[0.05em] mb-2">Recommendation audience</p>
+            <p className="text-xs text-outline mb-3">Tín hiệu kiểm soát; nội dung vẫn phải được System Admin duyệt.</p>
+            <div className="mb-4">
+              <RecommendationAudienceSelector
+                catalog={recommendationTags}
+                selectedTagIds={recommendationTagIds}
+                onChange={setRecommendationTagIds}
+              />
+            </div>
+            {stage === 'PREGNANCY' ? (
+              <div className="grid grid-cols-3 gap-3">
+                <label className="text-xs text-outline">
+                  Từ tuần
+                  <input
+                    type="number"
+                    min={0}
+                    max={42}
+                    value={eligibleFromWeek}
+                    onChange={(e) => setEligibleFromWeek(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs text-outline">
+                  Đến tuần
+                  <input
+                    type="number"
+                    min={0}
+                    max={42}
+                    value={eligibleToWeek}
+                    onChange={(e) => setEligibleToWeek(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs text-outline">
+                  Priority (0-100)
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={recommendationPriority}
+                    onChange={(e) => setRecommendationPriority(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="max-w-xs">
+                <label className="text-xs text-outline">
+                  Priority (0-100)
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={recommendationPriority}
+                    onChange={(e) => setRecommendationPriority(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+            )}
+            {metadataError && <p role="alert" className="mt-3 text-xs text-error">{metadataError}</p>}
+          </div>
+        )}
 
         <div className="mb-5">
           <label className="block text-[11px] font-semibold text-outline uppercase tracking-[0.05em] mb-1.5">

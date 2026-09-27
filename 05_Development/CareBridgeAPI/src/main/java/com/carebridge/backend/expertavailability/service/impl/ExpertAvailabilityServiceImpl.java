@@ -44,6 +44,11 @@ public class ExpertAvailabilityServiceImpl implements IExpertAvailabilityService
     private static final LocalTime FIRST_SLOT = LocalTime.of(7, 0);
     private static final LocalTime LAST_SLOT = LocalTime.of(20, 0);
     private static final int MAX_BATCH_DATES = 366;
+    /**
+     * Một khung rảnh lẻ không dài hơn cả ngày làm việc 07:00–20:00. Không chặn thì một
+     * khung 30 ngày liền vẫn lưu được và chuyên gia hiện "đang rảnh" suốt tháng.
+     */
+    private static final java.time.Duration MAX_SINGLE_SLOT = java.time.Duration.ofHours(13);
 
     private final ExpertAvailabilityRepository availabilityRepository;
     private final ExpertLocationShareRepository locationShareRepository;
@@ -91,11 +96,15 @@ public class ExpertAvailabilityServiceImpl implements IExpertAvailabilityService
     @Override
     public AvailabilityResponse createAvailability(UUID expertProfileId, CreateAvailabilityRequest request) {
         if (request.getEndAt().isBefore(request.getStartAt()) || request.getEndAt().equals(request.getStartAt())) {
-            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "endAt must be after startAt");
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "Giờ kết thúc phải sau giờ bắt đầu");
         }
-        
+        if (java.time.Duration.between(request.getStartAt(), request.getEndAt()).compareTo(MAX_SINGLE_SLOT) > 0) {
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011",
+                    "Một khung rảnh dài tối đa 13 giờ (07:00–20:00)");
+        }
+
         if (request.getStartAt().isBefore(java.time.Instant.now(clock))) {
-            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "startAt must not be in the past");
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "Không thể đăng ký khung rảnh đã qua");
         }
 
         var profile = expertProfileRepository.findByIdForUpdate(expertProfileId)
@@ -109,7 +118,7 @@ public class ExpertAvailabilityServiceImpl implements IExpertAvailabilityService
                 .findFirst();
         
         if (overlapping.isPresent()) {
-            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-012", "Availability slots overlap");
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-012", "Khung rảnh bị trùng với khung đã có");
         }
 
         var availability = availabilityMapper.toEntity(expertProfileId, request);
@@ -154,7 +163,7 @@ public class ExpertAvailabilityServiceImpl implements IExpertAvailabilityService
         try {
             zone = ZoneId.of(request.getTimeZone());
         } catch (DateTimeException exception) {
-            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "Invalid time zone");
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "Múi giờ không hợp lệ");
         }
 
         var targetDates = request.getTargetDates().stream().distinct().sorted().toList();
@@ -169,7 +178,7 @@ public class ExpertAvailabilityServiceImpl implements IExpertAvailabilityService
                         || start.getNano() != 0
                         || start.isBefore(FIRST_SLOT)
                         || start.isAfter(LAST_SLOT))) {
-            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "Slots must start hourly from 07:00 to 20:00");
+            throw new ExpertException(HttpStatus.BAD_REQUEST, "EXPERT-011", "Khung giờ phải bắt đầu đúng giờ tròn, từ 07:00 đến 20:00");
         }
 
         Instant now = clock.instant();

@@ -13,7 +13,23 @@ import '../../expert/services/expert_home_service.dart';
 import '../../privacy/services/location_consent_coordinator.dart';
 
 class ExpertAppHomeScreen extends StatefulWidget {
-  const ExpertAppHomeScreen({super.key});
+  final Future<List<CommunityFeedItem>> Function()? questionsLoader;
+
+  const ExpertAppHomeScreen({
+    super.key,
+    this.questionsLoader,
+  });
+
+  static bool isToday(String createdAtStr) {
+    if (createdAtStr.isEmpty) return false;
+    final dt = DateTime.tryParse(createdAtStr);
+    if (dt == null) return false;
+    final local = dt.toLocal();
+    final now = DateTime.now();
+    return local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+  }
 
   @override
   State<ExpertAppHomeScreen> createState() => _ExpertAppHomeScreenState();
@@ -61,13 +77,16 @@ class _ExpertAppHomeScreenState extends State<ExpertAppHomeScreen> {
 
   Future<void> _loadUnansweredQuestions() async {
     try {
-      final list = await CommunityService.instance.searchQuestions(
-        hasExpertAnswer: false,
-        size: 5,
-      );
+      final list = await (widget.questionsLoader?.call() ??
+          CommunityService.instance.searchQuestions(
+            hasExpertAnswer: false,
+            size: 50,
+          ));
       if (mounted) {
+        final todayList =
+            list.where((q) => ExpertAppHomeScreen.isToday(q.createdAt)).toList();
         setState(() {
-          _unansweredQuestions = list;
+          _unansweredQuestions = todayList;
         });
       }
     } catch (_) {
@@ -558,7 +577,7 @@ class _ExpertAppHomeScreenState extends State<ExpertAppHomeScreen> {
             ),
             child: const Center(
               child: Text(
-                'Hiện chưa có câu hỏi mới cần giải đáp.',
+                'Hiện chưa có câu hỏi mới nào trong ngày hôm nay.',
                 style: TextStyle(
                   fontFamily: 'Lexend',
                   fontSize: 13,
@@ -569,8 +588,10 @@ class _ExpertAppHomeScreenState extends State<ExpertAppHomeScreen> {
           )
         else
           Column(
-            children:
-                _unansweredQuestions.map((q) => _buildQuestionItem(q)).toList(),
+            children: _unansweredQuestions
+                .take(5)
+                .map((q) => _buildQuestionItem(q))
+                .toList(),
           ),
       ],
     );

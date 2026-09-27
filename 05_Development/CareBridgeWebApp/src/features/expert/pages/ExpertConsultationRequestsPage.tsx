@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../../shared/api/apiClient';
@@ -71,33 +72,68 @@ export default function ExpertConsultationRequestsPage() {
       setRequests(content);
       setTotal(totalElements);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Không thể tải danh sách yêu cầu tư vấn');
+      setError(getApiErrorMessage(e, 'Không thể tải danh sách yêu cầu tư vấn'));
     } finally {
       setLoading(false);
     }
   }, [activeTab, page]);
 
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [rejectModalReq, setRejectModalReq] = useState<ConsultationRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState('Chuyên gia bận lịch công tác');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [submittingAction, setSubmittingAction] = useState(false);
+
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
 
-  const handleAction = async (id: string, action: 'accept' | 'reject') => {
+  const handleAccept = async (id: string) => {
+    if (busyId) return;
     try {
-      if (action === 'accept') {
-        const { data } = await apiClient.patch(`/api/v1/consultation-requests/${id}/accept`);
-        const convId = data?.data?.directConversationId;
-        if (convId) {
-          navigate(`/expert/direct-chats/${convId}`);
-          return;
-        }
-      } else {
-        await apiClient.post(`/api/v1/consultation-requests/${id}/reject`, {
-          reason: 'Chuyên gia bận lịch công tác',
-        });
+      setBusyId(id);
+      setError(null);
+      const { data } = await apiClient.patch(`/api/v1/consultation-requests/${id}/accept`);
+      const convId = data?.data?.directConversationId;
+      if (convId) {
+        navigate(`/expert/direct-chats/${convId}`);
+        return;
       }
       await fetchRequests();
-    } catch {
-      alert('Thao tác thất bại. Vui lòng thử lại.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Không thể tiếp nhận yêu cầu tư vấn. Vui lòng thử lại.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleOpenRejectModal = (req: ConsultationRequest) => {
+    setRejectModalReq(req);
+    setRejectReason('Chuyên gia bận lịch công tác');
+    setActionError(null);
+  };
+
+  const handleCloseRejectModal = () => {
+    if (submittingAction) return;
+    setRejectModalReq(null);
+    setActionError(null);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectModalReq || submittingAction) return;
+    try {
+      setSubmittingAction(true);
+      setActionError(null);
+      const trimmed = rejectReason.trim();
+      await apiClient.patch(`/api/v1/consultation-requests/${rejectModalReq.id}/reject`, {
+        reason: trimmed || undefined,
+      });
+      setRejectModalReq(null);
+      await fetchRequests();
+    } catch (e: unknown) {
+      setActionError(getApiErrorMessage(e, 'Thao tác từ chối thất bại. Vui lòng thử lại.'));
+    } finally {
+      setSubmittingAction(false);
     }
   };
 
@@ -241,16 +277,20 @@ export default function ExpertConsultationRequestsPage() {
                         {req.status === 'PENDING' ? (
                           <div className="flex gap-2 justify-end">
                             <button
-                              onClick={() => handleAction(req.id, 'reject')}
-                              className="py-1.5 px-3 rounded-lg border border-error/30 bg-error-container/40 text-error text-xs font-semibold hover:bg-error-container cursor-pointer"
+                              type="button"
+                              disabled={busyId === req.id || submittingAction}
+                              onClick={() => handleOpenRejectModal(req)}
+                              className="py-1.5 px-3 rounded-lg border border-error/30 bg-error-container/40 text-error text-xs font-semibold hover:bg-error-container cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Từ chối
                             </button>
                             <button
-                              onClick={() => handleAction(req.id, 'accept')}
-                              className="py-1.5 px-3 rounded-lg border border-primary bg-primary text-on-primary text-xs font-semibold hover:brightness-110 cursor-pointer"
+                              type="button"
+                              disabled={busyId === req.id || submittingAction}
+                              onClick={() => handleAccept(req.id)}
+                              className="py-1.5 px-3 rounded-lg border border-primary bg-primary text-on-primary text-xs font-semibold hover:brightness-110 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Chấp nhận
+                              {busyId === req.id ? 'Đang xử lý...' : 'Chấp nhận'}
                             </button>
                           </div>
                         ) : req.status === 'ACCEPTED' ? (
@@ -328,6 +368,100 @@ export default function ExpertConsultationRequestsPage() {
           </>
         )}
       </div>
+
+      {/* Modal xác nhận từ chối */}
+      {rejectModalReq && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-dialog-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseRejectModal();
+          }}
+        >
+          <div className="bg-surface rounded-3xl p-6 shadow-2xl border border-outline-variant max-w-[500px] w-full">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-error-container text-error flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-2xl">cancel</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 id="reject-dialog-title" className="text-lg font-bold text-on-surface m-0">
+                  Từ chối yêu cầu tư vấn
+                </h3>
+                <p className="text-on-surface-variant text-xs mt-1">
+                  Yêu cầu từ <strong className="text-on-surface">{rejectModalReq.counterpartDisplayName || 'Người dùng'}</strong> sẽ bị đóng và thông báo lý do đến người gửi.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-surface-container-low rounded-2xl text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-outline">Chủ đề:</span>
+                <span className="font-semibold text-on-surface text-right truncate max-w-[280px]">
+                  {rejectModalReq.topic}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-outline">Thời gian gửi:</span>
+                <span className="text-on-surface">{timeAgo(rejectModalReq.createdAt)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label htmlFor="reject-reason" className="block text-xs font-semibold text-on-surface mb-1">
+                Lý do từ chối (tối đa 500 ký tự)
+              </label>
+              <textarea
+                id="reject-reason"
+                rows={4}
+                maxLength={500}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Nhập lý do từ chối (không bắt buộc)..."
+                className="w-full p-3 rounded-2xl border border-outline-variant bg-surface text-sm text-on-surface outline-none focus:border-error focus:ring-1 focus:ring-error font-sans resize-none"
+              />
+              <div className="flex justify-between text-[11px] text-outline mt-1 px-1">
+                <span>Người dùng sẽ nhận được lý do này</span>
+                <span>{rejectReason.length}/500</span>
+              </div>
+            </div>
+
+            {actionError && (
+              <div className="mt-3 p-3 rounded-xl bg-error-container text-error text-xs font-medium flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">error</span>
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={handleCloseRejectModal}
+                disabled={submittingAction}
+                className="py-2.5 px-5 rounded-full border border-outline-variant bg-surface text-on-surface-variant text-xs font-semibold hover:bg-surface-container-low cursor-pointer disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={submittingAction}
+                className="py-2.5 px-5 rounded-full border border-error bg-error text-on-error text-xs font-semibold hover:brightness-110 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {submittingAction ? (
+                  <>
+                    <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                    <span>Đang từ chối...</span>
+                  </>
+                ) : (
+                  <span>Xác nhận từ chối</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

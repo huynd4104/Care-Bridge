@@ -117,9 +117,11 @@ public class AdminContentServiceImpl implements AdminContentService {
                 .orElseThrow(ContentException::contentNotFound);
 
         // Publication is a System Admin review decision.  Content authors may only work on
-        // an unpublished draft or submit that draft for review; accepting APPROVED here
+        // an unpublished draft, an archived item, or submit for review; accepting APPROVED here
         // would let a Content Admin bypass the separation-of-duties gate.
-        if (item.getStatus() != ContentStatus.DRAFT && item.getStatus() != ContentStatus.PENDING_REVIEW) {
+        if (item.getStatus() != ContentStatus.DRAFT
+                && item.getStatus() != ContentStatus.PENDING_REVIEW
+                && item.getStatus() != ContentStatus.ARCHIVED) {
             throw ContentException.invalidContentStatusTransition();
         }
         if (request.status() != ContentStatus.DRAFT && request.status() != ContentStatus.PENDING_REVIEW) {

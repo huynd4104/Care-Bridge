@@ -747,7 +747,15 @@ final GoRouter appRouter = GoRouter(
       path: '/babies/:babyId/milestones/add',
       builder: (context, state) {
         final babyId = state.pathParameters['babyId'] ?? '';
-        return RecordMilestoneScreen(babyId: babyId);
+        final birthDate = state.extra is DateTime
+            ? state.extra as DateTime
+            : (state.extra is Map<String, dynamic>
+                ? (state.extra as Map<String, dynamic>)['birthDate'] as DateTime?
+                : null);
+        return RecordMilestoneScreen(
+          babyId: babyId,
+          birthDate: birthDate,
+        );
       },
     ),
     GoRoute(

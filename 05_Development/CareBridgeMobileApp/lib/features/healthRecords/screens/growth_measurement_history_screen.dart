@@ -8,6 +8,7 @@ import '../services/growth_measurement_service.dart';
 import '../widgets/growth_trend_chart.dart';
 import 'growth_measurement_detail_screen.dart';
 import 'growth_measurement_form_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 class GrowthMeasurementHistoryScreen extends StatefulWidget {
   final String babyId;
@@ -105,7 +106,7 @@ class _GrowthMeasurementHistoryScreenState
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     }
   }
@@ -135,7 +136,10 @@ class _GrowthMeasurementHistoryScreenState
     try {
       final changed = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
-          builder: (_) => GrowthMeasurementFormScreen(babyId: widget.babyId),
+          builder: (_) => GrowthMeasurementFormScreen(
+            babyId: widget.babyId,
+            birthDate: _babyProfile?.birthDate,
+          ),
         ),
       );
       if (changed == true && mounted) await _loadData();
@@ -403,6 +407,7 @@ class _GrowthMeasurementHistoryScreenState
             builder: (_) => GrowthMeasurementDetailScreen(
               babyId: widget.babyId,
               measurement: record,
+              birthDate: _babyProfile?.birthDate,
             ),
           ),
         );

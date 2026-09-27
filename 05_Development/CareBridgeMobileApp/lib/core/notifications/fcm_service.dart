@@ -35,6 +35,9 @@ class FcmService {
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
   );
 
+  static const Duration emergencyDedupeWindow = Duration(minutes: 2);
+  final Map<String, DateTime> _recentEmergencyRoutes = <String, DateTime>{};
+
   FcmRegistrationState get registrationState => _registrationState;
   String? get registrationErrorCode => _registrationErrorCode;
 
@@ -163,7 +166,10 @@ class FcmService {
         foregroundData['body'] = notification!.body;
       }
       if (shouldOpenForegroundEmergency(message.data)) {
-        _handleTap(message);
+        // The in-app inbox watcher may already have opened this alert.
+        if (claimEmergencyRoute(resolveTapRoute(message.data)!)) {
+          _handleTap(message);
+        }
       } else {
         _handleForegroundData(foregroundData);
         _showForegroundReminder(foregroundData);
@@ -283,9 +289,36 @@ class FcmService {
       );
   }
 
+  /// Shared de-duplication between the FCM foreground push and the in-app
+  /// emergency inbox watcher, which can both surface the same alert session.
+  /// Returns false when [route] was already opened within
+  /// [emergencyDedupeWindow]; otherwise records it and returns true.
+  bool claimEmergencyRoute(String route, {DateTime? now}) {
+    final at = now ?? DateTime.now();
+    if (isEmergencyRouteRecent(route, now: at)) return false;
+    recordEmergencyRoute(route, now: at);
+    return true;
+  }
+
+  /// Whether [route] was opened within [emergencyDedupeWindow]. Does not record.
+  bool isEmergencyRouteRecent(String route, {DateTime? now}) {
+    final at = now ?? DateTime.now();
+    _recentEmergencyRoutes.removeWhere(
+      (_, openedAt) => at.difference(openedAt) > emergencyDedupeWindow,
+    );
+    return _recentEmergencyRoutes.containsKey(route);
+  }
+
+  /// Records that [route] was actually opened, so the other path skips it.
+  void recordEmergencyRoute(String route, {DateTime? now}) {
+    _recentEmergencyRoutes[route] = now ?? DateTime.now();
+  }
+
   void _handleTap(RemoteMessage message) {
     final route = resolveTapRoute(message.data);
     if (route == null) return;
+    // An explicit tap always opens, but is recorded so the watcher skips it.
+    if (route.startsWith('/emergency/alert/')) recordEmergencyRoute(route);
     _pendingRoute = route;
     flushPendingRoute();
   }

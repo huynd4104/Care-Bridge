@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
+import '../utils/expert_validation.dart';
 import '../../../shared/components/app_user_avatar.dart';
 import '../../auth/models/auth_model.dart';
 import '../../auth/services/auth_service.dart';
@@ -192,10 +194,40 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
     }
   }
 
+  // Lỗi tính lại mỗi lần gõ (các ô gọi setState trong onChanged) nên hiện ngay dưới ô.
+  // Màn này trước đây không kiểm tra gì: ô số năm nhận chữ bất kỳ và lỗi từ máy chủ chỉ
+  // hiện câu chung chung "Lưu hồ sơ thất bại".
+  String? get _specialtyError => textFieldError(
+    _specialtyCtrl.text,
+    label: 'chuyên khoa',
+    max: maxSpecialty,
+    required: true,
+  );
+  String? get _experienceError => experienceYearsError(_experienceCtrl.text);
+  String? get _workplaceError =>
+      textFieldError(_workplaceCtrl.text, label: 'nơi công tác', max: maxWorkplace);
+  String? get _scopeError => textFieldError(
+    _consultationScopeCtrl.text,
+    label: 'phạm vi tư vấn',
+    max: maxConsultationScope,
+  );
+  String? get _firstFieldError =>
+      _specialtyError ?? _experienceError ?? _workplaceError ?? _scopeError;
+
   Future<void> _saveProfile() async {
-    if (_specialtyCtrl.text.trim().isEmpty) {
+    final fieldError = _firstFieldError;
+    if (fieldError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập chuyên khoa')),
+        SnackBar(content: Text(fieldError)),
+      );
+      return;
+    }
+    final experienceText = _experienceCtrl.text.trim();
+    final experienceYears = int.tryParse(experienceText);
+    if (experienceText.isNotEmpty &&
+        (experienceYears == null || experienceYears < 0 || experienceYears > 80)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Số năm kinh nghiệm phải từ 0 đến 80')),
       );
       return;
     }
@@ -213,8 +245,8 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
         'workplace': _workplaceCtrl.text.trim(),
         'consultationScope': _consultationScopeCtrl.text.trim(),
       };
-      if (_experienceCtrl.text.trim().isNotEmpty) {
-        body['experienceYears'] = int.tryParse(_experienceCtrl.text.trim());
+      if (experienceYears != null) {
+        body['experienceYears'] = experienceYears;
       }
 
       final res = await apiPatch('/api/v1/expert/profiles/me', body);
@@ -227,9 +259,12 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final serverMessage = e is ApiException ? e.displayMessage : '';
         setState(() {
           _saving = false;
-          _errorMsg = 'Lưu hồ sơ thất bại. Vui lòng thử lại.';
+          _errorMsg = serverMessage.isNotEmpty
+              ? serverMessage
+              : 'Lưu hồ sơ thất bại. Vui lòng thử lại.';
         });
       }
     }
@@ -442,8 +477,11 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
                         _buildLabel('Chuyên khoa', required: true),
                         TextField(
                           controller: _specialtyCtrl,
+                          maxLength: maxSpecialty,
+                          onChanged: (_) => setState(() {}),
                           decoration: _inputDecoration(
                             hint: 'VD: Sản khoa, Nhi khoa, Dinh dưỡng...',
+                            errorText: _specialtyError,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -468,7 +506,15 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
                         TextField(
                           controller: _experienceCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: _inputDecoration(hint: 'Số năm...'),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(2),
+                          ],
+                          onChanged: (_) => setState(() {}),
+                          decoration: _inputDecoration(
+                            hint: 'Số năm...',
+                            errorText: _experienceError,
+                          ),
                         ),
                       ],
                     ),
@@ -485,9 +531,13 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
                         _buildLabel('Bệnh viện / Phòng khám'),
                         TextField(
                           controller: _workplaceCtrl,
-                          onChanged: _onWorkplaceChanged,
+                          onChanged: (value) {
+                            setState(() {});
+                            _onWorkplaceChanged(value);
+                          },
                           decoration: _inputDecoration(
                             hint: 'Gõ tên bệnh viện (VD: Bệnh viện Từ Dũ)...',
+                            errorText: _workplaceError,
                             suffixIcon: _searchingHospitals
                                 ? const Padding(
                                     padding: EdgeInsets.all(12),
@@ -561,7 +611,10 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
                         TextField(
                           controller: _consultationScopeCtrl,
                           maxLines: 4,
+                          maxLength: maxConsultationScope,
+                          onChanged: (_) => setState(() {}),
                           decoration: _inputDecoration(
+                            errorText: _scopeError,
                             hint:
                                 'Nhập phạm vi tư vấn sức khỏe thai kỳ, dinh dưỡng mẹ & bé, tư vấn tâm lý...',
                           ),
@@ -576,7 +629,7 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton.icon(
-                      onPressed: _saving ? null : _saveProfile,
+                      onPressed: _saving || _firstFieldError != null ? null : _saveProfile,
                       icon: _saving
                           ? const SizedBox(
                               width: 18,
@@ -677,9 +730,15 @@ class _ExpertProfilePageScreenState extends State<ExpertProfilePageScreen> {
     );
   }
 
-  InputDecoration _inputDecoration({required String hint, Widget? suffixIcon}) {
+  InputDecoration _inputDecoration({
+    required String hint,
+    Widget? suffixIcon,
+    String? errorText,
+  }) {
     return InputDecoration(
       hintText: hint,
+      errorText: errorText,
+      errorMaxLines: 2,
       hintStyle: const TextStyle(fontFamily: 'Lexend', fontSize: 14, color: _outlineVariant),
       suffixIcon: suffixIcon,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

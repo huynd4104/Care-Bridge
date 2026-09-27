@@ -47,6 +47,14 @@ class ExpertOnboardingService {
     );
   }
 
+  /// Nộp lại hồ sơ sau khi bị quản trị viên từ chối.
+  ///
+  /// Máy chủ chỉ chấp nhận khi hồ sơ đang REJECTED hoặc EXPIRED, và đưa trạng thái
+  /// về PENDING nên hồ sơ xuất hiện lại trong hàng đợi duyệt của quản trị viên.
+  Future<void> renewVerification() async {
+    await api.post('/api/v1/expert/profiles/me/renew', const {});
+  }
+
   /// Bước 2 onboarding — chuyên gia chọn hình thức hợp tác.
   /// Chỉ nhận [ExpertKind.pendingContract] hoặc [ExpertKind.community];
   /// CONTRACTED chỉ đạt được qua hành vi ký ở [acceptContract].

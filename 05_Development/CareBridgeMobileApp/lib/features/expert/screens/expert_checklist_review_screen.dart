@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/expert_content_approval_model.dart';
 import '../services/expert_content_approval_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class ExpertChecklistReviewScreen extends StatefulWidget {
   final String checklistId;
@@ -58,7 +59,7 @@ class _ExpertChecklistReviewScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Không thể tải chi tiết checklist: $e';
+        _error = 'Không thể tải chi tiết checklist: ${userErrorMessage(e)}';
         _loading = false;
       });
     }
@@ -213,7 +214,7 @@ class _ExpertChecklistReviewScreenState
       setState(() => _submittingDecision = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi khi gửi quyết định: $e', style: const TextStyle(fontFamily: 'Lexend')),
+          content: Text('Lỗi khi gửi quyết định: ${userErrorMessage(e)}', style: const TextStyle(fontFamily: 'Lexend')),
           backgroundColor: Colors.red,
         ),
       );

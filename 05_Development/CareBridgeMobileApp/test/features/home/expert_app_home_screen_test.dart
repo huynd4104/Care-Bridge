@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:untitled/core/auth/auth_state.dart';
+import 'package:untitled/features/community/models/community_model.dart';
 import 'package:untitled/features/directChat/models/direct_conversation.dart';
 import 'package:untitled/features/directChat/models/expert_directory_item.dart';
 import 'package:untitled/features/directChat/services/direct_chat_service.dart';
@@ -180,5 +181,113 @@ void main() {
     expect(find.text('Trực tuyến'), findsNothing);
     expect(find.text('Câu hỏi mới'), findsOneWidget);
     expect(find.text('Cần giải đáp'), findsOneWidget);
+  });
+
+  group('ExpertAppHomeScreen unanswered questions', () {
+    test('isToday returns true only for current date', () {
+      final now = DateTime.now();
+      final todayStr = now.toIso8601String();
+      final yesterdayStr =
+          now.subtract(const Duration(days: 1)).toIso8601String();
+      final tomorrowStr = now.add(const Duration(days: 1)).toIso8601String();
+
+      expect(ExpertAppHomeScreen.isToday(todayStr), isTrue);
+      expect(ExpertAppHomeScreen.isToday(yesterdayStr), isFalse);
+      expect(ExpertAppHomeScreen.isToday(tomorrowStr), isFalse);
+      expect(ExpertAppHomeScreen.isToday(''), isFalse);
+      expect(ExpertAppHomeScreen.isToday('invalid-date'), isFalse);
+    });
+
+    testWidgets(
+        'filters questions to only today and updates metric card count',
+        (tester) async {
+      final api = _FakeExpertHomeApi();
+      ExpertHomeService.instance = ExpertHomeService(api: api);
+
+      final now = DateTime.now();
+      final todayIso = now.toIso8601String();
+      final yesterdayIso =
+          now.subtract(const Duration(days: 1)).toIso8601String();
+
+      final fakeQuestions = [
+        CommunityFeedItem(
+          id: 'q1',
+          title: 'Hỏi về dinh dưỡng bé hôm nay',
+          topicName: 'Dinh dưỡng',
+          authorDisplay: 'Mẹ Bắp',
+          stage: 'NEWBORN',
+          urgency: 'NORMAL',
+          answerCount: 0,
+          likeCount: 0,
+          hasExpertAnswer: false,
+          bookmarked: false,
+          liked: false,
+          createdAt: todayIso,
+        ),
+        CommunityFeedItem(
+          id: 'q2',
+          title: 'Hỏi từ hôm qua',
+          topicName: 'Giấc ngủ',
+          authorDisplay: 'Mẹ Gạo',
+          stage: 'BABY',
+          urgency: 'NORMAL',
+          answerCount: 0,
+          likeCount: 0,
+          hasExpertAnswer: false,
+          bookmarked: false,
+          liked: false,
+          createdAt: yesterdayIso,
+        ),
+      ];
+
+      await tester.pumpWidget(MaterialApp(
+        home: ExpertAppHomeScreen(
+          questionsLoader: () async => fakeQuestions,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Card count should be 1 (only the question from today)
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('Hỏi về dinh dưỡng bé hôm nay'), findsOneWidget);
+      expect(find.text('Hỏi từ hôm qua'), findsNothing);
+    });
+
+    testWidgets('shows empty state when no questions were asked today',
+        (tester) async {
+      final api = _FakeExpertHomeApi();
+      ExpertHomeService.instance = ExpertHomeService(api: api);
+
+      final yesterdayIso =
+          DateTime.now().subtract(const Duration(days: 1)).toIso8601String();
+      final fakeQuestions = [
+        CommunityFeedItem(
+          id: 'q-old',
+          title: 'Hỏi tuần trước',
+          topicName: 'Sức khỏe',
+          authorDisplay: 'Mẹ Bún',
+          stage: 'NEWBORN',
+          urgency: 'NORMAL',
+          answerCount: 0,
+          likeCount: 0,
+          hasExpertAnswer: false,
+          bookmarked: false,
+          liked: false,
+          createdAt: yesterdayIso,
+        ),
+      ];
+
+      await tester.pumpWidget(MaterialApp(
+        home: ExpertAppHomeScreen(
+          questionsLoader: () async => fakeQuestions,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // When count is 0, the badge is not shown
+      expect(find.text('0'), findsNothing);
+      expect(find.text('Hiện chưa có câu hỏi mới nào trong ngày hôm nay.'),
+          findsOneWidget);
+    });
   });
 }

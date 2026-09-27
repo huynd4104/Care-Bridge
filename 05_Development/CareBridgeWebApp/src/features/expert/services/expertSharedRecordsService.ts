@@ -332,8 +332,11 @@ export function parseChecklistShare(messageBody?: string): ChecklistShareData | 
     const parsed = JSON.parse(jsonStr) as ChecklistShareData;
     const removedSet = new Set((parsed.removedItems || []).map((r) => r.trim().toLowerCase()));
 
+    const isExpertItem = (item: ChecklistItemShareData) =>
+      Boolean(item.isExpertCustom || item.origin === 'EXPERT' || item.createdBy === 'EXPERT');
+
     const isNonPersonalNotRemoved = (item: ChecklistItemShareData) =>
-      getTaskOriginCategory(item) !== 'USER' && !removedSet.has(item.text.trim().toLowerCase());
+      getTaskOriginCategory(item) !== 'USER' && (isExpertItem(item) || !removedSet.has(item.text.trim().toLowerCase()));
 
     const historyList = (parsed.historyItems || [])
       .filter(isNonPersonalNotRemoved)
@@ -388,6 +391,10 @@ export function parseChecklistShare(messageBody?: string): ChecklistShareData | 
     parsed.items = currentList;
 
     const allItems = [...historyList, ...currentList, ...futureList];
+    const activeTexts = new Set(allItems.map((i) => i.text.trim().toLowerCase()));
+    parsed.removedItems = (parsed.removedItems || []).filter(
+      (r) => !activeTexts.has(r.trim().toLowerCase())
+    );
     const calculatedCompleted = allItems.filter((i) => i.completed).length;
     if (!parsed.totalCount || parsed.totalCount < allItems.length) {
       parsed.totalCount = allItems.length;
@@ -783,8 +790,6 @@ export async function savePersonalizedChecklist(
   updatedChecklist: ChecklistShareData,
   doctorActionNote?: string
 ): Promise<ChecklistShareData> {
-  const removedSet = new Set((updatedChecklist.removedItems || []).map((r) => r.trim().toLowerCase()));
-
   const mapItem = (item: ChecklistItemShareData): ChecklistItemShareData => {
     const isExp = item.isExpertCustom || item.origin === 'EXPERT' || item.createdBy === 'EXPERT';
     const originCat = getTaskOriginCategory(item);
@@ -800,10 +805,22 @@ export async function savePersonalizedChecklist(
   let futureList = (updatedChecklist.futureItems || []).map(mapItem);
   let currentList = (updatedChecklist.currentItems || updatedChecklist.items || []).map(mapItem);
 
+  const activeTexts = new Set([
+    ...historyList.map((h) => h.text.trim().toLowerCase()),
+    ...currentList.map((c) => c.text.trim().toLowerCase()),
+    ...futureList.map((f) => f.text.trim().toLowerCase()),
+  ]);
+
+  const cleanRemovedItems = (updatedChecklist.removedItems || []).filter(
+    (r) => !activeTexts.has(r.trim().toLowerCase())
+  );
+  updatedChecklist.removedItems = cleanRemovedItems;
+  const removedSet = new Set(cleanRemovedItems.map((r) => r.trim().toLowerCase()));
+
   if (removedSet.size > 0) {
-    historyList = historyList.filter((h) => !removedSet.has(h.text.trim().toLowerCase()));
-    currentList = currentList.filter((c) => !removedSet.has(c.text.trim().toLowerCase()));
-    futureList = futureList.filter((f) => !removedSet.has(f.text.trim().toLowerCase()));
+    historyList = historyList.filter((h) => h.isExpertCustom || !removedSet.has(h.text.trim().toLowerCase()));
+    currentList = currentList.filter((c) => c.isExpertCustom || !removedSet.has(c.text.trim().toLowerCase()));
+    futureList = futureList.filter((f) => f.isExpertCustom || !removedSet.has(f.text.trim().toLowerCase()));
   }
 
   const seenHistory = new Set<string>();
@@ -941,24 +958,43 @@ export async function editChecklistItemInSharedRecord(
   }
 
   const existingItem = targetIdx >= 0 && targetIdx < targetList.length ? targetList[targetIdx] : undefined;
-  const originalText = originalItemText || existingItem?.text;
-  const isRenamed =
-    originalText && originalText.trim().toLowerCase() !== updatedItem.text.trim().toLowerCase();
-
-  if (isRenamed && originalText && !removedItems.includes(originalText.trim())) {
-    removedItems.push(originalText.trim());
-    updated.removedItems = removedItems;
+  if (existingItem?.completed) {
+    throw new Error('Không thể chỉnh sửa việc cần làm đã hoàn thành.');
   }
+  const originalText = originalItemText || existingItem?.text;
+  const newText = updatedItem.text.trim();
+  const isRenamed =
+    originalText && originalText.trim().toLowerCase() !== newText.toLowerCase();
+
+  if (isRenamed && originalText) {
+    const isCareBridgeRoadmap =
+      CAREBRIDGE_ROADMAP_TITLES.has(originalText.trim().toLowerCase()) ||
+      existingItem?.origin === 'SYSTEM' ||
+      (existingItem ? getTaskOriginCategory(existingItem) === 'CAREBRIDGE' : false);
+    if (isCareBridgeRoadmap && !removedItems.includes(originalText.trim())) {
+      removedItems.push(originalText.trim());
+    }
+  }
+
+  const cleanRemovedItems = removedItems.filter(
+    (r) => r.trim().toLowerCase() !== newText.toLowerCase()
+  );
+  updated.removedItems = cleanRemovedItems;
 
   const replacesText =
     updatedItem.replacesText || (isRenamed ? originalText.trim() : existingItem?.replacesText || undefined);
+  const finalReplacesText =
+    replacesText && replacesText.trim().toLowerCase() !== newText.toLowerCase()
+      ? replacesText
+      : undefined;
 
   const itemToSave: ChecklistItemShareData = {
     ...updatedItem,
+    text: newText,
     origin: 'EXPERT',
     createdBy: 'EXPERT',
     isExpertCustom: true,
-    replacesText,
+    replacesText: finalReplacesText,
     doctorNote: doctorNote || updatedItem.doctorNote,
   };
 
@@ -987,6 +1023,13 @@ export async function deleteChecklistItemFromSharedRecord(
       : currentChecklist.historyItems || [];
 
   const textToDelete = itemText || targetListOriginal[itemIndex]?.text;
+  const itemToDelete = targetListOriginal.find(
+    (i) => i.text.trim().toLowerCase() === textToDelete?.trim().toLowerCase()
+  ) || targetListOriginal[itemIndex];
+  if (itemToDelete?.completed) {
+    throw new Error('Không thể xóa việc cần làm đã hoàn thành.');
+  }
+
   const removedItems = [...(currentChecklist.removedItems || [])];
   if (textToDelete && !removedItems.includes(textToDelete.trim())) {
     removedItems.push(textToDelete.trim());

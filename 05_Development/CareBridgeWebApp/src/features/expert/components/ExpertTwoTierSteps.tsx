@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import { BadgeCheck, FileSignature, HeartHandshake } from 'lucide-react';
 import { acceptContract, chooseExpertType, getContractOffer } from '../services/expertApi';
 import type { ContractOfferResponse, GrantableExpertType } from '../services/expertApi';
@@ -61,10 +62,7 @@ export function ExpertTypeStep({
 			await chooseExpertType(selected);
 			await onDone();
 		} catch (caught: any) {
-			const msg =
-				caught?.response?.data?.message ||
-				caught?.message ||
-				'Không lưu được lựa chọn. Vui lòng thử lại.';
+			const msg = getApiErrorMessage(caught, 'Không lưu được lựa chọn. Vui lòng thử lại.');
 			setError(msg);
 			setSaving(false);
 		}

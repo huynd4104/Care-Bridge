@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import { useNavigate } from 'react-router-dom';
 import { ExpertChecklistFormModal } from '../components/ExpertChecklistFormModal';
 import { SharedBabyGrowthBubble } from '../../directChat/components/SharedBabyGrowthBubble';
@@ -129,6 +130,19 @@ export default function ExpertSharedRecordsPage() {
 
   const handleDeleteTask = async () => {
     if (!deleteConfirmModal) return;
+    const targetGroup = deleteConfirmModal.targetGroup;
+    const items =
+      targetGroup === 'CURRENT'
+        ? deleteConfirmModal.checklistData.currentItems
+        : targetGroup === 'FUTURE'
+        ? deleteConfirmModal.checklistData.futureItems
+        : deleteConfirmModal.checklistData.historyItems;
+    const itemToDelete = items?.[deleteConfirmModal.itemIndex];
+    if (itemToDelete?.completed) {
+      showToast('Không thể xóa việc cần làm đã hoàn thành.', 'error');
+      setDeleteConfirmModal(null);
+      return;
+    }
     setSavingTask(true);
     try {
       const updatedData = await deleteChecklistItemFromSharedRecord(
@@ -149,11 +163,10 @@ export default function ExpertSharedRecordsPage() {
       loadData(true);
     } catch (err: any) {
       console.error('Failed to delete checklist item', err);
-      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
       if (err?.response?.status === 409) {
         showToast('Buổi tư vấn đã kết thúc khung giờ, không thể xóa công việc.', 'error');
       } else {
-        showToast(serverMsg || 'Có lỗi xảy ra khi xóa việc cần làm', 'error');
+        showToast(getApiErrorMessage(err, 'Có lỗi xảy ra khi xóa việc cần làm'), 'error');
       }
     } finally {
       setSavingTask(false);
@@ -167,6 +180,10 @@ export default function ExpertSharedRecordsPage() {
     itemIndex: number,
     item: ChecklistItemShareData
   ) => {
+    if (item.completed) {
+      showToast('Việc cần làm đã hoàn thành không thể chỉnh sửa.', 'error');
+      return;
+    }
     try {
       const updatedItem: ChecklistItemShareData = {
         ...item,
@@ -185,11 +202,10 @@ export default function ExpertSharedRecordsPage() {
       loadData(true);
     } catch (err: any) {
       console.error('Failed to toggle task status', err);
-      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
       if (err?.response?.status === 409) {
         showToast('Buổi tư vấn đã kết thúc khung giờ, không thể cập nhật việc cần làm.', 'error');
       } else {
-        showToast(serverMsg || 'Không thể cập nhật trạng thái công việc', 'error');
+        showToast(getApiErrorMessage(err, 'Không thể cập nhật trạng thái công việc'), 'error');
       }
     }
   };
@@ -627,6 +643,22 @@ export default function ExpertSharedRecordsPage() {
             const checklistData = card.latestChecklistRecord?.checklistData;
             const babyGrowthData = card.latestBabyGrowthRecord?.babyGrowthData;
 
+            const historyTexts = new Set(
+              (checklistData?.historyItems || []).map((h) => h.text.trim().toLowerCase())
+            );
+            const currentList = (
+              checklistData?.currentItems ||
+              checklistData?.items ||
+              []
+            ).filter((item) => !historyTexts.has(item.text.trim().toLowerCase()));
+            const currentCompleted = currentList.filter((i) => i.completed).length;
+            const currentTotal = currentList.length;
+            const currentPercent = currentTotal > 0 ? Math.round((currentCompleted / currentTotal) * 100) : 0;
+            const hasMultiStage = Boolean(
+              (checklistData?.historyItems && checklistData.historyItems.length > 0) ||
+              (checklistData?.futureItems && checklistData.futureItems.length > 0)
+            );
+
             return (
               <div
                 key={cardKey}
@@ -786,7 +818,9 @@ export default function ExpertSharedRecordsPage() {
                         : currentSubTab === 'BABY_GROWTH'
                         ? babyGrowthData?.babyNickname || ''
                         : checklistData
-                        ? `Xong ${checklistData.completedCount}/${checklistData.totalCount}`
+                        ? hasMultiStage
+                          ? `Tuần này ${currentCompleted}/${currentTotal}`
+                          : `Xong ${checklistData.completedCount}/${checklistData.totalCount}`
                         : ''}
                     </div>
                   </div>
@@ -858,11 +892,22 @@ export default function ExpertSharedRecordsPage() {
                                 <span className="font-medium text-on-surface-variant text-[11px]">
                                   Tiến độ hoàn thành việc cần làm
                                 </span>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-primary">
-                                    {checklistData.completedCount}/{checklistData.totalCount} việc (
-                                    {checklistData.progressPercent}%)
-                                  </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {hasMultiStage ? (
+                                    <>
+                                      <span className="font-bold text-primary">
+                                        Tuần này: {currentCompleted}/{currentTotal} ({currentPercent}%)
+                                      </span>
+                                      <span className="text-[10px] text-on-surface-variant font-medium">
+                                        • Toàn lộ trình: {checklistData.completedCount}/{checklistData.totalCount} ({checklistData.progressPercent}%)
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="font-bold text-primary">
+                                      {checklistData.completedCount}/{checklistData.totalCount} việc (
+                                      {checklistData.progressPercent}%)
+                                    </span>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -890,7 +935,7 @@ export default function ExpertSharedRecordsPage() {
                                 <div
                                   className="h-full bg-primary rounded-full transition-all duration-300"
                                   style={{
-                                    width: `${Math.min(100, Math.max(0, checklistData.progressPercent))}%`,
+                                    width: `${Math.min(100, Math.max(0, hasMultiStage ? currentPercent : checklistData.progressPercent))}%`,
                                   }}
                                 />
                               </div>
@@ -898,15 +943,6 @@ export default function ExpertSharedRecordsPage() {
 
                             {/* Checklist tasks preview with Edit & Delete actions */}
                             {(() => {
-                              const historyTexts = new Set(
-                                (checklistData.historyItems || []).map((h) => h.text.trim().toLowerCase())
-                              );
-                              const currentList = (
-                                checklistData.currentItems ||
-                                checklistData.items ||
-                                []
-                              ).filter((item) => !historyTexts.has(item.text.trim().toLowerCase()));
-
                               const cbCount = currentList.filter(
                                 (i) => !(i.isExpertCustom || i.origin === 'EXPERT' || i.createdBy === 'EXPERT')
                               ).length;
@@ -984,8 +1020,7 @@ export default function ExpertSharedRecordsPage() {
                                         Không có việc nào phù hợp với bộ lọc.
                                       </div>
                                     ) : (
-                                      displayedList.map((item, idx) => {
-                                        return (
+                                      displayedList.map((item, idx) => (
                                         <div
                                           key={idx}
                                           className={`group p-2 rounded-xl flex items-center justify-between gap-2 text-xs border transition-all ${
@@ -995,19 +1030,24 @@ export default function ExpertSharedRecordsPage() {
                                           }`}
                                         >
                                           <div
-                                            onClick={() =>
+                                            onClick={() => {
+                                              if (item.completed) {
+                                                showToast('Việc cần làm đã hoàn thành không thể chỉnh sửa.', 'error');
+                                                return;
+                                              }
                                               handleToggleTaskStatus(
                                                 card.conversationId,
                                                 checklistData,
                                                 'CURRENT',
                                                 idx,
                                                 item
-                                              )
-                                            }
-                                            className="flex items-center gap-2 min-w-0 cursor-pointer flex-1"
+                                              );
+                                            }}
+                                            className={`flex items-center gap-2 min-w-0 flex-1 ${item.completed ? 'cursor-default' : 'cursor-pointer'}`}
+                                            title={item.completed ? 'Việc cần làm đã hoàn thành (không thể sửa/xóa)' : undefined}
                                           >
                                             <span
-                                              className={`material-symbols-outlined text-base shrink-0 transition-transform active:scale-90 ${
+                                              className={`material-symbols-outlined text-base shrink-0 transition-transform ${item.completed ? '' : 'active:scale-90'} ${
                                                 item.completed ? 'text-emerald-600' : 'text-outline'
                                               }`}
                                             >
@@ -1041,56 +1081,59 @@ export default function ExpertSharedRecordsPage() {
                                             </span>
 
                                             {/* Quick Edit & Delete icons */}
-                                            <button
-                                              type="button"
-                                              title="Chỉnh sửa việc cần làm"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setTaskFormModal({
-                                                  isOpen: true,
-                                                  mode: 'EDIT',
-                                                  targetGroup: checklistData.currentItems ? 'CURRENT' : 'HISTORY',
-                                                  itemIndex: idx,
-                                                  text: item.text,
-                                                  category: item.category || 'Khám thai & Y tế',
-                                                  timeLabel: item.timeLabel,
-                                                  completed: item.completed,
-                                                  doctorNote: item.doctorNote || '',
-                                                  sourceUrl: item.sourceUrl || '',
-                                                  replacesText: item.replacesText,
-                                                  supportFunction: item.supportFunction,
-                                                  conversationId: card.conversationId,
-                                                  checklistData,
-                                                  motherName: card.motherName,
-                                                });
-                                              }}
-                                              className="w-6 h-6 rounded flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                                            >
-                                              <span className="material-symbols-outlined text-sm">edit</span>
-                                            </button>
+                                            {!item.completed && (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  title="Chỉnh sửa việc cần làm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setTaskFormModal({
+                                                      isOpen: true,
+                                                      mode: 'EDIT',
+                                                      targetGroup: checklistData.currentItems ? 'CURRENT' : 'HISTORY',
+                                                      itemIndex: idx,
+                                                      text: item.text,
+                                                      category: item.category || 'Khám thai & Y tế',
+                                                      timeLabel: item.timeLabel,
+                                                      completed: item.completed,
+                                                      doctorNote: item.doctorNote || '',
+                                                      sourceUrl: item.sourceUrl || '',
+                                                      replacesText: item.replacesText,
+                                                      supportFunction: item.supportFunction,
+                                                      conversationId: card.conversationId,
+                                                      checklistData,
+                                                      motherName: card.motherName,
+                                                    });
+                                                  }}
+                                                  className="w-6 h-6 rounded flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                >
+                                                  <span className="material-symbols-outlined text-sm">edit</span>
+                                                </button>
 
-                                            <button
-                                              type="button"
-                                              title="Xóa việc cần làm"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setDeleteConfirmModal({
-                                                  isOpen: true,
-                                                  targetGroup: checklistData.currentItems ? 'CURRENT' : 'HISTORY',
-                                                  itemIndex: idx,
-                                                  itemText: item.text,
-                                                  conversationId: card.conversationId,
-                                                  checklistData,
-                                                });
-                                              }}
-                                              className="w-6 h-6 rounded flex items-center justify-center text-on-surface-variant hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
-                                            >
-                                              <span className="material-symbols-outlined text-sm">delete</span>
-                                            </button>
-                                            </div>
+                                                <button
+                                                  type="button"
+                                                  title="Xóa việc cần làm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirmModal({
+                                                      isOpen: true,
+                                                      targetGroup: checklistData.currentItems ? 'CURRENT' : 'HISTORY',
+                                                      itemIndex: idx,
+                                                      itemText: item.text,
+                                                      conversationId: card.conversationId,
+                                                      checklistData,
+                                                    });
+                                                  }}
+                                                  className="w-6 h-6 rounded flex items-center justify-center text-on-surface-variant hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                                >
+                                                  <span className="material-symbols-outlined text-sm">delete</span>
+                                                </button>
+                                              </>
+                                            )}
                                           </div>
-                                        );
-                                      })
+                                        </div>
+                                      ))
                                     )}
                                   </div>
                                 </div>
@@ -1502,19 +1545,24 @@ export default function ExpertSharedRecordsPage() {
                             }`}
                           >
                             <div
-                              onClick={() =>
+                              onClick={() => {
+                                if (item.completed) {
+                                  showToast('Việc cần làm đã hoàn thành không thể chỉnh sửa.', 'error');
+                                  return;
+                                }
                                 handleToggleTaskStatus(
                                   selectedChecklistModal.conversationId,
                                   selectedChecklistModal.data,
                                   'CURRENT',
                                   idx,
                                   item
-                                )
-                              }
-                              className="flex items-start gap-2.5 min-w-0 cursor-pointer flex-1"
+                                );
+                              }}
+                              className={`flex items-start gap-2.5 min-w-0 flex-1 ${item.completed ? 'cursor-default' : 'cursor-pointer'}`}
+                              title={item.completed ? 'Việc cần làm đã hoàn thành (không thể sửa/xóa)' : undefined}
                             >
                               <span
-                                className={`material-symbols-outlined text-base shrink-0 mt-0.5 transition-transform active:scale-90 ${
+                                className={`material-symbols-outlined text-base shrink-0 mt-0.5 transition-transform ${item.completed ? '' : 'active:scale-90'} ${
                                   item.completed ? 'text-emerald-600' : 'text-outline'
                                 }`}
                               >
@@ -1579,52 +1627,56 @@ export default function ExpertSharedRecordsPage() {
                               {item.completed ? 'Đã xong' : 'Chờ làm'}
                             </span>
 
-                            {/* Edit Button */}
-                            <button
-                              type="button"
-                              title="Sửa việc cần làm"
-                              onClick={() =>
-                                setTaskFormModal({
-                                  isOpen: true,
-                                  mode: 'EDIT',
-                                  targetGroup: 'CURRENT',
-                                  itemIndex: idx,
-                                  text: item.text,
-                                  category: item.category || 'Khám thai & Y tế',
-                                  timeLabel: item.timeLabel,
-                                  completed: item.completed,
-                                  doctorNote: item.doctorNote || '',
-                                  sourceUrl: item.sourceUrl || '',
-                                  replacesText: item.replacesText,
-                                  supportFunction: item.supportFunction,
-                                  conversationId: selectedChecklistModal.conversationId,
-                                  checklistData: selectedChecklistModal.data,
-                                  motherName: selectedChecklistModal.motherName,
-                                })
-                              }
-                              className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                            >
-                              <span className="material-symbols-outlined text-base">edit</span>
-                            </button>
+                            {!item.completed && (
+                              <>
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  title="Sửa việc cần làm"
+                                  onClick={() =>
+                                    setTaskFormModal({
+                                      isOpen: true,
+                                      mode: 'EDIT',
+                                      targetGroup: 'CURRENT',
+                                      itemIndex: idx,
+                                      text: item.text,
+                                      category: item.category || 'Khám thai & Y tế',
+                                      timeLabel: item.timeLabel,
+                                      completed: item.completed,
+                                      doctorNote: item.doctorNote || '',
+                                      sourceUrl: item.sourceUrl || '',
+                                      replacesText: item.replacesText,
+                                      supportFunction: item.supportFunction,
+                                      conversationId: selectedChecklistModal.conversationId,
+                                      checklistData: selectedChecklistModal.data,
+                                      motherName: selectedChecklistModal.motherName,
+                                    })
+                                  }
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                >
+                                  <span className="material-symbols-outlined text-base">edit</span>
+                                </button>
 
-                            {/* Delete Button */}
-                            <button
-                              type="button"
-                              title="Xóa việc cần làm"
-                              onClick={() =>
-                                setDeleteConfirmModal({
-                                  isOpen: true,
-                                  targetGroup: 'CURRENT',
-                                  itemIndex: idx,
-                                  itemText: item.text,
-                                  conversationId: selectedChecklistModal.conversationId,
-                                  checklistData: selectedChecklistModal.data,
-                                })
-                              }
-                              className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
-                            >
-                              <span className="material-symbols-outlined text-base">delete</span>
-                            </button>
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  title="Xóa việc cần làm"
+                                  onClick={() =>
+                                    setDeleteConfirmModal({
+                                      isOpen: true,
+                                      targetGroup: 'CURRENT',
+                                      itemIndex: idx,
+                                      itemText: item.text,
+                                      conversationId: selectedChecklistModal.conversationId,
+                                      checklistData: selectedChecklistModal.data,
+                                    })
+                                  }
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                >
+                                  <span className="material-symbols-outlined text-base">delete</span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -1669,16 +1721,21 @@ export default function ExpertSharedRecordsPage() {
                             className="p-3 rounded-xl border border-emerald-200/60 bg-emerald-50/50 flex items-start justify-between gap-3 text-xs"
                           >
                             <div
-                              onClick={() =>
+                              onClick={() => {
+                                if (item.completed) {
+                                  showToast('Việc cần làm đã hoàn thành không thể chỉnh sửa.', 'error');
+                                  return;
+                                }
                                 handleToggleTaskStatus(
                                   selectedChecklistModal.conversationId,
                                   selectedChecklistModal.data,
                                   'HISTORY',
                                   idx,
                                   item
-                                )
-                              }
-                              className="flex items-start gap-2.5 min-w-0 cursor-pointer flex-1"
+                                );
+                              }}
+                              className={`flex items-start gap-2.5 min-w-0 flex-1 ${item.completed ? 'cursor-default' : 'cursor-pointer'}`}
+                              title={item.completed ? 'Việc cần làm đã hoàn thành (không thể sửa/xóa)' : undefined}
                             >
                               <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">
                                 {item.completed ? 'check_circle' : 'radio_button_unchecked'}
@@ -1728,50 +1785,54 @@ export default function ExpertSharedRecordsPage() {
                                 {item.completed ? 'Đã xong' : 'Chưa xong'}
                               </span>
 
-                              <button
-                                type="button"
-                                title="Sửa việc cần làm"
-                                onClick={() =>
-                                  setTaskFormModal({
-                                    isOpen: true,
-                                    mode: 'EDIT',
-                                    targetGroup: 'HISTORY',
-                                    itemIndex: idx,
-                                    text: item.text,
-                                    category: item.category || 'Khám thai & Y tế',
-                                    timeLabel: item.timeLabel,
-                                    completed: item.completed,
-                                    doctorNote: item.doctorNote || '',
-                                    sourceUrl: item.sourceUrl || '',
-                                    replacesText: item.replacesText,
-                                    supportFunction: item.supportFunction,
-                                    conversationId: selectedChecklistModal.conversationId,
-                                    checklistData: selectedChecklistModal.data,
-                                    motherName: selectedChecklistModal.motherName,
-                                  })
-                                }
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-emerald-800 hover:bg-emerald-200/50 transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-base">edit</span>
-                              </button>
+                              {!item.completed && (
+                                <>
+                                  <button
+                                    type="button"
+                                    title="Sửa việc cần làm"
+                                    onClick={() =>
+                                      setTaskFormModal({
+                                        isOpen: true,
+                                        mode: 'EDIT',
+                                        targetGroup: 'HISTORY',
+                                        itemIndex: idx,
+                                        text: item.text,
+                                        category: item.category || 'Khám thai & Y tế',
+                                        timeLabel: item.timeLabel,
+                                        completed: item.completed,
+                                        doctorNote: item.doctorNote || '',
+                                        sourceUrl: item.sourceUrl || '',
+                                        replacesText: item.replacesText,
+                                        supportFunction: item.supportFunction,
+                                        conversationId: selectedChecklistModal.conversationId,
+                                        checklistData: selectedChecklistModal.data,
+                                        motherName: selectedChecklistModal.motherName,
+                                      })
+                                    }
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-emerald-800 hover:bg-emerald-200/50 transition-colors cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-base">edit</span>
+                                  </button>
 
-                              <button
-                                type="button"
-                                title="Xóa việc cần làm"
-                                onClick={() =>
-                                  setDeleteConfirmModal({
-                                    isOpen: true,
-                                    targetGroup: 'HISTORY',
-                                    itemIndex: idx,
-                                    itemText: item.text,
-                                    conversationId: selectedChecklistModal.conversationId,
-                                    checklistData: selectedChecklistModal.data,
-                                  })
-                                }
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-base">delete</span>
-                              </button>
+                                  <button
+                                    type="button"
+                                    title="Xóa việc cần làm"
+                                    onClick={() =>
+                                      setDeleteConfirmModal({
+                                        isOpen: true,
+                                        targetGroup: 'HISTORY',
+                                        itemIndex: idx,
+                                        itemText: item.text,
+                                        conversationId: selectedChecklistModal.conversationId,
+                                        checklistData: selectedChecklistModal.data,
+                                      })
+                                    }
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-base">delete</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );
@@ -1816,16 +1877,21 @@ export default function ExpertSharedRecordsPage() {
                             className="p-3 rounded-xl border border-purple-200/60 bg-purple-50/40 flex items-start justify-between gap-3 text-xs"
                           >
                             <div
-                              onClick={() =>
+                              onClick={() => {
+                                if (item.completed) {
+                                  showToast('Việc cần làm đã hoàn thành không thể chỉnh sửa.', 'error');
+                                  return;
+                                }
                                 handleToggleTaskStatus(
                                   selectedChecklistModal.conversationId,
                                   selectedChecklistModal.data,
                                   'FUTURE',
                                   idx,
                                   item
-                                )
-                              }
-                              className="flex items-start gap-2.5 min-w-0 cursor-pointer flex-1"
+                                );
+                              }}
+                              className={`flex items-start gap-2.5 min-w-0 flex-1 ${item.completed ? 'cursor-default' : 'cursor-pointer'}`}
+                              title={item.completed ? 'Việc cần làm đã hoàn thành (không thể sửa/xóa)' : undefined}
                             >
                               <span className="material-symbols-outlined text-purple-600 text-base shrink-0 mt-0.5">
                                 {item.completed ? 'check_circle' : 'upcoming'}
@@ -1872,53 +1938,57 @@ export default function ExpertSharedRecordsPage() {
 
                             <div className="flex items-center gap-2 shrink-0">
                               <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-100 text-purple-800">
-                                Chờ đến tuần
+                                {item.completed ? 'Đã xong' : 'Chờ đến tuần'}
                               </span>
 
-                              <button
-                                type="button"
-                                title="Sửa việc cần làm"
-                                onClick={() =>
-                                  setTaskFormModal({
-                                    isOpen: true,
-                                    mode: 'EDIT',
-                                    targetGroup: 'FUTURE',
-                                    itemIndex: idx,
-                                    text: item.text,
-                                    category: item.category || 'Khám thai & Y tế',
-                                    timeLabel: item.timeLabel,
-                                    completed: item.completed,
-                                    doctorNote: item.doctorNote || '',
-                                    sourceUrl: item.sourceUrl || '',
-                                    replacesText: item.replacesText,
-                                    supportFunction: item.supportFunction,
-                                    conversationId: selectedChecklistModal.conversationId,
-                                    checklistData: selectedChecklistModal.data,
-                                    motherName: selectedChecklistModal.motherName,
-                                  })
-                                }
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-purple-800 hover:bg-purple-200/50 transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-base">edit</span>
-                              </button>
+                              {!item.completed && (
+                                <>
+                                  <button
+                                    type="button"
+                                    title="Sửa việc cần làm"
+                                    onClick={() =>
+                                      setTaskFormModal({
+                                        isOpen: true,
+                                        mode: 'EDIT',
+                                        targetGroup: 'FUTURE',
+                                        itemIndex: idx,
+                                        text: item.text,
+                                        category: item.category || 'Khám thai & Y tế',
+                                        timeLabel: item.timeLabel,
+                                        completed: item.completed,
+                                        doctorNote: item.doctorNote || '',
+                                        sourceUrl: item.sourceUrl || '',
+                                        replacesText: item.replacesText,
+                                        supportFunction: item.supportFunction,
+                                        conversationId: selectedChecklistModal.conversationId,
+                                        checklistData: selectedChecklistModal.data,
+                                        motherName: selectedChecklistModal.motherName,
+                                      })
+                                    }
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-purple-800 hover:bg-purple-200/50 transition-colors cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-base">edit</span>
+                                  </button>
 
-                              <button
-                                type="button"
-                                title="Xóa việc cần làm"
-                                onClick={() =>
-                                  setDeleteConfirmModal({
-                                    isOpen: true,
-                                    targetGroup: 'FUTURE',
-                                    itemIndex: idx,
-                                    itemText: item.text,
-                                    conversationId: selectedChecklistModal.conversationId,
-                                    checklistData: selectedChecklistModal.data,
-                                  })
-                                }
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-base">delete</span>
-                              </button>
+                                  <button
+                                    type="button"
+                                    title="Xóa việc cần làm"
+                                    onClick={() =>
+                                      setDeleteConfirmModal({
+                                        isOpen: true,
+                                        targetGroup: 'FUTURE',
+                                        itemIndex: idx,
+                                        itemText: item.text,
+                                        conversationId: selectedChecklistModal.conversationId,
+                                        checklistData: selectedChecklistModal.data,
+                                      })
+                                    }
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-base">delete</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_client.dart';
 import '../services/expert_onboarding_service.dart';
 import '../services/expert_onboarding_store.dart';
+import '../utils/expert_validation.dart';
 
 class ExpertProfileSetupScreen extends StatefulWidget {
   const ExpertProfileSetupScreen({super.key, this.service});
@@ -165,7 +166,9 @@ class _ExpertProfileSetupScreenState extends State<ExpertProfileSetupScreen> {
       setState(() {
         _error = e.statusCode == 409
             ? 'Hồ sơ đã tồn tại. Đang chuyển sang bước tiếp theo…'
-            : 'Không thể lưu hồ sơ. Vui lòng kiểm tra thông tin.';
+            : (e.displayMessage.isNotEmpty
+                  ? e.displayMessage
+                  : 'Không thể lưu hồ sơ. Vui lòng kiểm tra thông tin.');
       });
       if (e.statusCode == 409 && mounted) context.go('/expert-onboarding');
     } catch (_) {
@@ -175,17 +178,21 @@ class _ExpertProfileSetupScreenState extends State<ExpertProfileSetupScreen> {
     }
   }
 
-  String? _required(String? value) =>
-      (value ?? '').trim().isEmpty ? 'Thông tin này là bắt buộc' : null;
+  String? _titleValidator(String? value) => textFieldError(
+    value ?? '',
+    label: 'chức danh',
+    max: maxProfessionalTitle,
+    required: true,
+  );
 
-  String? _experienceValidator(String? value) {
-    final text = (value ?? '').trim();
-    if (text.isEmpty) return null;
-    final years = int.tryParse(text);
-    return years == null || years < 0 || years > 80
-        ? 'Nhập số năm từ 0 đến 80'
-        : null;
-  }
+  String? _experienceValidator(String? value) =>
+      experienceYearsError(value ?? '');
+
+  String? _scopeValidator(String? value) => textFieldError(
+    value ?? '',
+    label: 'phạm vi tư vấn',
+    max: maxConsultationScope,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +207,7 @@ class _ExpertProfileSetupScreenState extends State<ExpertProfileSetupScreen> {
       body: SafeArea(
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
@@ -235,7 +243,7 @@ class _ExpertProfileSetupScreenState extends State<ExpertProfileSetupScreen> {
                 _title,
                 'Chức danh chuyên môn *',
                 'Ví dụ: Bác sĩ chuyên khoa I',
-                validator: _required,
+                validator: _titleValidator,
               ),
               _field(
                 _experience,
@@ -249,6 +257,7 @@ class _ExpertProfileSetupScreenState extends State<ExpertProfileSetupScreen> {
                 'Phạm vi tư vấn',
                 'Mô tả chủ đề bạn có thể hỗ trợ',
                 maxLines: 4,
+                validator: _scopeValidator,
               ),
               const SizedBox(height: 4),
               const Text(

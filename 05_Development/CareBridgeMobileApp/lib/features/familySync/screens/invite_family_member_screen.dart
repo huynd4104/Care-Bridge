@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../services/care_group_service.dart';
@@ -27,7 +26,7 @@ class _InviteFamilyMemberScreenState extends State<InviteFamilyMemberScreen> {
       _isValid =
           trimmed.isNotEmpty &&
           (RegExp(r'^\+?[0-9]{9,15}$').hasMatch(trimmed) ||
-              RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(trimmed));
+              RegExp(r'^[^@\s]+@[^@\s.]+(\.[^@\s.]+)*\.[A-Za-z]{2,}$').hasMatch(trimmed));
     });
   }
 
@@ -52,15 +51,11 @@ class _InviteFamilyMemberScreenState extends State<InviteFamilyMemberScreen> {
       }
     } catch (e) {
       if (mounted) {
-        String message = 'Lỗi khi gửi lời mời: $e';
+        String message = 'Lỗi khi gửi lời mời: ${userErrorMessage(e)}';
         final errStr = e.toString();
-        if (e is ApiException) {
-          try {
-            final map = jsonDecode(e.message) as Map<String, dynamic>;
-            if (map['message'] != null && map['message'].toString().trim().isNotEmpty) {
-              message = map['message'].toString().trim();
-            }
-          } catch (_) {}
+        // Chỉ dùng câu của server khi đã là tiếng Việt; mã FAM-* bên dưới được dịch riêng.
+        if (e is ApiException && e.displayMessage.isNotEmpty) {
+          message = e.displayMessage;
         }
         if (message.startsWith('Lỗi khi gửi lời mời:')) {
           if (errStr.contains('chờ xử lý') ||

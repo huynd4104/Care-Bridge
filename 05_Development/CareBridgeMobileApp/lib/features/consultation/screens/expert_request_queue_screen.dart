@@ -5,6 +5,7 @@ import '../../../shared/components/app_user_avatar.dart';
 import '../models/consultation_request.dart';
 import '../services/consultation_request_refresh_bus.dart';
 import '../services/consultation_request_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class ExpertRequestQueueScreen extends StatefulWidget {
   const ExpertRequestQueueScreen({super.key});
@@ -107,7 +108,7 @@ class _ExpertRequestQueueScreenState extends State<ExpertRequestQueueScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể chấp nhận yêu cầu: $error')),
+          SnackBar(content: Text('Không thể chấp nhận yêu cầu: ${userErrorMessage(error)}')),
         );
       }
     } finally {
@@ -169,7 +170,7 @@ class _ExpertRequestQueueScreenState extends State<ExpertRequestQueueScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể từ chối yêu cầu: $error')),
+          SnackBar(content: Text('Không thể từ chối yêu cầu: ${userErrorMessage(error)}')),
         );
       }
     } finally {

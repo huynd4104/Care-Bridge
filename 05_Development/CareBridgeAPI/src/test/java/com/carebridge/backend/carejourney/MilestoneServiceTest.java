@@ -112,6 +112,22 @@ class MilestoneServiceTest {
         verify(milestoneRepository, never()).save(any());
     }
 
+    // MILESTONE-TC-037-002B: AchievedDate before baby birth date -> BusinessException BABY-065
+    @Test
+    void addMilestone_achievedDateBeforeBirthDate_throwsBadRequest() {
+        BabyProfile baby = makeActiveBaby();
+        baby.setBirthDate(LocalDate.now().minusDays(10));
+        when(babyProfileRepository.findById(BABY_ID)).thenReturn(Optional.of(baby));
+
+        AddMilestoneRequest req = makeRequest();
+        req.setAchievedDate(LocalDate.now().minusDays(11)); // before birth date
+
+        assertThatThrownBy(() -> service.addMilestone(MOTHER_ID, BABY_ID, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Achieved date cannot be before baby birth date");
+        verify(milestoneRepository, never()).save(any());
+    }
+
     // MILESTONE-TC-037-003: Baby not owned -> AccessDeniedBusinessException BABY-061
     @Test
     void addMilestone_babyNotOwned_throwsForbidden() {

@@ -1,7 +1,7 @@
 package com.carebridge.backend.security.dto.request;
 
 import com.carebridge.backend.common.validation.VietnamesePhoneNumber;
-import jakarta.validation.constraints.Email;
+import com.carebridge.backend.common.validation.DeliverableEmail;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,7 +15,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class CheckRegistrationRequest {
 
-    @Email
+    @DeliverableEmail
     private String email;
 
     @VietnamesePhoneNumber

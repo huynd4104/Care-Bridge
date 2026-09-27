@@ -203,4 +203,80 @@ void main() {
     expect(find.text('New inbox'), findsOneWidget);
     expect(find.text('Old inbox'), findsNothing);
   });
+
+  group('formatLastMessagePreview unit tests', () {
+    test('standardizes checklist share tag without note', () {
+      expect(
+        ConversationListScreen.formatLastMessagePreview(
+          '[CAREBRIDGE_CHECKLIST_SHARE]\n{"journeyId":"abc"}',
+        ),
+        '[Chia sẻ việc cần làm]',
+      );
+    });
+
+    test('standardizes checklist share tag with note', () {
+      expect(
+        ConversationListScreen.formatLastMessagePreview(
+          '[CAREBRIDGE_CHECKLIST_SHARE]\n{"title":"Checklist","note":"Bác sĩ xem giúp em"}',
+        ),
+        '[Chia sẻ việc cần làm] Bác sĩ xem giúp em',
+      );
+    });
+
+    test('standardizes health metrics share tag', () {
+      expect(
+        ConversationListScreen.formatLastMessagePreview(
+          '[CAREBRIDGE_HEALTH_SHARE]\n{"title":"Chỉ số sức khỏe"}',
+        ),
+        '[Chia sẻ chỉ số sức khỏe]',
+      );
+    });
+
+    test('standardizes baby growth share tag', () {
+      expect(
+        ConversationListScreen.formatLastMessagePreview(
+          '[CAREBRIDGE_BABY_GROWTH_SHARE]\n{"babyNickname":"Bé Bơ"}',
+        ),
+        '[Chia sẻ phát triển của bé]',
+      );
+    });
+
+    test('flattens newlines for regular messages', () {
+      expect(
+        ConversationListScreen.formatLastMessagePreview('Dòng 1\nDòng 2'),
+        'Dòng 1 Dòng 2',
+      );
+    });
+  });
+
+  testWidgets(
+    'EXPERT row displays standardized Vietnamese preview for share messages',
+    (tester) async {
+      await AuthState.instance.setTokens(
+        accessToken: 'a',
+        refreshToken: 'r',
+        userId: 'expert-1',
+        role: 'EXPERT',
+      );
+      DirectChatService.instance = _ScriptedDirectChatService([
+        DirectConversationSummary(
+          conversationId: 'conv-1',
+          counterpartUserId: 'mother-1',
+          counterpartRole: 'MOTHER',
+          expertAvailable: true,
+          counterpartDisplayName: 'Mẹ Lan',
+          lastMessagePreview:
+              '[CAREBRIDGE_CHECKLIST_SHARE]\n{"journeyId":"j-1","items":[]}',
+        ),
+      ]);
+      await _pumpWithRouter(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('[Chia sẻ việc cần làm]'), findsOneWidget);
+      expect(
+        find.textContaining('[CAREBRIDGE_CHECKLIST_SHARE]'),
+        findsNothing,
+      );
+    },
+  );
 }

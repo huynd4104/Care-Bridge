@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -100,7 +101,7 @@ public class ConsultationRequestController {
                 service.getById(id, SecurityUtils.requireCurrentUserId(principal))));
     }
 
-    @PatchMapping("/{id}/accept")
+    @RequestMapping(value = "/{id}/accept", method = {RequestMethod.PATCH, RequestMethod.POST})
     @PreAuthorize("hasRole('EXPERT')")
     public ResponseEntity<ApiResponse<ConsultationRequestResponse>> accept(
             @PathVariable UUID id, Principal principal) {
@@ -108,17 +109,18 @@ public class ConsultationRequestController {
                 service.accept(id, SecurityUtils.requireCurrentUserId(principal))));
     }
 
-    @PatchMapping("/{id}/reject")
+    @RequestMapping(value = "/{id}/reject", method = {RequestMethod.PATCH, RequestMethod.POST})
     @PreAuthorize("hasRole('EXPERT')")
     public ResponseEntity<ApiResponse<ConsultationRequestResponse>> reject(
             @PathVariable UUID id,
-            @Valid @RequestBody RejectConsultationRequestRequest request,
+            @Valid @RequestBody(required = false) RejectConsultationRequestRequest request,
             Principal principal) {
+        String reason = request != null ? request.getReason() : null;
         return ResponseEntity.ok(ApiResponse.success(service.reject(
-                id, SecurityUtils.requireCurrentUserId(principal), request.getReason())));
+                id, SecurityUtils.requireCurrentUserId(principal), reason)));
     }
 
-    @PatchMapping("/{id}/cancel")
+    @RequestMapping(value = "/{id}/cancel", method = {RequestMethod.PATCH, RequestMethod.POST})
     @PreAuthorize("hasAnyRole('MOTHER', 'FAMILY')")
     public ResponseEntity<ApiResponse<ConsultationRequestResponse>> cancel(
             @PathVariable UUID id, Principal principal) {

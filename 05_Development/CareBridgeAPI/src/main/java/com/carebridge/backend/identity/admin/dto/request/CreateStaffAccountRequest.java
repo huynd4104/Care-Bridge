@@ -2,7 +2,7 @@ package com.carebridge.backend.identity.admin.dto.request;
 
 import com.carebridge.backend.common.validation.VietnamesePhoneNumber;
 import com.carebridge.backend.security.rbac.Role;
-import jakarta.validation.constraints.Email;
+import com.carebridge.backend.common.validation.DeliverableEmail;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -17,7 +17,7 @@ import lombok.Setter;
 @Setter
 public class CreateStaffAccountRequest {
 
-    @Email
+    @DeliverableEmail
     @NotBlank
     private String email;
 

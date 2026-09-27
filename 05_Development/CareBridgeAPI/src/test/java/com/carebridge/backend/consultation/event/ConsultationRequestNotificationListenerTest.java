@@ -60,9 +60,43 @@ class ConsultationRequestNotificationListenerTest {
 
         verify(notificationService).notifyCreated(expertId, motherId, requestId);
         verify(notificationService).notifyAccepted(motherId, expertId, requestId);
-        verify(notificationService).notifyRejected(motherId, expertId, requestId);
+        verify(notificationService).notifyRejected(motherId, expertId, requestId, null);
         verify(notificationService).notifyCancelled(expertId, motherId, requestId);
         verify(notificationService).notifyExpired(motherId, expertId, requestId);
+    }
+
+    @Test
+    void routesRejectedEventWithReasonToNotificationService() {
+        UUID requestId = UUID.randomUUID();
+        UUID motherId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID expertId = UUID.randomUUID();
+        ConsultationRequest request = ConsultationRequest.builder()
+                .id(requestId)
+                .requesterUserId(motherId)
+                .expertProfileId(profileId)
+                .clientRequestId(UUID.randomUUID())
+                .topic("Nutrition")
+                .description("Description")
+                .status(ConsultationRequestStatus.REJECTED)
+                .rejectReason("Chuyên gia bận lịch công tác")
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        when(requestRepository.findById(requestId)).thenReturn(Optional.of(request));
+        when(expertProfileRepository.findById(profileId))
+                .thenReturn(Optional.of(ExpertProfile.builder()
+                        .expertProfileId(profileId)
+                        .userId(expertId)
+                        .build()));
+        var listener = new ConsultationRequestNotificationListener(
+                requestRepository, expertProfileRepository, notificationService);
+
+        listener.onRequestEvent(event("REQUEST_REJECTED", requestId));
+
+        verify(notificationService).notifyRejected(
+                motherId, expertId, requestId, "Chuyên gia bận lịch công tác");
     }
 
     @Test

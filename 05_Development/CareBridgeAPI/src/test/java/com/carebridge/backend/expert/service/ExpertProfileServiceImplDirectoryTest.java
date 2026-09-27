@@ -16,6 +16,7 @@ import com.carebridge.backend.expert.service.impl.ExpertProfileServiceImpl;
 import com.carebridge.backend.expert.verificationstatus.VerificationStatus;
 import com.carebridge.backend.security.entity.User;
 import com.carebridge.backend.security.repository.UserRepository;
+import com.carebridge.backend.security.service.EmailService;
 import com.carebridge.backend.audit.service.AuditService;
 import com.carebridge.backend.expertverification.repository.ExpertCredentialRepository;
 import com.carebridge.backend.expertverification.repository.ExpertIdentityVerificationRepository;
@@ -46,6 +47,7 @@ class ExpertProfileServiceImplDirectoryTest {
     @Mock private ExpertIdentityVerificationRepository identityRepository;
     @Mock private ExpertCredentialRepository credentialRepository;
     @Mock private AuditService auditService;
+    @Mock private EmailService emailService;
 
     private ExpertProfileServiceImpl service;
     private final ExpertProfileMapper mapper = new ExpertProfileMapper();
@@ -56,7 +58,7 @@ class ExpertProfileServiceImplDirectoryTest {
     void setUp() {
         service = new ExpertProfileServiceImpl(expertProfileRepository, userRepository, mapper,
                 identityRepository, credentialRepository, auditService,
-                specialtyRepository, careFacilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository);
+                specialtyRepository, careFacilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository, emailService);
     }
 
     private static ExpertProfile approvedExpert(UUID userId) {

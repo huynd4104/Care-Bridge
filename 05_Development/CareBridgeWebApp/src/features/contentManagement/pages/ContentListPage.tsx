@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchStaffContentList } from '../services/contentApi';
+import { fetchStaffContentList, archiveContent } from '../services/contentApi';
 import type { ContentDetail, ContentType } from '../models/content';
 import { STATUS_LABELS, TYPE_LABELS } from '../models/content';
 import ReviewFeedbackNotice from '../components/ReviewFeedbackNotice';
@@ -51,6 +51,7 @@ export default function ContentListPage() {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [sortKey, setSortKey] = useState<'title' | 'type' | 'status' | 'version' | 'updatedAt'>('updatedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [actionError, setActionError] = useState('');
   const latestRequestId = useRef(0);
   const debouncedKeyword = useDebouncedValue(searchInput.trim());
 
@@ -101,6 +102,22 @@ export default function ContentListPage() {
   const changeSort = (key: typeof sortKey) => {
     setSortDirection(nextSortDirection(sortKey, key, sortDirection));
     setSortKey(key);
+  };
+
+  const handleDelete = async (item: ContentDetail) => {
+    const reason = window.prompt(`Nhập lý do xóa (lưu trữ) "${item.title}":`);
+    if (reason === null) return;
+    if (!reason.trim()) {
+      setActionError('Vui lòng nhập lý do trước khi xóa.');
+      return;
+    }
+    try {
+      await archiveContent(item.id, reason.trim());
+      setActionError('');
+      await loadData();
+    } catch {
+      setActionError('Không thể xóa nội dung. Vui lòng thử lại.');
+    }
   };
 
   return (
@@ -170,6 +187,8 @@ export default function ContentListPage() {
         </div>
       </div>
 
+      {actionError && <div className="bg-error-container rounded-2xl p-4 mb-4 text-error text-sm">{actionError}</div>}
+
       {/* Data table */}
       <div className="bg-surface rounded-2xl p-6 shadow-md">
         {isLoading ? (
@@ -227,18 +246,27 @@ export default function ContentListPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => navigate(`/content/${item.id}`)}
-                            className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center"
+                            className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center hover:bg-surface-container-low transition-colors"
                             title="Xem chi tiết"
                           >
                             <span className="material-symbols-outlined text-primary text-base">visibility</span>
                           </button>
                           <button
-                            onClick={() => navigate(`/content/${item.id}/edit`)}
-                            className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center"
-                            title="Chỉnh sửa"
+                            disabled
+                            className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent flex items-center justify-center opacity-40 cursor-not-allowed"
+                            title="Chỉnh sửa (vô hiệu hoá)"
                           >
-                            <span className="material-symbols-outlined text-primary text-base">edit</span>
+                            <span className="material-symbols-outlined text-outline text-base">edit</span>
                           </button>
+                          {item.status !== 'ARCHIVED' && (
+                            <button
+                              onClick={() => handleDelete(item)}
+                              className="w-8 h-8 rounded-lg border border-outline-variant bg-transparent cursor-pointer flex items-center justify-center hover:bg-error-container/20 transition-colors"
+                              title="Xóa"
+                            >
+                              <span className="material-symbols-outlined text-error text-base">delete</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

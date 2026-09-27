@@ -1,8 +1,49 @@
 import '../../../core/network/api_client.dart';
+import '../../recommendation/services/recommendation_service.dart';
+import '../models/checklist_contraindications.dart';
 import '../models/checklist_roadmap_model.dart';
 
 class ChecklistRoadmapService {
-  ChecklistRoadmapService();
+  ChecklistRoadmapService({Future<Set<String>> Function()? profileTagsLoader})
+      : _profileTagsLoader = profileTagsLoader ?? _loadProfileTags;
+
+  final Future<Set<String>> Function() _profileTagsLoader;
+
+  /// Tag khảo sát hiện tại của mẹ; lỗi (người nhà, chưa có hành trình...) → không lọc.
+  static Future<Set<String>> _loadProfileTags() async {
+    try {
+      final response = await RecommendationService().getProfile();
+      return ChecklistContraindications.profileTags(response.profile);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Ẩn mục chống chỉ định với khảo sát của mẹ; bỏ mốc không còn mục nào.
+  List<ChecklistRoadmapMilestone> _hideContraindicated(
+    List<ChecklistRoadmapMilestone> milestones,
+    Set<String> profileTags,
+  ) {
+    if (profileTags.isEmpty) return milestones;
+    return milestones
+        .map((milestone) => ChecklistRoadmapMilestone(
+              id: milestone.id,
+              title: milestone.title,
+              description: milestone.description,
+              stage: milestone.stage,
+              startWeek: milestone.startWeek,
+              endWeek: milestone.endWeek,
+              status: milestone.status,
+              tasks: milestone.tasks
+                  .where((task) => !ChecklistContraindications.isContraindicated(
+                        task.contraindications,
+                        profileTags,
+                      ))
+                  .toList(),
+            ))
+        .where((milestone) => milestone.tasks.isNotEmpty)
+        .toList();
+  }
 
   static final ChecklistRoadmapService instance = ChecklistRoadmapService();
 
@@ -11,6 +52,7 @@ class ChecklistRoadmapService {
     int currentWeek = 24,
     String stage = 'PREGNANCY',
   }) async {
+    final profileTags = await _profileTagsLoader();
     try {
       final res = await apiGet('/api/v1/content/checklists', queryParams: {
         'stage': stage,
@@ -41,6 +83,9 @@ class ChecklistRoadmapService {
               isRequired: t['isRequired'] as bool? ?? t['required'] as bool? ?? false,
               completed: status == ChecklistMilestoneStatus.completed,
               dueWeek: startWeek,
+              contraindications: (t['contraindications'] as List? ?? const [])
+                  .whereType<String>()
+                  .toList(),
             );
           }).toList();
 
@@ -57,13 +102,16 @@ class ChecklistRoadmapService {
         }
 
         milestones.sort((a, b) => a.startWeek.compareTo(b.startWeek));
-        return milestones;
+        return _hideContraindicated(milestones, profileTags);
       }
     } catch (_) {
       // Fallback sang danh mục lộ trình chuẩn CareBridge
     }
 
-    return _getDefaultRoadmap(currentWeek: currentWeek, stage: stage);
+    return _hideContraindicated(
+      _getDefaultRoadmap(currentWeek: currentWeek, stage: stage),
+      profileTags,
+    );
   }
 
   /// Trả về danh sách nhiệm vụ phân loại theo: Lịch sử, Hiện tại, Tương lai
@@ -128,6 +176,7 @@ class ChecklistRoadmapService {
             isRequired: item.isRequired,
             completed: status == ChecklistMilestoneStatus.completed,
             dueWeek: def.startWeek,
+            contraindications: item.contraindications,
           );
         }).toList(),
       );
@@ -176,7 +225,7 @@ class ChecklistRoadmapService {
       items: [
         _CatalogItem(text: 'Ăn uống đa dạng, đủ chất và sử dụng muối iod', isRequired: true, category: null),
         _CatalogItem(text: 'Duy trì cân nặng và chỉ số BMI hợp lý', isRequired: true, category: null),
-        _CatalogItem(text: 'Tập thể dục thường xuyên, nghỉ ngơi hợp lý', isRequired: false, category: null),
+        _CatalogItem(text: 'Tập thể dục thường xuyên, nghỉ ngơi hợp lý', isRequired: false, category: null, contraindications: ['CARDIOVASCULAR_DISEASE']),
         _CatalogItem(text: 'Tránh rượu bia, thuốc lá và chất kích thích', isRequired: true, category: null),
         _CatalogItem(text: 'Tránh tiếp xúc hóa chất độc hại', isRequired: true, category: null),
         _CatalogItem(text: 'Giữ vệ sinh và tẩy giun định kỳ', isRequired: false, category: null),
@@ -191,11 +240,11 @@ class ChecklistRoadmapService {
       endWeek: 1,
       repeatMode: 'NONE',
       items: [
-        _CatalogItem(text: 'Bổ sung Sắt và Axit Folic trước thai kỳ', isRequired: true, category: null),
+        _CatalogItem(text: 'Bổ sung Sắt và Axit Folic trước thai kỳ', isRequired: true, category: null, contraindications: ['ANEMIA']),
         _CatalogItem(text: 'Tư vấn Axit Folic liều cao nếu có tiền sử dị tật', isRequired: false, category: null),
         _CatalogItem(text: 'Rà soát lịch sử tiêm chủng cá nhân', isRequired: true, category: null),
         _CatalogItem(text: 'Tiêm các vắc-xin thiết yếu trước mang thai', isRequired: true, category: null),
-        _CatalogItem(text: 'Tuân thủ khoảng cách sau tiêm MMR và thủy đậu', isRequired: true, category: null),
+        _CatalogItem(text: 'Tuân thủ khoảng cách sau tiêm MMR và thủy đậu', isRequired: true, category: null, contraindications: ['AUTOIMMUNE_DISEASE', 'LUPUS']),
       ],
     ),
     _CatalogMilestone(
@@ -617,9 +666,13 @@ class _CatalogItem {
   final bool isRequired;
   final String? category;
 
+  /// Đồng bộ với migration V15__add_checklist_item_contraindications.sql.
+  final List<String> contraindications;
+
   const _CatalogItem({
     required this.text,
     required this.isRequired,
     this.category,
+    this.contraindications = const [],
   });
 }

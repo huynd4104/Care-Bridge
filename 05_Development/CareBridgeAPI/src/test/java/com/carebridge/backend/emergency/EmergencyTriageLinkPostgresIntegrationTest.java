@@ -111,7 +111,7 @@ class EmergencyTriageLinkPostgresIntegrationTest
                 .getSessionId();
         Instant cutoff = Instant.now().minusSeconds(60);
 
-        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff))
+        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff, staleCutoff()))
                 .contains(sessionId);
 
         assertRetryStatusHonorsCutoff(sessionId, "FAILED", cutoff);
@@ -126,7 +126,7 @@ class EmergencyTriageLinkPostgresIntegrationTest
                        alert_updated_at=now()
                  WHERE safety_event_id=?
                 """, UUID.randomUUID(), sessionId);
-        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff))
+        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff, staleCutoff()))
                 .contains(sessionId);
 
         jdbcTemplate.update("""
@@ -134,7 +134,7 @@ class EmergencyTriageLinkPostgresIntegrationTest
                    SET alert_lease_expires_at=now() + interval '2 minutes'
                  WHERE safety_event_id=?
                 """, sessionId);
-        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff))
+        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff, staleCutoff()))
                 .doesNotContain(sessionId);
 
         jdbcTemplate.update("""
@@ -144,13 +144,13 @@ class EmergencyTriageLinkPostgresIntegrationTest
                        alert_lease_expires_at=NULL
                  WHERE safety_event_id=?
                 """, sessionId);
-        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff))
+        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff, staleCutoff()))
                 .doesNotContain(sessionId);
     }
 
     @Test
     void retryCandidateQueryUsesStableCreatedAtOrderingAndLimitFifty() {
-        Instant oldest = Instant.parse("1900-01-01T00:00:00Z");
+        Instant oldest = Instant.now().minusSeconds(10 * 60);
         List<UUID> expected = new ArrayList<>();
         for (int index = 0; index < 52; index++) {
             UUID userId = UUID.fromString(String.format(
@@ -162,8 +162,27 @@ class EmergencyTriageLinkPostgresIntegrationTest
         }
 
         assertThat(emergencySessionRepository.findAlertRetryCandidates(
-                Instant.now().minusSeconds(60)))
+                Instant.now().minusSeconds(60), staleCutoff()))
                 .containsExactlyElementsOf(expected.subList(0, 50));
+    }
+
+    @Test
+    void retryCandidateQueryExcludesSessionsOlderThanMaxRetryAge() {
+        UUID staleUser = UUID.fromString("30000000-0000-0000-0000-000000000001");
+        UUID staleEvent = UUID.fromString("40000000-0000-0000-0000-000000000001");
+        UUID freshUser = UUID.fromString("30000000-0000-0000-0000-000000000002");
+        UUID freshEvent = UUID.fromString("40000000-0000-0000-0000-000000000002");
+        seedRetryCandidate(staleUser, staleEvent, Instant.now().minusSeconds(20 * 60));
+        seedRetryCandidate(freshUser, freshEvent, Instant.now().minusSeconds(5 * 60));
+
+        assertThat(emergencySessionRepository.findAlertRetryCandidates(
+                Instant.now().minusSeconds(60), staleCutoff()))
+                .contains(freshEvent)
+                .doesNotContain(staleEvent);
+    }
+
+    private static Instant staleCutoff() {
+        return Instant.now().minusSeconds(15 * 60);
     }
 
     @Test
@@ -177,7 +196,7 @@ class EmergencyTriageLinkPostgresIntegrationTest
         seedRecipientDevice(recipientOne, deviceOne, "restart-token-1");
         seedRecipientDevice(recipientTwo, deviceTwo, "restart-token-2");
         jdbcTemplate.update("""
-                UPDATE safety_events SET created_at='1800-01-01T00:00:00Z'
+                UPDATE safety_events SET created_at=now() - interval '5 minutes'
                  WHERE safety_event_id=?
                 """, sessionId);
 
@@ -256,14 +275,14 @@ class EmergencyTriageLinkPostgresIntegrationTest
                    SET alert_status=?, alert_updated_at=now()
                  WHERE safety_event_id=?
                 """, status, sessionId);
-        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff))
+        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff, staleCutoff()))
                 .doesNotContain(sessionId);
         jdbcTemplate.update("""
                 UPDATE safety_events
                    SET alert_updated_at=now() - interval '2 minutes'
                  WHERE safety_event_id=?
                 """, sessionId);
-        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff))
+        assertThat(emergencySessionRepository.findAlertRetryCandidates(cutoff, staleCutoff()))
                 .contains(sessionId);
     }
 

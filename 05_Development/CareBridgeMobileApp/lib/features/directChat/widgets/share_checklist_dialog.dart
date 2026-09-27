@@ -15,17 +15,22 @@ class ShareChecklistDialog extends StatefulWidget {
     this.initialStage,
     this.initialGestationalWeek,
     this.initialBabyName,
+    this.todayTasksLoader,
   });
 
   final String? initialStage;
   final int? initialGestationalWeek;
   final String? initialBabyName;
 
+  /// Nguồn danh sách việc hôm nay; mặc định là [TodayTaskService.loadToday].
+  final Future<TodayTasksSnapshot> Function()? todayTasksLoader;
+
   static Future<ChecklistShareData?> show(
     BuildContext context, {
     String? initialStage,
     int? initialGestationalWeek,
     String? initialBabyName,
+    Future<TodayTasksSnapshot> Function()? todayTasksLoader,
   }) {
     return showModalBottomSheet<ChecklistShareData>(
       context: context,
@@ -38,6 +43,7 @@ class ShareChecklistDialog extends StatefulWidget {
         initialStage: initialStage,
         initialGestationalWeek: initialGestationalWeek,
         initialBabyName: initialBabyName,
+        todayTasksLoader: todayTasksLoader,
       ),
     );
   }
@@ -98,6 +104,7 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
   String? _journeyId;
   String _statusFilter = 'ALL'; // ALL, COMPLETED, PENDING
   String _targetFilter = 'ALL'; // ALL, MOTHER, BABY
+  String _timeframeScope = 'CURRENT'; // CURRENT (Tuần hiện tại), ALL (Toàn bộ lộ trình)
 
   List<_ChecklistShareItem> _historyItems = [];
   List<_ChecklistShareItem> _currentItems = [];
@@ -139,32 +146,6 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
     if (id.contains('13_18M')) return 'Bé · 13–18 tháng';
     if (id.contains('19_24M')) return 'Bé · 19–24 tháng';
     return defaultLabel;
-  }
-
-  bool _isBabyTodayTask(TodayTask t) {
-    if (t.careContextType?.toUpperCase() == 'JOURNEY' ||
-        t.target == TodayTaskTarget.mother ||
-        t.stage == TodayChecklistStage.pregnancy ||
-        t.stage == TodayChecklistStage.prePregnancy) {
-      return false;
-    }
-    if (t.stage == TodayChecklistStage.babyCare ||
-        t.target == TodayTaskTarget.baby ||
-        t.careContextType?.toUpperCase() == 'BABY') {
-      return true;
-    }
-    final label = (t.careContextLabel ?? '').trim().toLowerCase();
-    if (label.contains('mang thai') ||
-        label.contains('thai kỳ') ||
-        label.contains('chuẩn bị') ||
-        label.contains('mẹ')) {
-      return false;
-    }
-    final title = t.title.toLowerCase();
-    return title.contains('sơ sinh') ||
-        title.contains('chăm bé') ||
-        title.contains('em bé') ||
-        title.contains('trẻ sơ sinh');
   }
 
   Future<void> _loadAllChecklistData() async {
@@ -377,80 +358,70 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
       for (final f in _futureItems) f.text.trim().toLowerCase(),
     };
 
-    // 2. Load live today tasks from TodayTaskService (chỉ đồng bộ trạng thái cho lộ trình, không bỏ sót việc của bé)
+    // 2. "Hiện tại" = đúng các việc "Gợi ý CareBridge" mẹ đang thấy trên màn việc cần làm
+    //    (checklist hệ thống trong snapshot hôm nay, kể cả việc của bé). Không gộp thêm mẫu
+    //    lộ trình của cả tuần hay việc nhắc/việc cá nhân, để số việc & số đã xong luôn khớp.
+    var liveLoaded = false;
     try {
-      final snapshot = await TodayTaskService.instance.loadToday();
-      final liveTasks = snapshot.sections.all.toList();
-      if (liveTasks.isNotEmpty) {
-        final existingMap = {
-          for (final c in _currentItems) c.text.trim().toLowerCase(): c
-        };
+      final loader =
+          widget.todayTasksLoader ?? TodayTaskService.instance.loadToday;
+      final snapshot = await loader();
+      final existingMap = {
+        for (final c in _currentItems) c.text.trim().toLowerCase(): c
+      };
+      final seenIds = <String>{};
+      final updatedCurrent = <_ChecklistShareItem>[];
+      for (final t in snapshot.sections.all) {
+        if (!t.isCareBridgeSuggestion || !seenIds.add(t.id)) continue;
+        final key = t.title.trim().toLowerCase();
+        final existing = existingMap[key];
+        final isBaby = t.isBabyCare;
 
-        final updatedCurrent = <_ChecklistShareItem>[];
-        for (final t in liveTasks) {
-          final key = t.title.trim().toLowerCase();
-          final existing = existingMap[key];
-          final isRoadmapItem = roadmapTitleSet.contains(key);
-          final isBaby = _isBabyTodayTask(t) || (existing != null && existing.isBaby);
+        final babyName = isBaby
+            ? ((t.careContextType?.toUpperCase() == 'BABY' &&
+                    t.careContextLabel != null &&
+                    t.careContextLabel!.trim().isNotEmpty)
+                ? t.careContextLabel!.trim()
+                : (existing?.babyLabel ?? primaryBabyName))
+            : null;
+        final babyCategory = babyName != null && babyName.isNotEmpty
+            ? 'Chăm bé · $babyName'
+            : 'Chăm sóc bé';
+        final babyTimeLabel = babyName != null && babyName.isNotEmpty
+            ? 'Bé $babyName (Hôm nay)'
+            : 'Chăm bé (Hôm nay)';
 
-          // Loại bỏ tuyệt đối việc cá nhân tự tạo khi chia sẻ cho chuyên gia, nhưng giữ lại việc hệ thống gợi ý cho mẹ & bé
-          final isPersonalTask = (!isRoadmapItem && !isBaby && t.origin != TodayTaskOrigin.systemTemplate) ||
-              t.origin == TodayTaskOrigin.userCreated;
-
-          if (isPersonalTask) continue;
-
-          final babyName = isBaby
-              ? ((t.careContextType?.toUpperCase() == 'BABY' &&
-                      t.careContextLabel != null &&
-                      t.careContextLabel!.trim().isNotEmpty)
-                  ? t.careContextLabel!.trim()
-                  : (existing?.babyLabel ?? primaryBabyName))
-              : null;
-          final babyCategory = babyName != null && babyName.isNotEmpty
-              ? 'Chăm bé · $babyName'
-              : 'Chăm sóc bé';
-          final babyTimeLabel = babyName != null && babyName.isNotEmpty
-              ? 'Bé $babyName (Hôm nay)'
-              : 'Chăm bé (Hôm nay)';
-
-          updatedCurrent.add(_ChecklistShareItem(
-            id: t.id,
-            text: t.title,
-            completed: t.isCompleted,
-            category: existing?.category ?? (isBaby ? babyCategory : 'Khám thai & Y tế'),
-            timeLabel: existing?.timeLabel ??
-                (isBaby
-                    ? babyTimeLabel
-                    : (_stage == 'PRE_PREGNANCY'
-                        ? 'Chuẩn bị mang thai'
-                        : (_stage == 'POSTPARTUM'
-                            ? 'Sau sinh'
-                            : (_stage == 'BABY_CARE'
-                                ? 'Chăm sóc bé'
-                                : 'Tuần $currentWk (Hiện tại)')))),
-            section: 'CURRENT',
-            origin: 'SYSTEM',
-            createdBy: 'SYSTEM',
-            isBaby: isBaby,
-            babyLabel: babyName,
-          ));
-        }
-
-        // Add roadmap current items not in today tasks
-        for (final c in _currentItems) {
-          if (!updatedCurrent.any((u) => u.text.trim().toLowerCase() == c.text.trim().toLowerCase())) {
-            updatedCurrent.add(c);
-          }
-        }
-
-        _currentItems = updatedCurrent;
+        updatedCurrent.add(_ChecklistShareItem(
+          id: t.id,
+          text: t.title,
+          completed: t.isCompleted,
+          category: existing?.category ?? (isBaby ? babyCategory : 'Khám thai & Y tế'),
+          timeLabel: existing?.timeLabel ??
+              (isBaby
+                  ? babyTimeLabel
+                  : (_stage == 'PRE_PREGNANCY'
+                      ? 'Chuẩn bị mang thai'
+                      : (_stage == 'POSTPARTUM'
+                          ? 'Sau sinh'
+                          : (_stage == 'BABY_CARE'
+                              ? 'Chăm sóc bé'
+                              : 'Tuần $currentWk (Hiện tại)')))),
+          section: 'CURRENT',
+          origin: 'SYSTEM',
+          createdBy: 'SYSTEM',
+          isBaby: isBaby,
+          babyLabel: babyName,
+        ));
       }
+      _currentItems = updatedCurrent;
+      liveLoaded = true;
     } catch (_) {}
 
-    // 3. Synchronize with UserChecklistService: cập nhật trạng thái completed và nạp thêm việc checklist của bé
-    try {
-      final serverItems = await UserChecklistService.instance.listItems();
-      if (serverItems.isNotEmpty) {
+    // 3. Dự phòng khi không tải được việc hôm nay: đồng bộ trạng thái theo UserChecklistService
+    //    và nạp thêm việc checklist của bé.
+    if (!liveLoaded) {
+      try {
+        final serverItems = await UserChecklistService.instance.listItems();
         for (final si in serverItems) {
           final key = si.itemText.trim().toLowerCase();
           final isBabySi = si.category == ChecklistCategory.babyCare ||
@@ -489,24 +460,28 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
             ));
           }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     // 4. Lọc bỏ phòng vệ: Không để sót việc cá nhân nào
     _historyItems = _historyItems.where((i) => !i.isPersonal).toList();
     _currentItems = _currentItems.where((i) => !i.isPersonal).toList();
     _futureItems = _futureItems.where((i) => !i.isPersonal).toList();
 
-    // Lọc bỏ tuyệt đối: Các mục thuộc "Lịch sử đã qua" không được hiển thị ở "Tuần hiện tại"
-    final historyTextSet = _historyItems.map((h) => h.text.trim().toLowerCase()).toSet();
-    _currentItems = _currentItems.where((c) => !historyTextSet.contains(c.text.trim().toLowerCase())).toList();
+    if (!liveLoaded) {
+      // Dự phòng theo lộ trình: mục thuộc "Lịch sử đã qua" không hiển thị ở "Hiện tại"
+      // và bỏ mục trùng tiêu đề.
+      final historyTextSet = _historyItems.map((h) => h.text.trim().toLowerCase()).toSet();
+      final seen = <String>{};
+      _currentItems = _currentItems
+          .where((c) => !historyTextSet.contains(c.text.trim().toLowerCase()))
+          .where((c) => seen.add(c.text.trim().toLowerCase()))
+          .toList();
+    }
 
-    // Loại bỏ các mục trùng lặp trong _currentItems
-    final seen = <String>{};
-    _currentItems = _currentItems.where((c) => seen.add(c.text.trim().toLowerCase())).toList();
-
-    // Đảm bảo tương lai không trùng với hiện tại
+    // "Hiện tại" là nguồn chuẩn: lịch sử và tương lai không lặp lại việc đang hiển thị ở hiện tại
     final currentTextSet = _currentItems.map((c) => c.text.trim().toLowerCase()).toSet();
+    _historyItems = _historyItems.where((h) => !currentTextSet.contains(h.text.trim().toLowerCase())).toList();
     _futureItems = _futureItems.where((f) => !currentTextSet.contains(f.text.trim().toLowerCase())).toList();
 
     if (mounted) {
@@ -533,8 +508,12 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
       return true;
     }).toList();
 
+    final finalHistory = _timeframeScope == 'CURRENT' ? <_ChecklistShareItem>[] : targetHistory;
+    final finalCurrent = targetCurrent;
+    final finalFuture = _timeframeScope == 'CURRENT' ? <_ChecklistShareItem>[] : targetFuture;
+
     final totalCount =
-        targetHistory.length + targetCurrent.length + targetFuture.length;
+        finalHistory.length + finalCurrent.length + finalFuture.length;
 
     if (totalCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -543,9 +522,9 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
       return;
     }
 
-    final completedCount = targetHistory.where((i) => i.completed).length +
-        targetCurrent.where((i) => i.completed).length +
-        targetFuture.where((i) => i.completed).length;
+    final completedCount = finalHistory.where((i) => i.completed).length +
+        finalCurrent.where((i) => i.completed).length +
+        finalFuture.where((i) => i.completed).length;
     final percent =
         totalCount > 0 ? ((completedCount / totalCount) * 100).round() : 0;
 
@@ -598,7 +577,7 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
       note: _noteController.text.trim().isEmpty
           ? null
           : _noteController.text.trim(),
-      historyItems: targetHistory
+      historyItems: finalHistory
           .map((i) => ChecklistItemShareData(
                 text: i.text,
                 completed: i.completed,
@@ -610,7 +589,7 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                 doctorNote: i.doctorNote,
               ))
           .toList(),
-      currentItems: targetCurrent
+      currentItems: finalCurrent
           .map((i) => ChecklistItemShareData(
                 text: i.text,
                 completed: i.completed,
@@ -622,7 +601,7 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                 doctorNote: i.doctorNote,
               ))
           .toList(),
-      futureItems: targetFuture
+      futureItems: finalFuture
           .map((i) => ChecklistItemShareData(
                 text: i.text,
                 completed: i.completed,
@@ -777,8 +756,8 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                         ),
                         Text(
                           _gestationalWeek != null
-                              ? 'Mặc định gửi toàn bộ lộ trình cho chuyên gia · Tuần thai $_gestationalWeek'
-                              : 'Mặc định gửi toàn bộ lộ trình cho chuyên gia · $_stageLabel',
+                              ? 'Mặc định gửi toàn bộ hoặc tuần hiện tại cho chuyên gia · Tuần thai $_gestationalWeek'
+                              : 'Mặc định gửi toàn bộ hoặc giai đoạn hiện tại cho chuyên gia · $_stageLabel',
                           style: const TextStyle(
                             fontFamily: 'Lexend',
                             fontSize: 11,
@@ -819,6 +798,29 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                 ),
               ),
               const SizedBox(height: 8),
+
+              // Timeframe Scope Selector: Cho phép chọn gửi tuần hiện tại hoặc toàn bộ lộ trình
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildTimeframeChip(
+                      'CURRENT',
+                      _gestationalWeek != null
+                          ? 'Tuần hiện tại ($totalCurrent)'
+                          : 'Hiện tại ($totalCurrent)',
+                      Icons.today_rounded,
+                    ),
+                    const SizedBox(width: 6),
+                    _buildTimeframeChip(
+                      'ALL',
+                      'Toàn bộ lộ trình ($selectedTargetTotal)',
+                      Icons.alt_route_rounded,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
 
               // Target Scope Selector: Cho phép mẹ chọn gửi checklist của mẹ hoặc của bé
               if (hasBothTargets) ...[
@@ -877,11 +879,17 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _targetFilter == 'BABY'
-                            ? 'Sẽ gửi $selectedTargetTotal việc chăm sóc bé (Đã xong: $selectedTargetCompleted, Chờ làm: $selectedTargetPending)'
-                            : (_targetFilter == 'MOTHER'
-                                ? 'Sẽ gửi $selectedTargetTotal việc của mẹ (Đã xong: $selectedTargetCompleted, Chờ làm: $selectedTargetPending)'
-                                : 'Mặc định gửi toàn bộ $selectedTargetTotal việc Mẹ & Bé (Đã xong: $selectedTargetCompleted, Chờ làm: $selectedTargetPending)'),
+                        _timeframeScope == 'CURRENT'
+                            ? (_targetFilter == 'BABY'
+                                ? 'Sẽ gửi $totalCurrent việc chăm sóc bé tuần này (Đã xong: ${targetCurrentItems.where((i) => i.completed).length}, Chờ làm: ${totalCurrent - targetCurrentItems.where((i) => i.completed).length})'
+                                : (_targetFilter == 'MOTHER'
+                                    ? 'Sẽ gửi $totalCurrent việc của mẹ tuần này (Đã xong: ${targetCurrentItems.where((i) => i.completed).length}, Chờ làm: ${totalCurrent - targetCurrentItems.where((i) => i.completed).length})'
+                                    : 'Gửi $totalCurrent việc tuần hiện tại (Đã xong: ${targetCurrentItems.where((i) => i.completed).length}, Chờ làm: ${totalCurrent - targetCurrentItems.where((i) => i.completed).length}) · Mặc định gửi toàn bộ nếu chọn lộ trình'))
+                            : (_targetFilter == 'BABY'
+                                ? 'Sẽ gửi $selectedTargetTotal việc chăm sóc bé (Đã xong: $selectedTargetCompleted, Chờ làm: $selectedTargetPending)'
+                                : (_targetFilter == 'MOTHER'
+                                    ? 'Sẽ gửi $selectedTargetTotal việc của mẹ (Đã xong: $selectedTargetCompleted, Chờ làm: $selectedTargetPending)'
+                                    : 'Mặc định gửi toàn bộ $selectedTargetTotal việc Mẹ & Bé (Đã xong: $selectedTargetCompleted, Chờ làm: $selectedTargetPending)')),
                         style: TextStyle(
                           fontFamily: 'Lexend',
                           fontSize: 12,
@@ -943,12 +951,12 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                   ),
                 ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
               // Note field
               TextField(
                 controller: _noteController,
-                maxLines: 2,
+                maxLines: 1,
                 style: const TextStyle(fontFamily: 'Lexend', fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Thêm câu hỏi hoặc ghi chú cho Bác sĩ (tùy chọn)...',
@@ -957,7 +965,7 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                     fontSize: 12,
                     color: Color(0xFF9E8E8A),
                   ),
-                  contentPadding: const EdgeInsets.all(12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   filled: true,
                   fillColor: const Color(0xFFFAF7F6),
                   border: OutlineInputBorder(
@@ -974,7 +982,7 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Send button: Gửi toàn bộ hoặc theo đối tượng đã chọn
               FilledButton.icon(
@@ -982,11 +990,17 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                 onPressed: _loading ? null : _onConfirm,
                 icon: const Icon(Icons.send_rounded, size: 18),
                 label: Text(
-                  _targetFilter == 'BABY'
-                      ? 'Chia sẻ việc chăm sóc bé ($selectedTargetTotal việc)'
-                      : (_targetFilter == 'MOTHER'
-                          ? 'Chia sẻ việc của mẹ ($selectedTargetTotal việc)'
-                          : 'Chia sẻ toàn bộ việc cần làm ($totalAllItems việc)'),
+                  _timeframeScope == 'CURRENT'
+                      ? (_targetFilter == 'BABY'
+                          ? 'Chia sẻ việc chăm sóc bé tuần này ($totalCurrent việc)'
+                          : (_targetFilter == 'MOTHER'
+                              ? 'Chia sẻ việc của mẹ tuần này ($totalCurrent việc)'
+                              : 'Chia sẻ việc cần làm tuần này ($totalCurrent việc)'))
+                      : (_targetFilter == 'BABY'
+                          ? 'Chia sẻ việc chăm sóc bé ($selectedTargetTotal việc)'
+                          : (_targetFilter == 'MOTHER'
+                              ? 'Chia sẻ việc của mẹ ($selectedTargetTotal việc)'
+                              : 'Chia sẻ toàn bộ việc cần làm ($totalAllItems việc)')),
                   style: const TextStyle(
                     fontFamily: 'Lexend',
                     fontWeight: FontWeight.bold,
@@ -997,13 +1011,13 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
                   backgroundColor: _targetFilter == 'BABY'
                       ? const Color(0xFFD97706)
                       : _primary,
-                  minimumSize: const Size.fromHeight(48),
+                  minimumSize: const Size.fromHeight(44),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
             ],
           ),
         ),
@@ -1011,9 +1025,45 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
     );
   }
 
+  Widget _buildTimeframeChip(String key, String label, IconData icon) {
+    final selected = _timeframeScope == key;
+    return ChoiceChip(
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      avatar: Icon(
+        icon,
+        size: 14,
+        color: selected ? Colors.white : _primary,
+      ),
+      label: Text(label),
+      selected: selected,
+      selectedColor: _primary,
+      backgroundColor: const Color(0xFFFAF7F6),
+      labelStyle: TextStyle(
+        fontFamily: 'Lexend',
+        fontSize: 11,
+        fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+        color: selected ? Colors.white : _textDark,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: selected ? _primary : const Color(0xFFE8D5CE),
+        ),
+      ),
+      onSelected: (val) {
+        if (val) {
+          setState(() => _timeframeScope = key);
+        }
+      },
+    );
+  }
+
   Widget _buildStatusChip(String key, String label) {
     final selected = _statusFilter == key;
     return ChoiceChip(
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       label: Text(label),
       selected: selected,
       selectedColor: _primary,
@@ -1041,6 +1091,8 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
   Widget _buildTargetChip(String key, String label, IconData icon) {
     final selected = _targetFilter == key;
     return ChoiceChip(
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       avatar: Icon(
         icon,
         size: 14,

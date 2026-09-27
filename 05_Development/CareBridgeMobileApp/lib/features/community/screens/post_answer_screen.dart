@@ -156,7 +156,7 @@ class _PostAnswerScreenState extends State<PostAnswerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Không thể thêm ảnh: $e')));
+        ).showSnackBar(SnackBar(content: Text('Không thể thêm ảnh: ${userErrorMessage(e)}')));
       }
     }
   }

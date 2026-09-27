@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createStaffAccount } from '../services/adminUserApi';
 import type { CreateStaffAccountRequest, StaffAccountResult, StaffRole } from '../models/adminUser';
+import { INVALID_EMAIL_ERROR, isDeliverableEmail } from '../../../shared/utils/email';
 
 const STAFF_ROLES: Array<{ value: StaffRole; label: string; description: string; icon: string }> = [
   { value: 'MODERATOR', label: 'Kiểm duyệt viên', description: 'Xử lý báo cáo và nội dung vi phạm trên cộng đồng.', icon: 'shield' },
@@ -18,10 +19,18 @@ export default function CreateStaffAccountPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!isDeliverableEmail(form.email)) {
+      setError(INVALID_EMAIL_ERROR);
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     try {
-      setResult(await createStaffAccount({ ...form, phone: form.phone?.trim() || undefined }));
+      setResult(await createStaffAccount({
+        ...form,
+        email: form.email.trim(),
+        phone: form.phone?.trim() || undefined,
+      }));
     } catch {
       setError('Không thể tạo tài khoản. Email hoặc số điện thoại có thể đã tồn tại, hoặc email thông tin đăng nhập không gửi được.');
     } finally {

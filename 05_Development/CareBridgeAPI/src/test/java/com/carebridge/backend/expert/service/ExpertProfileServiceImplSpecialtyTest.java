@@ -20,6 +20,7 @@ import com.carebridge.backend.masterdata.repository.SpecialtyRepository;
 import com.carebridge.backend.map.entity.CareFacility;
 import com.carebridge.backend.map.repository.CareFacilityRepository;
 import com.carebridge.backend.security.repository.UserRepository;
+import com.carebridge.backend.security.service.EmailService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +40,7 @@ class ExpertProfileServiceImplSpecialtyTest {
     @Mock private ExpertIdentityVerificationRepository identityRepository;
     @Mock private ExpertCredentialRepository credentialRepository;
     @Mock private AuditService auditService;
+    @Mock private EmailService emailService;
     @Mock private SpecialtyRepository specialtyRepository;
     @Mock private CareFacilityRepository facilityRepository;
     @Mock private ProfessionalSpecialtyRepository professionalSpecialtyRepository;
@@ -50,7 +52,7 @@ class ExpertProfileServiceImplSpecialtyTest {
     void setUp() {
         service = new ExpertProfileServiceImpl(profileRepository, userRepository,
             new ExpertProfileMapper(), identityRepository, credentialRepository, auditService,
-            specialtyRepository, facilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository);
+            specialtyRepository, facilityRepository, professionalSpecialtyRepository, expertAvailabilityRepository, emailService);
     }
 
     @Test

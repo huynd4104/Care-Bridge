@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +48,17 @@ public class ChecklistSequenceResolver {
     private final ChecklistTaskInstanceRepository taskRepository;
     private final MotherJourneyRepository journeyRepository;
     private final ChecklistItemRepository itemRepository;
+    private ChecklistContraindicationPolicy contraindicationPolicy;
+
+    @Autowired(required = false)
+    void setContraindicationPolicy(ChecklistContraindicationPolicy contraindicationPolicy) {
+        this.contraindicationPolicy = contraindicationPolicy;
+    }
+
+    /** Task ẩn do chống chỉ định không chặn việc chuyển sang bộ checklist tiếp theo. */
+    public Set<UUID> contraindicatedTaskIds(ChecklistInstance instance, List<ChecklistTaskInstance> tasks) {
+        return contraindicationPolicy == null ? Set.of() : contraindicationPolicy.hiddenTaskIds(instance, tasks);
+    }
 
     public ChecklistSequenceResolver(
             ChecklistTemplateRepository templateRepository,
@@ -181,12 +193,8 @@ public class ChecklistSequenceResolver {
         }
         List<ChecklistTaskInstance> tasks = taskRepository
                 .findByChecklistInstanceIdOrderByDisplayOrder(current.getId());
-        long requiredCount = tasks.stream().filter(task -> Boolean.TRUE.equals(task.getRequired())).count();
-        long completedRequired = tasks.stream()
-                .filter(task -> Boolean.TRUE.equals(task.getRequired()))
-                .filter(task -> task.getStatus() == ChecklistTaskStatus.COMPLETED)
-                .count();
-        boolean qualified = requiredCount > 0 && requiredCount == completedRequired;
+        boolean qualified = ChecklistContraindicationPolicy.allVisibleRequiredCompleted(
+                tasks, contraindicatedTaskIds(current, tasks));
         int qualifiedPositions = Math.max(0, currentPosition - (qualified ? 0 : 1));
         ChecklistTemplate successor = chain.activeByPosition().get(currentPosition + 1);
         boolean successorExpected = chain.positions().containsKey(currentPosition + 1);

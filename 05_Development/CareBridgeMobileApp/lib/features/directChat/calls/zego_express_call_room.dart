@@ -71,7 +71,8 @@ class _ZegoExpressCallRoomState extends State<ZegoExpressCallRoom>
     _cameraEnabled = widget.isVideo;
     _speakerEnabled = widget.isVideo;
     _platformCapabilities = RtcPlatformCapabilities.current();
-    _localStreamId = 'stream_${widget.credentials.userId}';
+    _localStreamId =
+        '${widget.credentials.roomId}_${widget.credentials.userId}_main';
     unawaited(_initialize());
   }
 
@@ -106,15 +107,30 @@ class _ZegoExpressCallRoomState extends State<ZegoExpressCallRoom>
         return;
       }
 
+      bool previewStarted = false;
+      void tryStartPreview(int viewId) {
+        if (!_active || !widget.isVideo || previewStarted) return;
+        previewStarted = true;
+        unawaited(
+          ZegoExpressEngine.instance.startPreview(
+            canvas: ZegoCanvas.view(viewId)..viewMode = ZegoViewMode.AspectFill,
+          ),
+        );
+      }
+
       if (widget.isVideo) {
         stage = RtcSetupStage.canvasCreation;
         final localView = await ZegoExpressEngine.instance.createCanvasView((
           viewId,
         ) {
           _localViewId = viewId;
+          tryStartPreview(viewId);
         });
         if (!_active) return;
         setState(() => _localView = localView);
+        if (_localViewId != null) {
+          tryStartPreview(_localViewId!);
+        }
       }
 
       stage = RtcSetupStage.roomLogin;
@@ -142,13 +158,11 @@ class _ZegoExpressCallRoomState extends State<ZegoExpressCallRoom>
         setter: ZegoExpressEngine.instance.setAudioRouteToSpeaker,
       );
       if (widget.isVideo && _localViewId != null) {
-        await ZegoExpressEngine.instance.startPreview(
-          canvas: ZegoCanvas.view(_localViewId!),
-        );
+        tryStartPreview(_localViewId!);
       }
       stage = RtcSetupStage.mediaPublish;
-      await _syncStreamExtraInfo();
       await ZegoExpressEngine.instance.startPublishingStream(_localStreamId);
+      await _syncStreamExtraInfo();
       await _startLocalRecording();
     } on RtcSetupException catch (error, stackTrace) {
       _debugLogFailure(
@@ -226,15 +240,17 @@ class _ZegoExpressCallRoomState extends State<ZegoExpressCallRoom>
     };
     ZegoExpressEngine.onPublisherStateUpdate =
         (streamId, state, errorCode, extendedData) {
-          if (_active &&
-              streamId == _localStreamId &&
-              state == ZegoPublisherState.NoPublish &&
-              errorCode != 0) {
-            debugLogRtcSdkError(
-              category: RtcFailureCategory.mediaPublish,
-              errorCode: errorCode,
-            );
-            widget.onError('Không thể gửi media (mã $errorCode).');
+          if (_active && streamId == _localStreamId) {
+            if (state == ZegoPublisherState.Publishing) {
+              unawaited(_syncStreamExtraInfo());
+            } else if (state == ZegoPublisherState.NoPublish &&
+                errorCode != 0) {
+              debugLogRtcSdkError(
+                category: RtcFailureCategory.mediaPublish,
+                errorCode: errorCode,
+              );
+              widget.onError('Không thể gửi media (mã $errorCode).');
+            }
           }
         };
     ZegoExpressEngine.onPlayerStateUpdate =
@@ -268,18 +284,30 @@ class _ZegoExpressCallRoomState extends State<ZegoExpressCallRoom>
         await ZegoExpressEngine.instance.startPlayingStream(streamId);
         return;
       }
+      bool streamPlayingStarted = false;
+      void tryStartPlaying(int viewId) {
+        if (!_active || _remoteStreamId != streamId || streamPlayingStarted) {
+          return;
+        }
+        streamPlayingStarted = true;
+        unawaited(
+          ZegoExpressEngine.instance.startPlayingStream(
+            streamId,
+            canvas: ZegoCanvas.view(viewId)..viewMode = ZegoViewMode.AspectFill,
+          ),
+        );
+      }
+
       final remoteView = await ZegoExpressEngine.instance.createCanvasView((
         viewId,
       ) {
         _remoteViewId = viewId;
+        tryStartPlaying(viewId);
       });
       if (!_active || _remoteStreamId != streamId) return;
       if (mounted) setState(() => _remoteView = remoteView);
       if (_remoteViewId != null) {
-        await ZegoExpressEngine.instance.startPlayingStream(
-          streamId,
-          canvas: ZegoCanvas.view(_remoteViewId!),
-        );
+        tryStartPlaying(_remoteViewId!);
       }
     } catch (error, stackTrace) {
       _debugLogFailure(
@@ -331,13 +359,22 @@ class _ZegoExpressCallRoomState extends State<ZegoExpressCallRoom>
   }
 
   Future<void> _syncStreamExtraInfo() async {
-    await ZegoExpressEngine.instance.setStreamExtraInfo(
-      buildZegoUIKitStreamExtraInfo(
-        isCameraOn: widget.isVideo && _cameraEnabled,
-        isMicrophoneOn: !_microphoneMuted,
-        hasVideo: widget.isVideo,
-      ),
-    );
+    try {
+      final result = await ZegoExpressEngine.instance.setStreamExtraInfo(
+        buildZegoUIKitStreamExtraInfo(
+          isCameraOn: widget.isVideo && _cameraEnabled,
+          isMicrophoneOn: !_microphoneMuted,
+          hasVideo: widget.isVideo,
+        ),
+      );
+      if (result.errorCode != 0) {
+        debugPrint(
+          '[ZegoExpressCallRoom] setStreamExtraInfo failed (code ${result.errorCode})',
+        );
+      }
+    } catch (e) {
+      debugPrint('[ZegoExpressCallRoom] setStreamExtraInfo exception: $e');
+    }
   }
 
   Future<void> _switchCamera() async {

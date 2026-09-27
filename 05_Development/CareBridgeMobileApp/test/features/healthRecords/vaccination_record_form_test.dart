@@ -98,4 +98,46 @@ void main() {
     // Verify Save Button text
     expect(find.text('Lưu hồ sơ tiêm'), findsOneWidget);
   });
+
+  testWidgets('VaccinationRecordFormScreen validates dose number range 1 to 20', (tester) async {
+    tester.view.physicalSize = const Size(400 * 2, 1200 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: VaccinationRecordFormScreen(
+          babyId: 'baby-1',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Fill valid vaccine name
+    await tester.enterText(find.byType(TextFormField).first, 'Vắc-xin 6 trong 1');
+
+    // Test empty dose
+    await tester.tap(find.text('Lưu hồ sơ tiêm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vui lòng nhập số mũi tiêm'), findsOneWidget);
+
+    // Test dose 0
+    await tester.enterText(find.byType(TextFormField).at(1), '0');
+    await tester.tap(find.text('Lưu hồ sơ tiêm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Số mũi tiêm phải từ 1 đến 20'), findsOneWidget);
+
+    // Test dose 25 (> 20)
+    await tester.enterText(find.byType(TextFormField).at(1), '25');
+    await tester.tap(find.text('Lưu hồ sơ tiêm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Số mũi tiêm phải từ 1 đến 20'), findsOneWidget);
+
+    // Test valid dose 3
+    await tester.enterText(find.byType(TextFormField).at(1), '3');
+    await tester.tap(find.text('Lưu hồ sơ tiêm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Số mũi tiêm phải từ 1 đến 20'), findsNothing);
+  });
 }

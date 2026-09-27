@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import '../models/growth_measurement_model.dart';
 import '../services/growth_measurement_service.dart';
 import 'growth_measurement_form_screen.dart';
+import '../../../core/network/api_error_message.dart';
 
 class GrowthMeasurementDetailScreen extends StatefulWidget {
   final String babyId;
   final GrowthMeasurement measurement;
+  final DateTime? birthDate;
 
   const GrowthMeasurementDetailScreen({
     super.key,
     required this.babyId,
     required this.measurement,
+    this.birthDate,
   });
 
   @override
@@ -59,7 +62,7 @@ class _GrowthMeasurementDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ).showSnackBar(SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')));
       }
     } finally {
       if (mounted) {
@@ -74,6 +77,7 @@ class _GrowthMeasurementDetailScreenState
         builder: (_) => GrowthMeasurementFormScreen(
           babyId: widget.babyId,
           measurement: widget.measurement,
+          birthDate: widget.birthDate,
         ),
       ),
     );

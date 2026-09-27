@@ -5,6 +5,7 @@ import '../../baby/models/baby_model.dart';
 import '../../baby/services/baby_service.dart';
 import '../models/reminder_model.dart';
 import '../services/reminder_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 class CreateVaccinationReminderScreen extends StatefulWidget {
   final String? initialBabyId;
@@ -260,7 +261,7 @@ class _CreateVaccinationReminderScreenState
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showError('Không thể lưu nhắc lịch tiêm chủng: $e');
+      _showError('Không thể lưu nhắc lịch tiêm chủng: ${userErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

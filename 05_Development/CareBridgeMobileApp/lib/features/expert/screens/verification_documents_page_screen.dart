@@ -5,6 +5,7 @@ import 'package:mime/mime.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../utils/expert_validation.dart';
 
 class VerificationDocumentsPageScreen extends StatefulWidget {
   const VerificationDocumentsPageScreen({super.key});
@@ -128,18 +129,46 @@ class _VerificationDocumentsPageScreenState
     }
   }
 
-  Future<void> _selectDate(TextEditingController controller) async {
-    final now = DateTime.now();
+  // Ngày cấp chỉ được chọn đến hôm nay; ngày hết hạn chỉ được chọn từ ngày mai. Trước
+  // đây cả hai ô cho chọn từ 1970 đến 2040, nên chọn được ngày cấp ở tương lai.
+  Future<void> _selectDate(
+    TextEditingController controller, {
+    required DateTime firstDate,
+    required DateTime lastDate,
+  }) async {
+    final current = DateTime.tryParse(controller.text.trim());
+    final today = localToday();
+    var initial = current ?? today;
+    if (initial.isBefore(firstDate)) initial = firstDate;
+    if (initial.isAfter(lastDate)) initial = lastDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: now,
-      firstDate: DateTime(1970),
-      lastDate: DateTime(2040),
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked != null) {
-      controller.text = DateFormat('yyyy-MM-dd').format(picked);
+      setState(() => controller.text = DateFormat('yyyy-MM-dd').format(picked));
     }
   }
+
+  DateTime? get _issuedDate => DateTime.tryParse(_issuedDateCtrl.text.trim());
+  DateTime? get _expiryDate => DateTime.tryParse(_expiryDateCtrl.text.trim());
+  CredentialDateErrors get _dateErrors =>
+      credentialDateErrors(_issuedDate, _expiryDate);
+  String? get _numberError => textFieldError(
+    _numberCtrl.text,
+    label: 'số chứng chỉ',
+    max: maxCredentialNumber,
+  );
+  String? get _customIssuerError => _selectedIssuer == 'Khác'
+      ? textFieldError(
+          _customIssuerCtrl.text,
+          label: 'tên cơ quan cấp',
+          max: maxIssuer,
+          required: true,
+        )
+      : null;
 
   Future<void> _submitUpload() async {
     if (_selectedType == null ||
@@ -154,6 +183,14 @@ class _VerificationDocumentsPageScreenState
       );
       return;
     }
+    final fieldError =
+        _numberError ?? _customIssuerError ?? _dateErrors.first;
+    if (fieldError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(fieldError)),
+      );
+      return;
+    }
 
     setState(() {
       _submitting = true;
@@ -164,8 +201,7 @@ class _VerificationDocumentsPageScreenState
       final bytes = _selectedFile!.bytes;
       if (bytes == null) throw Exception('Tệp không hợp lệ');
 
-      final issuerVal = _selectedIssuer == 'Khác' &&
-              _customIssuerCtrl.text.trim().isNotEmpty
+      final issuerVal = _selectedIssuer == 'Khác'
           ? _customIssuerCtrl.text.trim()
           : (_selectedIssuer ?? '');
 
@@ -207,9 +243,12 @@ class _VerificationDocumentsPageScreenState
       }
     } catch (e) {
       if (mounted) {
+        final serverMessage = e is ApiException ? e.displayMessage : '';
         setState(() {
           _submitting = false;
-          _errorMsg = 'Tải lên chứng chỉ thất bại. Vui lòng thử lại.';
+          _errorMsg = serverMessage.isNotEmpty
+              ? serverMessage
+              : 'Tải lên chứng chỉ thất bại. Vui lòng thử lại.';
         });
       }
     }
@@ -417,8 +456,11 @@ class _VerificationDocumentsPageScreenState
                           _buildLabel('Số chứng chỉ / Số hiệu'),
                           TextField(
                             controller: _numberCtrl,
+                            maxLength: maxCredentialNumber,
+                            onChanged: (_) => setState(() {}),
                             decoration: _inputDecoration(
                               hint: 'VD: 012345/BYT-CCHN...',
+                              errorText: _numberError,
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -449,8 +491,13 @@ class _VerificationDocumentsPageScreenState
                             const SizedBox(height: 8),
                             TextField(
                               controller: _customIssuerCtrl,
+                              maxLength: maxIssuer,
+                              onChanged: (_) => setState(() {}),
                               decoration: _inputDecoration(
                                 hint: 'Nhập tên cơ quan cấp...',
+                                errorText: _customIssuerCtrl.text.isEmpty
+                                    ? null
+                                    : _customIssuerError,
                               ),
                             ),
                           ],
@@ -466,9 +513,16 @@ class _VerificationDocumentsPageScreenState
                                     TextField(
                                       controller: _issuedDateCtrl,
                                       readOnly: true,
-                                      onTap: () => _selectDate(_issuedDateCtrl),
+                                      onTap: () => _selectDate(
+                                        _issuedDateCtrl,
+                                        firstDate: earliestIssuedDate,
+                                        lastDate: localToday(),
+                                      ),
                                       decoration: _inputDecoration(
                                         hint: 'YYYY-MM-DD',
+                                        errorText: _issuedDateCtrl.text.isEmpty
+                                            ? null
+                                            : _dateErrors.issuedDate,
                                         suffixIcon: const Icon(
                                           Icons.calendar_today,
                                           size: 18,
@@ -487,9 +541,15 @@ class _VerificationDocumentsPageScreenState
                                     TextField(
                                       controller: _expiryDateCtrl,
                                       readOnly: true,
-                                      onTap: () => _selectDate(_expiryDateCtrl),
+                                      onTap: () => _selectDate(
+                                        _expiryDateCtrl,
+                                        firstDate: localToday()
+                                            .add(const Duration(days: 1)),
+                                        lastDate: DateTime(2100),
+                                      ),
                                       decoration: _inputDecoration(
                                         hint: 'YYYY-MM-DD',
+                                        errorText: _dateErrors.expiryDate,
                                         suffixIcon: const Icon(
                                           Icons.calendar_today,
                                           size: 18,
@@ -863,9 +923,15 @@ class _VerificationDocumentsPageScreenState
     );
   }
 
-  InputDecoration _inputDecoration({required String hint, Widget? suffixIcon}) {
+  InputDecoration _inputDecoration({
+    required String hint,
+    Widget? suffixIcon,
+    String? errorText,
+  }) {
     return InputDecoration(
       hintText: hint,
+      errorText: errorText,
+      errorMaxLines: 2,
       hintStyle: const TextStyle(
         fontFamily: 'Lexend',
         fontSize: 14,

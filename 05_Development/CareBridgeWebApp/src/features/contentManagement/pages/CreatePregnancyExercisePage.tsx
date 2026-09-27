@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  adminExerciseLimits,
+  validateAdminExerciseForm,
   type AdminExerciseFieldErrors,
   type AdminExerciseForm,
   type AdminExerciseFormField,
@@ -25,28 +25,6 @@ const initialForm: AdminExerciseForm = {
   safetyWarning: '',
   supportsPostureAnalysis: false,
 };
-
-function validateForm(form: AdminExerciseForm): AdminExerciseFieldErrors {
-  const errors: AdminExerciseFieldErrors = {};
-  if (!form.title.trim()) {
-    errors.title = 'Vui lòng nhập tên bài tập.';
-  } else if (form.title.length > adminExerciseLimits.titleMaxLength) {
-    errors.title = `Tên bài tập không được vượt quá ${adminExerciseLimits.titleMaxLength} ký tự.`;
-  }
-
-  if (!form.safetyWarning.trim()) {
-    errors.safetyWarning = 'Vui lòng nhập hướng dẫn an toàn.';
-  } else if (form.safetyWarning.length > adminExerciseLimits.safetyWarningMaxLength) {
-    errors.safetyWarning = `Hướng dẫn an toàn không được vượt quá ${adminExerciseLimits.safetyWarningMaxLength} ký tự.`;
-  }
-
-  if (!Number.isInteger(form.durationMinutes)
-      || form.durationMinutes < adminExerciseLimits.durationMinutesMin
-      || form.durationMinutes > adminExerciseLimits.durationMinutesMax) {
-    errors.durationMinutes = 'Thời lượng phải là số nguyên từ 1 đến 180 phút.';
-  }
-  return errors;
-}
 
 export default function CreatePregnancyExercisePage() {
   const navigate = useNavigate();
@@ -79,7 +57,7 @@ export default function CreatePregnancyExercisePage() {
 
   const persist = async (previewAfterSave: boolean) => {
     if (isSaving) return;
-    const validationErrors = validateForm(form);
+    const validationErrors = validateAdminExerciseForm(form);
     setFieldErrors(validationErrors);
     setError('');
     setNotice('');

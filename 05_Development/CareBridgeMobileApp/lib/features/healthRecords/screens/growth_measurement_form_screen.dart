@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/growth_measurement_model.dart';
 import '../services/growth_measurement_service.dart';
+import '../../baby/services/baby_service.dart';
+import '../../../core/network/api_error_message.dart';
+import '../../../core/utils/decimal_input.dart';
 
 /// Shared form for creating and editing a baby growth measurement.
 ///
@@ -9,8 +12,10 @@ import '../services/growth_measurement_service.dart';
 /// validation and payload mapping here prevents the two flows from drifting.
 class GrowthMeasurementFormScreen extends StatefulWidget {
   final String babyId;
+  final DateTime? birthDate;
   final GrowthMeasurement? measurement;
   final GrowthMeasurementService? service;
+  final BabyService? babyService;
   final Future<void> Function(String babyId, Map<String, dynamic> payload)?
   onAdd;
   final Future<void> Function(
@@ -23,8 +28,10 @@ class GrowthMeasurementFormScreen extends StatefulWidget {
   const GrowthMeasurementFormScreen({
     super.key,
     required this.babyId,
+    this.birthDate,
     this.measurement,
     this.service,
+    this.babyService,
     this.onAdd,
     this.onUpdate,
   });
@@ -39,6 +46,7 @@ class GrowthMeasurementFormScreen extends StatefulWidget {
 class _GrowthMeasurementFormScreenState
     extends State<GrowthMeasurementFormScreen> {
   late DateTime _measuredDate;
+  DateTime? _birthDate;
   late final TextEditingController _weightController;
   late final TextEditingController _heightController;
   late final TextEditingController _headController;
@@ -50,12 +58,18 @@ class _GrowthMeasurementFormScreenState
 
   GrowthMeasurementService get _service =>
       widget.service ?? GrowthMeasurementService();
+  late final BabyService _babyService;
 
   @override
   void initState() {
     super.initState();
+    _babyService = widget.babyService ?? BabyService();
+    _birthDate = widget.birthDate != null ? DateUtils.dateOnly(widget.birthDate!) : null;
     final existing = widget.measurement;
     _measuredDate = existing?.measuredAt ?? DateUtils.dateOnly(DateTime.now());
+    if (_birthDate == null) {
+      _loadBabyProfile();
+    }
     _weightController = TextEditingController(
       text: existing?.weightKg?.toString() ?? '',
     );
@@ -68,6 +82,19 @@ class _GrowthMeasurementFormScreenState
     _noteController = TextEditingController(text: existing?.note ?? '');
   }
 
+  Future<void> _loadBabyProfile() async {
+    try {
+      final baby = await _babyService.getBabyProfile(widget.babyId);
+      if (mounted) {
+        setState(() {
+          _birthDate = DateUtils.dateOnly(baby.birthDate);
+        });
+      }
+    } catch (_) {
+      // Fallback date limits will still apply
+    }
+  }
+
   @override
   void dispose() {
     _weightController.dispose();
@@ -78,12 +105,34 @@ class _GrowthMeasurementFormScreenState
   }
 
   Future<void> _pickDate() async {
-    final today = DateUtils.dateOnly(DateTime.now());
+    final now = DateTime.now();
+    final today = DateUtils.dateOnly(now);
+    final birth = _birthDate != null ? DateUtils.dateOnly(_birthDate!) : null;
+
+    DateTime firstDate;
+    if (birth != null) {
+      firstDate = birth.isAfter(today) ? today : birth;
+    } else {
+      firstDate = DateTime(2000);
+    }
+
+    DateTime lastDate = today;
+    if (firstDate.isAfter(lastDate)) {
+      firstDate = lastDate;
+    }
+
+    DateTime initialDate = DateUtils.dateOnly(_measuredDate);
+    if (initialDate.isBefore(firstDate)) {
+      initialDate = firstDate;
+    } else if (initialDate.isAfter(lastDate)) {
+      initialDate = lastDate;
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _measuredDate.isAfter(today) ? today : _measuredDate,
-      firstDate: DateTime(1900),
-      lastDate: today,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       helpText: 'Chọn ngày đo',
       cancelText: 'Hủy',
       confirmText: 'Chọn',
@@ -95,6 +144,15 @@ class _GrowthMeasurementFormScreenState
       });
     }
   }
+
+  // Trẻ 0–24 tháng (chuẩn WHO, chừa biên cho trẻ sinh non và bệnh lý).
+  // Khớp @DecimalMin/@DecimalMax của AddGrowthMeasurementRequest ở backend.
+  static const double _minWeightKg = 0.5;
+  static const double _maxWeightKg = 20;
+  static const double _minHeightCm = 20;
+  static const double _maxHeightCm = 100;
+  static const double _minHeadCm = 20;
+  static const double _maxHeadCm = 60;
 
   double? _parseMetric(TextEditingController controller) {
     final text = controller.text.trim().replaceAll(',', '.');
@@ -124,12 +182,34 @@ class _GrowthMeasurementFormScreenState
       setState(() => _validationError = 'Ngày đo không được ở tương lai.');
       return;
     }
+    if (_birthDate != null && _measuredDate.isBefore(DateUtils.dateOnly(_birthDate!))) {
+      setState(() => _validationError = 'Ngày đo không thể trước ngày sinh của bé.');
+      return;
+    }
     if (hasInvalidNumber) {
       setState(() => _validationError = 'Nhập số đo hợp lệ.');
       return;
     }
-    if ([weight, height, head].whereType<double>().any((value) => value < 0)) {
+    final enteredMetrics = [weight, height, head].whereType<double>().toList();
+    if (enteredMetrics.any((value) => value < 0)) {
       setState(() => _validationError = 'Số đo không được là số âm.');
+      return;
+    }
+    if (enteredMetrics.any((value) => value == 0)) {
+      setState(() => _validationError = 'Số đo phải lớn hơn 0.');
+      return;
+    }
+    bool outside(double? v, double min, double max) =>
+        v != null && (v < min || v > max);
+    final overLimit = outside(weight, _minWeightKg, _maxWeightKg)
+        ? 'Cân nặng phải từ ${formatDecimalBound(_minWeightKg)} đến ${formatDecimalBound(_maxWeightKg)} kg.'
+        : outside(height, _minHeightCm, _maxHeightCm)
+        ? 'Chiều cao phải từ ${formatDecimalBound(_minHeightCm)} đến ${formatDecimalBound(_maxHeightCm)} cm.'
+        : outside(head, _minHeadCm, _maxHeadCm)
+        ? 'Vòng đầu phải từ ${formatDecimalBound(_minHeadCm)} đến ${formatDecimalBound(_maxHeadCm)} cm.'
+        : null;
+    if (overLimit != null) {
+      setState(() => _validationError = overLimit);
       return;
     }
     if (weight == null && height == null && head == null) {
@@ -197,11 +277,14 @@ class _GrowthMeasurementFormScreenState
         }
       }
       if (mounted) Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _isSaving = false;
-          _saveError = 'Không thể lưu số đo. Kiểm tra kết nối và thử lại.';
+          _saveError = userErrorMessage(
+            e,
+            fallback: 'Không thể lưu số đo. Vui lòng thử lại.',
+          );
         });
       }
     }
@@ -287,13 +370,28 @@ class _GrowthMeasurementFormScreenState
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: Text(
-                                  _displayDate(_measuredDate),
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1D1B19),
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _displayDate(_measuredDate),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF1D1B19),
+                                      ),
+                                    ),
+                                    if (_birthDate != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Từ ngày sinh: ${_displayDate(_birthDate!)}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF845143),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                               const Icon(
@@ -561,6 +659,9 @@ class _GrowthMeasurementFormScreenState
           key: key,
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            DecimalTextInputFormatter(maxIntegerDigits: 3, maxFractionDigits: 2),
+          ],
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,

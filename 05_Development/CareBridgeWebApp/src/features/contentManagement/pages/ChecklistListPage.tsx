@@ -491,7 +491,10 @@ export default function ChecklistListPage() {
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${stageBadgeClass(checklist.stage)}`}>
                             {checklist.stage ? STAGE_LABELS[checklist.stage] : 'Không áp dụng'}
                           </span>
-                          <span className="inline-flex items-center rounded-full bg-surface-container-low px-2.5 py-0.5 text-xs text-on-surface-variant font-medium">
+                          <span
+                            title={checklist.substage?.code ?? undefined}
+                            className="inline-flex items-center rounded-full bg-surface-container-low px-2.5 py-0.5 text-xs text-on-surface-variant font-medium"
+                          >
                             {checklistWindowLabel(checklist)}
                           </span>
                           {checklist.planNumber != null && (

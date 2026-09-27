@@ -114,6 +114,9 @@ export interface ExpertOnboardingResponse {
 	verificationStatus: string | null;
 	rejectionReason?: string | null;
 	expertType?: ExpertType | null;
+	/** Bước máy chủ chấm là sai; null khi hồ sơ không bị từ chối. */
+	rejectedStep?: ExpertOnboardingStep | null;
+	canResubmit?: boolean;
 	nextStep: ExpertOnboardingStep;
 	latestIdentityAttempt: IdentityAttemptResponse | null;
 }
@@ -389,6 +392,17 @@ export async function acceptContract(body: {
 }): Promise<ContractAcceptanceResponse> {
 	const { data } = await apiClient.post('/api/v1/expert/contract/accept', body);
 	return data.data;
+}
+
+/**
+ * Nộp lại hồ sơ sau khi bị quản trị viên từ chối.
+ *
+ * Backend đã có sẵn endpoint này từ trước: nó chỉ chấp nhận khi hồ sơ đang ở
+ * REJECTED hoặc EXPIRED, và đưa trạng thái về PENDING để admin xét lại. Trước
+ * đây không có chỗ nào trong web gọi tới, nên chuyên gia bị từ chối là kẹt hẳn.
+ */
+export async function renewVerification(): Promise<void> {
+	await apiClient.post('/api/v1/expert/profiles/me/renew');
 }
 
 export async function getExpertOnboarding(): Promise<ExpertOnboardingResponse> {

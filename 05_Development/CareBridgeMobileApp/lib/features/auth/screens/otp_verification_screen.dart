@@ -350,6 +350,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           controller: _cellCtrls[index],
           focusNode: _focusNodes[index],
           keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           maxLength: 1,
           textAlign: TextAlign.center,
           onChanged: (v) => _onCellChanged(index, v),

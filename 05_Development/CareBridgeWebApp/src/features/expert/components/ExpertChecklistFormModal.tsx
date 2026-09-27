@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getApiErrorMessage } from '../../../shared/api/apiErrorMessage';
 import {
   CalendarRange,
   ClipboardList,
@@ -11,6 +12,7 @@ import {
   type ChecklistShareData,
   type ChecklistItemShareData,
   savePersonalizedChecklist,
+  CAREBRIDGE_ROADMAP_TITLES,
 } from '../services/expertSharedRecordsService';
 import {
   CHECKLIST_SUPPORT_FUNCTION_OPTIONS,
@@ -151,6 +153,11 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
       return;
     }
 
+    if (mode === 'EDIT' && initialItem?.completed) {
+      setErrorMsg('Không thể chỉnh sửa việc cần làm đã hoàn thành.');
+      return;
+    }
+
     setSubmitting(true);
     setErrorMsg('');
 
@@ -178,26 +185,40 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
           ? `Tuần ${windowStart}${windowMode === 'RANGE' ? `-${windowEnd}` : ''}`
           : 'Đã qua';
 
-      const removedItems = [...(checklistData.removedItems || [])];
+      let removedItems = [...(checklistData.removedItems || [])];
 
       if (mode === 'EDIT') {
         const updatedRow = validItems[0];
-        const originalText = initialItem?.replacesText || initialItem?.text;
-        const isRenamed =
-          originalText && originalText.trim().toLowerCase() !== updatedRow.itemText.trim().toLowerCase();
+        const newText = updatedRow.itemText.trim();
+        const oldText = initialItem?.text?.trim() || '';
+        const originalRoadmapText = initialItem?.replacesText?.trim() || '';
+
+        const isRenamed = oldText && oldText.toLowerCase() !== newText.toLowerCase();
         if (isRenamed) {
-          if (originalText && !removedItems.includes(originalText.trim())) {
-            removedItems.push(originalText.trim());
-          }
-          if (initialItem?.text && !removedItems.includes(initialItem.text.trim())) {
-            removedItems.push(initialItem.text.trim());
+          const wasCareBridgeItem =
+            CAREBRIDGE_ROADMAP_TITLES.has(oldText.toLowerCase()) ||
+            initialItem?.origin === 'SYSTEM' ||
+            (!initialItem?.isExpertCustom && initialItem?.origin !== 'USER');
+          if (wasCareBridgeItem && !removedItems.includes(oldText)) {
+            removedItems.push(oldText);
           }
         }
-        const replacesText =
-          isRenamed ? originalText.trim() : (initialItem?.replacesText || undefined);
+
+        // CRITICAL: The newly chosen text is actively set by the doctor! It must NEVER be in removedItems
+        removedItems = removedItems.filter(
+          (r) => r.trim().toLowerCase() !== newText.toLowerCase()
+        );
+
+        // Replaces text calculation
+        let replacesText: string | undefined = undefined;
+        if (originalRoadmapText && originalRoadmapText.toLowerCase() !== newText.toLowerCase()) {
+          replacesText = originalRoadmapText;
+        } else if (!originalRoadmapText && isRenamed && oldText) {
+          replacesText = oldText;
+        }
 
         const newItem: ChecklistItemShareData = {
-          text: updatedRow.itemText.trim(),
+          text: newText,
           completed: updatedRow.completed,
           category: 'Khám thai & Y tế',
           timeLabel,
@@ -263,6 +284,14 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
         }
       }
 
+      // Ensure no active item is in removedItems
+      const activeTexts = new Set([
+        ...currentList.map((i) => i.text.trim().toLowerCase()),
+        ...historyList.map((i) => i.text.trim().toLowerCase()),
+        ...futureList.map((i) => i.text.trim().toLowerCase()),
+      ]);
+      removedItems = removedItems.filter((r) => !activeTexts.has(r.trim().toLowerCase()));
+
       const allItems = [...currentList, ...historyList, ...futureList];
       const completedCount = allItems.filter((i) => i.completed).length;
       const totalCount = allItems.length;
@@ -301,21 +330,20 @@ export const ExpertChecklistFormModal: React.FC<ExpertChecklistFormModalProps> =
       console.error('Failed to submit checklist form', err);
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const code = data?.code;
-      const serverMsg = data?.message || data?.error;
+      const code = data?.error ?? data?.code;
+      // Bản gốc (tiếng Anh) của server chỉ dùng để nhận diện lỗi, không hiển thị.
+      const rawServerMsg = data?.rawMessage ?? data?.message;
 
       if (status === 409) {
-        if (code === 'DCC-014' || (typeof serverMsg === 'string' && serverMsg.toLowerCase().includes('consultation window'))) {
+        if (code === 'DCC-014' || (typeof rawServerMsg === 'string' && rawServerMsg.toLowerCase().includes('consultation window'))) {
           setErrorMsg('Buổi tư vấn của cuộc trò chuyện này đã kết thúc khung giờ, không thể gửi cập nhật chỉ định mới.');
         } else if (code === 'DCC-010') {
           setErrorMsg('Tài khoản chuyên gia hiện không khả dụng để gửi cập nhật cho cuộc trò chuyện này.');
         } else {
-          setErrorMsg(serverMsg || 'Xung đột phiên làm việc khi lưu checklist. Vui lòng thử lại.');
+          setErrorMsg(getApiErrorMessage(err, 'Xung đột phiên làm việc khi lưu checklist. Vui lòng thử lại.'));
         }
-      } else if (serverMsg && typeof serverMsg === 'string' && serverMsg !== 'An unexpected error occurred') {
-        setErrorMsg(serverMsg);
       } else {
-        setErrorMsg('Không thể lưu chỉ định y tế vào lộ trình của mẹ bầu. Vui lòng thử lại.');
+        setErrorMsg(getApiErrorMessage(err, 'Không thể lưu chỉ định y tế vào lộ trình của mẹ bầu. Vui lòng thử lại.'));
       }
     } finally {
       setSubmitting(false);

@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -6,6 +8,7 @@ import '../models/federated_auth_failure.dart';
 import '../models/registration_draft.dart';
 import '../services/auth_service.dart';
 import '../widgets/auth_ui.dart';
+import '../widgets/legal_document_sheet.dart';
 import 'login_screen.dart';
 import 'phone_verification_screen.dart';
 import 'registration_verification_method_screen.dart';
@@ -43,8 +46,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _errorMessage;
   String? _confirmPasswordError;
 
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openLegalSheet(LegalDocType.terms);
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openLegalSheet(LegalDocType.privacy);
+  }
+
   @override
   void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
@@ -53,8 +70,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  Future<void> _openLegalSheet(LegalDocType docType) async {
+    final agreed = await showLegalDocumentSheet(
+      context,
+      initialDoc: docType,
+    );
+    if (agreed == true && mounted) {
+      setState(() => _termsAccepted = true);
+    }
+  }
+
   bool get _hasValidEmail =>
-      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_emailCtrl.text.trim());
+      RegExp(r'^[^@\s]+@[^@\s.]+(\.[^@\s.]+)*\.[A-Za-z]{2,}$').hasMatch(_emailCtrl.text.trim());
 
   bool get _hasValidPhone {
     String phone = _phoneCtrl.text.trim();
@@ -71,10 +98,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool get _hasSpecialChar =>
       RegExp(r'[@#$%^&*!]').hasMatch(_passwordCtrl.text);
 
+  // Họ và tên chỉ gồm chữ cái (kể cả tiếng Việt có dấu) và khoảng trắng;
+  // khớp @Pattern của RegisterRequest/PhoneRegisterRequest ở backend.
+  static final _nameCharacters = RegExp(r'[\p{L}\p{M} ]', unicode: true);
+  static final _namePattern = RegExp(
+    r'^[\p{L}\p{M}]+(?: [\p{L}\p{M}]+)*$',
+    unicode: true,
+  );
+  static const _invalidNameMessage =
+      'Họ và tên chỉ được chứa chữ cái và khoảng trắng.';
+
+  String get _normalizedName =>
+      _nameCtrl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+
   Future<void> _submit() async {
     if (_isLoading) return;
 
-    final name = _nameCtrl.text.trim();
+    final name = _normalizedName;
     final email = _emailCtrl.text.trim();
     var phone = _phoneCtrl.text.trim();
     if (phone.startsWith('0') && phone.length == 10) {
@@ -104,6 +144,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
     if (name.length < 2 || name.length > 120) {
       setState(() => _errorMessage = 'Họ và tên phải có từ 2 đến 120 ký tự.');
+      return;
+    }
+    if (!_namePattern.hasMatch(name)) {
+      setState(() => _errorMessage = _invalidNameMessage);
       return;
     }
     if (password != confirmPassword) {
@@ -264,6 +308,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             label: 'Họ và tên',
             hint: 'Nguyễn Thùy Linh',
             keyboardType: TextInputType.name,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(_nameCharacters),
+              LengthLimitingTextInputFormatter(120),
+            ],
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 18),
@@ -414,34 +462,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
       container: true,
       checked: _termsAccepted,
       label: 'Tôi đồng ý với Điều khoản và Chính sách quyền riêng tư',
-      child: InkWell(
-        onTap: () => setState(() => _termsAccepted = !_termsAccepted),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 48,
-                height: 32,
-                child: Checkbox(
-                  value: _termsAccepted,
-                  onChanged: (value) =>
-                      setState(() => _termsAccepted = value ?? false),
-                  activeColor: AuthPalette.accentDeep,
-                  side: const BorderSide(color: AuthPalette.muted, width: 1.5),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 48,
+              height: 32,
+              child: Checkbox(
+                value: _termsAccepted,
+                onChanged: (value) =>
+                    setState(() => _termsAccepted = value ?? false),
+                activeColor: AuthPalette.accentDeep,
+                side: const BorderSide(color: AuthPalette.muted, width: 1.5),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              const SizedBox(width: 4),
-              const Expanded(
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _termsAccepted = !_termsAccepted),
                 child: Padding(
-                  padding: EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text.rich(
                     TextSpan(
                       text: 'Tôi đồng ý với ',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontFamily: 'Lexend',
                         fontSize: 12,
                         height: 1.45,
@@ -450,33 +498,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         TextSpan(
                           text: 'Điều khoản',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: AuthPalette.accentDeep,
+                            decoration: TextDecoration.underline,
                           ),
+                          recognizer: _termsRecognizer,
                         ),
-                        TextSpan(text: ' và '),
+                        const TextSpan(text: ' và '),
                         TextSpan(
                           text: 'Chính sách quyền riêng tư',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: AuthPalette.accentDeep,
+                            decoration: TextDecoration.underline,
                           ),
+                          recognizer: _privacyRecognizer,
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Future<void> _openPhoneVerificationFromSmsButton() async {
-    final name = _nameCtrl.text.trim();
+    final name = _normalizedName;
+    if (name.isNotEmpty && (name.length < 2 || name.length > 120)) {
+      setState(() => _errorMessage = 'Họ và tên phải có từ 2 đến 120 ký tự.');
+      return;
+    }
+    if (name.isNotEmpty && !_namePattern.hasMatch(name)) {
+      setState(() => _errorMessage = _invalidNameMessage);
+      return;
+    }
     final email = _emailCtrl.text.trim();
     final rawPhone = _phoneCtrl.text.trim();
     final password = _passwordCtrl.text;

@@ -75,4 +75,52 @@ describe('ExpertSharedRecordsPage (SBG-TC-018)', () => {
     expect(screen.queryByText('Mẹ M2')).toBeNull();
     expect(await screen.findByText('Xu hướng cân nặng')).toBeTruthy();
   });
+
+  it('does not allow editing or deleting completed checklist items', async () => {
+    vi.mocked(fetchExpertSharedRecords).mockResolvedValue([
+      makeRecord({
+        id: 'rec-checklist',
+        conversationId: 'conv-checklist',
+        motherUserId: 'mother-checklist',
+        motherName: 'Mẹ Bầu Lan',
+        type: 'CHECKLIST',
+        checklistData: {
+          title: 'Lộ trình chăm sóc mẹ',
+          completedCount: 1,
+          totalCount: 2,
+          progressPercent: 50,
+          currentItems: [
+            { text: 'Uống vitamin buổi sáng', completed: true },
+            { text: 'Đi bộ 15 phút', completed: false },
+          ],
+        },
+      }),
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ExpertSharedRecordsPage />
+      </MemoryRouter>,
+    );
+
+    // Switch to Checklist tab if needed or find mother card
+    expect(await screen.findByText('Mẹ Bầu Lan')).toBeTruthy();
+
+    // Check items rendered
+    expect(screen.getByText('Uống vitamin buổi sáng')).toBeTruthy();
+    expect(screen.getByText('Đi bộ 15 phút')).toBeTruthy();
+
+    // Only the uncompleted item should have Edit and Delete buttons
+    const editButtons = screen.getAllByTitle('Chỉnh sửa việc cần làm');
+    expect(editButtons.length).toBe(1);
+
+    const deleteButtons = screen.getAllByTitle('Xóa việc cần làm');
+    expect(deleteButtons.length).toBe(1);
+
+    // Clicking completed task shows toast and prevents status toggle
+    const completedItemText = screen.getByText('Uống vitamin buổi sáng');
+    fireEvent.click(completedItemText);
+
+    expect(await screen.findByText('Việc cần làm đã hoàn thành không thể chỉnh sửa.')).toBeTruthy();
+  });
 });

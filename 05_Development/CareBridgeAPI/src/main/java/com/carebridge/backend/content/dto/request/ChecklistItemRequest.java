@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.UUID;
 import org.hibernate.validator.constraints.URL;
 
@@ -26,8 +27,29 @@ public record ChecklistItemRequest(
                 regexp = "(?i)^(?:https?://(?=[^\\s/?#@]*[a-z0-9])[^\\s/?#@]+(?:[/?#]\\S*)?)?$",
                 message = "must be a valid HTTP or HTTPS URL")
         @URL(message = "must be a valid URL")
-        String sourceUrl
+        String sourceUrl,
+        /**
+         * Tag khảo sát cá nhân hóa (bệnh nền, tiền sử, lối sống...) mà mục này chống chỉ định.
+         * Không bắt buộc; người mẹ có tag trùng sẽ không thấy mục này.
+         */
+        @Size(max = 50) List<@NotBlank @Size(max = 60) String> contraindications
 ) {
+    /** Compatibility constructor for the pre-contraindication request shape. */
+    public ChecklistItemRequest(
+            UUID id,
+            String itemText,
+            Integer order,
+            Boolean isRequired,
+            ChecklistTargetSubject targetSubject,
+            String description,
+            ChecklistSupportFunction supportFunction,
+            Boolean repeatWeekly,
+            Boolean repeatDaily,
+            String sourceUrl) {
+        this(id, itemText, order, isRequired, targetSubject, description, supportFunction,
+                repeatWeekly, repeatDaily, sourceUrl, null);
+    }
+
     public ChecklistItemRequest(String itemText, Integer order, Boolean isRequired) {
         this(null, itemText, order, isRequired, ChecklistTargetSubject.MOTHER, null, null, false, false, null);
     }

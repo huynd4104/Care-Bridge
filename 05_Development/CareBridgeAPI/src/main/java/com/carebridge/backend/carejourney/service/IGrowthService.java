@@ -23,6 +23,9 @@ public interface IGrowthService {
      */
     GrowthChartResponse getGrowthChart(UUID userId, UUID babyId);
 
+    /**
+     * @throws com.carebridge.backend.common.exception.BusinessException (BABY-075/400) when measured date is before baby birth date
+     */
     GrowthMeasurementResponse addGrowthMeasurement(UUID userId, UUID babyId, AddGrowthMeasurementRequest request);
 
     GrowthMeasurementResponse updateGrowthMeasurement(UUID userId, UUID babyId, UUID growthMeasurementId,

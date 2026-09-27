@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/safety_foreground_service.dart';
 import '../services/safety_service.dart';
+import '../../../core/network/api_error_message.dart';
 
 /// CB-130 — Disable Fall Detection Confirmation (UC-135)
 /// Modal bottom sheet shown from CB-023 when turning the Fall Detection
@@ -63,7 +64,7 @@ class _DisableFallDetectionSheetState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể tắt phát hiện ngã: $e'),
+            content: Text('Không thể tắt phát hiện ngã: ${userErrorMessage(e)}'),
             backgroundColor: _error,
           ),
         );

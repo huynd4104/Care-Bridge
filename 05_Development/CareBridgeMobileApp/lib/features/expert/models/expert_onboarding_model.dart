@@ -37,6 +37,12 @@ class ExpertOnboardingState {
   final ExpertKind? expertType;
   final ExpertOnboardingStep nextStep;
 
+  /// Bước máy chủ chấm là sai khi hồ sơ bị từ chối; null nếu không bị từ chối.
+  final ExpertOnboardingStep? rejectedStep;
+
+  /// Máy chủ cho phép nộp lại hồ sơ để quản trị viên xét lần nữa.
+  final bool canResubmit;
+
   const ExpertOnboardingState({
     required this.profileComplete,
     required this.identityComplete,
@@ -46,6 +52,8 @@ class ExpertOnboardingState {
     required this.credentialStatus,
     required this.nextStep,
     this.rejectionReason,
+    this.rejectedStep,
+    this.canResubmit = false,
     this.expertType,
   });
 
@@ -146,6 +154,12 @@ class ExpertOnboardingState {
             : null,
       ]),
       nextStep: explicit ?? calculated,
+      rejectedStep: _parseStep(root['rejectedStep']?.toString()),
+      // Backend cũ không gửi key này; lúc đó suy ra từ trạng thái hồ sơ để app
+      // cài trước backend vẫn cho nộp lại đúng như quy tắc của máy chủ.
+      canResubmit: root.containsKey('canResubmit')
+          ? root['canResubmit'] == true
+          : status == 'REJECTED' || status == 'EXPIRED',
     );
   }
 

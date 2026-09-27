@@ -1,6 +1,7 @@
 import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../auth/authStore';
 import { saveBlockedAccountState } from '../../features/auth/models/blockedAccount';
+import { normalizeApiError } from './apiErrorMessage';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
@@ -73,6 +74,9 @@ export function shouldRedirectToMaintenance(status: number | undefined, errorCod
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (axios.isCancel(error)) return Promise.reject(error);
+    // Mọi màn hình nhận thông báo tiếng Việt thay cho "Request failed with status code …".
+    normalizeApiError(error);
     const requestSession = (error.config as SessionBoundInternalConfig | undefined)?.carebridgeSession;
     if (!isApiRequestSessionCurrent(requestSession)) return Promise.reject(error);
 

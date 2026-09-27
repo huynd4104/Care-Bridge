@@ -56,7 +56,7 @@ describe('adminExerciseApi draft persistence', () => {
     expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/exercises/exercise-123', payload);
   });
 
-  it('keeps the backend code and typed field details in a request error', () => {
+  it('keeps the backend code and shows Vietnamese messages instead of raw codes', () => {
     const result = toAdminExerciseRequestError({
       isAxiosError: true,
       response: {
@@ -73,8 +73,8 @@ describe('adminExerciseApi draft persistence', () => {
 
     expect(result).toEqual({
       code: 'VALIDATION_ERROR',
-      message: '[VALIDATION_ERROR] Invalid request',
-      fieldErrors: { title: 'must not be blank' },
+      message: 'Dữ liệu gửi lên không hợp lệ. Vui lòng kiểm tra lại các trường đã nhập.',
+      fieldErrors: { title: 'Không được để trống.' },
     });
   });
 
@@ -98,7 +98,7 @@ describe('adminExerciseApi draft persistence', () => {
       },
     });
 
-    expect(result.message).toBe('[VALIDATION_ERROR] Invalid request');
-    expect(result.fieldErrors).toEqual({ safetyWarning: 'must not be blank' });
+    expect(result.message).not.toContain('VALIDATION_ERROR');
+    expect(result.fieldErrors).toEqual({ safetyWarning: 'Không được để trống.' });
   });
 });

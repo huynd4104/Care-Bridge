@@ -62,4 +62,7 @@ public class AdminChecklistTemplateDetailResponse {
     private ChecklistProvenanceResponse provenance;
     private List<ChecklistItemResponse> items;
     private ReviewFeedbackResponse latestReviewFeedback;
+    private String archiveReason;
+    private Instant archivedAt;
+    private UUID archivedBy;
 }

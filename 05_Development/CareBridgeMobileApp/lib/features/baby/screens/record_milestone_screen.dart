@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import '../../../core/network/api_error_message.dart';
 import '../models/milestone_model.dart';
 import '../services/baby_log_service.dart';
+import '../services/baby_service.dart';
 
 class RecordMilestoneScreen extends StatefulWidget {
   final String babyId;
+  final DateTime? birthDate;
+  final BabyLogService? logService;
+  final BabyService? babyService;
 
-  const RecordMilestoneScreen({super.key, required this.babyId});
+  const RecordMilestoneScreen({
+    super.key,
+    required this.babyId,
+    this.birthDate,
+    this.logService,
+    this.babyService,
+  });
 
   @override
   State<RecordMilestoneScreen> createState() => _RecordMilestoneScreenState();
@@ -19,13 +30,46 @@ class _RecordMilestoneScreenState extends State<RecordMilestoneScreen> {
   static const _onSurface = Color(0xFF271812);
   static const _onSurfaceVariant = Color(0xFF524440);
 
-  final _service = BabyLogService();
+  late final BabyLogService _service;
+  late final BabyService _babyService;
   final _noteCtrl = TextEditingController();
 
   MilestoneType? _selectedType;
-  DateTime _achievedDate = DateTime.now();
+  late DateTime _achievedDate;
+  DateTime? _birthDate;
   bool _isSaving = false;
   bool _showSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = widget.logService ?? BabyLogService();
+    _babyService = widget.babyService ?? BabyService();
+    _birthDate = widget.birthDate != null ? DateUtils.dateOnly(widget.birthDate!) : null;
+    _achievedDate = DateUtils.dateOnly(DateTime.now());
+    if (_birthDate != null && _achievedDate.isBefore(_birthDate!)) {
+      _achievedDate = _birthDate!;
+    }
+    if (_birthDate == null) {
+      _loadBabyProfile();
+    }
+  }
+
+  Future<void> _loadBabyProfile() async {
+    try {
+      final baby = await _babyService.getBabyProfile(widget.babyId);
+      if (mounted) {
+        setState(() {
+          _birthDate = DateUtils.dateOnly(baby.birthDate);
+          if (_achievedDate.isBefore(_birthDate!)) {
+            _achievedDate = _birthDate!;
+          }
+        });
+      }
+    } catch (_) {
+      // Gracefully continue with available info
+    }
+  }
 
   @override
   void dispose() {
@@ -34,11 +78,34 @@ class _RecordMilestoneScreenState extends State<RecordMilestoneScreen> {
   }
 
   Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final today = DateUtils.dateOnly(now);
+    final birth = _birthDate != null ? DateUtils.dateOnly(_birthDate!) : null;
+
+    DateTime firstDate;
+    if (birth != null) {
+      firstDate = birth.isAfter(today) ? today : birth;
+    } else {
+      firstDate = today.subtract(const Duration(days: 365 * 3));
+    }
+
+    DateTime lastDate = today;
+    if (firstDate.isAfter(lastDate)) {
+      firstDate = lastDate;
+    }
+
+    DateTime initialDate = DateUtils.dateOnly(_achievedDate);
+    if (initialDate.isBefore(firstDate)) {
+      initialDate = firstDate;
+    } else if (initialDate.isAfter(lastDate)) {
+      initialDate = lastDate;
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _achievedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365 * 3)),
-      lastDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
@@ -63,6 +130,33 @@ class _RecordMilestoneScreenState extends State<RecordMilestoneScreen> {
       );
       return;
     }
+
+    final today = DateUtils.dateOnly(DateTime.now());
+    final achieved = DateUtils.dateOnly(_achievedDate);
+
+    if (achieved.isAfter(today)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ngày đạt được không được ở tương lai.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_birthDate != null) {
+      final birth = DateUtils.dateOnly(_birthDate!);
+      if (achieved.isBefore(birth)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ngày đạt được không thể trước ngày sinh của bé.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
     try {
       await _service.addMilestone(
@@ -76,11 +170,16 @@ class _RecordMilestoneScreenState extends State<RecordMilestoneScreen> {
       setState(() => _showSuccess = true);
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không thể lưu. Vui lòng thử lại.'),
+          SnackBar(
+            content: Text(
+              userErrorMessage(
+                e,
+                fallback: 'Không thể lưu mốc phát triển. Vui lòng thử lại.',
+              ),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -292,6 +391,17 @@ class _RecordMilestoneScreenState extends State<RecordMilestoneScreen> {
                       color: _onSurface,
                     ),
                   ),
+                  if (_birthDate != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Từ ngày sinh: ${_birthDate!.day.toString().padLeft(2, '0')}/${_birthDate!.month.toString().padLeft(2, '0')}/${_birthDate!.year}',
+                      style: const TextStyle(
+                        fontFamily: 'Lexend',
+                        fontSize: 11,
+                        color: _primaryContainer,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

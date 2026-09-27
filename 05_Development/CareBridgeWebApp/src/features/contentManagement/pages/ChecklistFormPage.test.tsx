@@ -12,6 +12,7 @@ const harness = vi.hoisted(() => ({
   fetchChecklistTemplateDetail: vi.fn(),
   createChecklistTemplate: vi.fn(),
   updateChecklistTemplate: vi.fn(),
+  fetchAllAdminChecklistTemplatesForStage: vi.fn(),
   navigate: vi.fn(),
 }));
 
@@ -19,6 +20,7 @@ vi.mock('../services/contentApi', () => ({
   fetchChecklistTemplateDetail: harness.fetchChecklistTemplateDetail,
   createChecklistTemplate: harness.createChecklistTemplate,
   updateChecklistTemplate: harness.updateChecklistTemplate,
+  fetchAllAdminChecklistTemplatesForStage: harness.fetchAllAdminChecklistTemplatesForStage,
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -60,6 +62,8 @@ describe('ChecklistFormPage version', () => {
     harness.createChecklistTemplate.mockReset();
     harness.updateChecklistTemplate.mockReset();
     harness.navigate.mockReset();
+    harness.fetchAllAdminChecklistTemplatesForStage.mockReset();
+    harness.fetchAllAdminChecklistTemplatesForStage.mockResolvedValue([]);
     vi.stubGlobal('crypto', { randomUUID: vi.fn(() => 'row-id') });
   });
 
@@ -234,6 +238,35 @@ describe('ChecklistFormPage version', () => {
     await waitFor(() => expect(harness.updateChecklistTemplate).toHaveBeenCalled());
     const payloadItem = harness.updateChecklistTemplate.mock.calls[0][1].items[0];
     expect(payloadItem).toHaveProperty('sourceUrl', 'https://carebridge.example/updated-guidance');
+  });
+
+  it('keeps existing contraindications and serializes newly toggled tags', async () => {
+    const user = userEvent.setup();
+    routeId = 'checklist-123';
+    harness.fetchChecklistTemplateDetail.mockResolvedValue({
+      ...checklistDetail(),
+      items: [{
+        id: 'item-1',
+        itemText: 'Đi bộ vừa sức',
+        order: 1,
+        isRequired: true,
+        targetSubject: 'MOTHER',
+        sourceUrl: 'https://carebridge.example/exercise',
+        contraindications: ['CARDIOVASCULAR_DISEASE'],
+      }],
+    });
+    harness.updateChecklistTemplate.mockResolvedValue(undefined);
+    render(<ChecklistFormPage />);
+
+    const hypertension = await screen.findByRole('button', { name: 'Chống chỉ định Tăng huyết áp cho mục 1' });
+    expect(screen.getByRole('button', { name: 'Chống chỉ định Bệnh tim cho mục 1' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(hypertension);
+    expect(hypertension).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Save draft' }));
+
+    await waitFor(() => expect(harness.updateChecklistTemplate).toHaveBeenCalled());
+    const payloadItem = harness.updateChecklistTemplate.mock.calls[0][1].items[0];
+    expect(payloadItem.contraindications).toEqual(['CARDIOVASCULAR_DISEASE', 'HYPERTENSION']);
   });
 
   it.each([
@@ -586,5 +619,89 @@ describe('ChecklistFormPage version', () => {
 
     await user.selectOptions(screen.getByLabelText('Lifecycle window mode'), 'SINGLE');
     expect((screen.getByLabelText('List weekly recurrence') as HTMLInputElement).disabled).toBe(true);
+  });
+
+  describe('placement guidance', () => {
+    function activeSet(
+      id: string,
+      name: string,
+      position: number,
+      overrides: Partial<AdminChecklistTemplateDetail> = {},
+    ): AdminChecklistTemplateDetail {
+      return {
+        ...checklistDetail(),
+        id,
+        name,
+        stage: 'PRE_PREGNANCY',
+        status: 'APPROVED',
+        distributionEnabled: true,
+        displayOrder: position,
+        lineageId: `lineage-${id}`,
+        versionNo: 1,
+        ...overrides,
+      };
+    }
+
+    it('lists used positions and defaults a new PRE_PREGNANCY checklist to the next free set', async () => {
+      const user = userEvent.setup();
+      harness.fetchAllAdminChecklistTemplatesForStage.mockResolvedValue([
+        activeSet('set-1', 'Khám tiền thai', 1),
+        activeSet('set-2', 'Bổ sung vi chất', 2),
+      ]);
+      render(<ChecklistFormPage />);
+
+      await user.selectOptions(screen.getByLabelText('Lifecycle stage'), 'PRE_PREGNANCY');
+
+      const select = await screen.findByRole('combobox', { name: 'Checklist sequence position' });
+      await waitFor(() => expect(select).toHaveValue('3'));
+      expect(screen.getByRole('option', { name: 'Bộ 1 — Đã dùng: "Khám tiền thai" (v1)' })).toBeDisabled();
+      expect(screen.getByRole('option', { name: 'Bộ 3 — Còn trống (bộ tiếp theo)' })).toBeEnabled();
+      expect(screen.getByRole('list', { name: 'Current sequence positions' })).toHaveTextContent('Bổ sung vi chất');
+      expect(harness.fetchAllAdminChecklistTemplatesForStage).toHaveBeenCalledWith('PRE_PREGNANCY');
+    });
+
+    it('flags a draft that points at an occupied set and only blocks review submission', async () => {
+      routeId = 'draft-conflict';
+      harness.fetchChecklistTemplateDetail.mockResolvedValue({
+        ...checklistDetail(),
+        id: 'draft-conflict',
+        stage: 'PRE_PREGNANCY',
+        displayOrder: 1,
+        items: [{
+          id: 'item-1', itemText: 'Uống acid folic', order: 1, isRequired: true, targetSubject: null,
+          sourceUrl: 'https://carebridge.example/folic',
+        }],
+      });
+      harness.fetchAllAdminChecklistTemplatesForStage.mockResolvedValue([
+        activeSet('set-1', 'Khám tiền thai', 1),
+      ]);
+      render(<ChecklistFormPage />);
+
+      expect(await screen.findByText(/Bộ 1 đang được dùng bởi “Khám tiền thai”/)).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'mở checklist đó' }));
+      expect(harness.navigate).toHaveBeenCalledWith('/content/checklists/set-1');
+    });
+
+    it('treats the same lineage position as a replacement, not a conflict', async () => {
+      routeId = 'clone-v2';
+      harness.fetchChecklistTemplateDetail.mockResolvedValue({
+        ...checklistDetail(),
+        id: 'clone-v2',
+        stage: 'PRE_PREGNANCY',
+        displayOrder: 1,
+        lineageId: 'lineage-set-1',
+        versionNo: 2,
+      });
+      harness.fetchAllAdminChecklistTemplatesForStage.mockResolvedValue([
+        activeSet('set-1', 'Khám tiền thai', 1),
+      ]);
+      render(<ChecklistFormPage />);
+
+      expect(await screen.findByText(/sẽ thay thế v1 đang hoạt động ở bộ 1/)).toBeTruthy();
+      expect(screen.queryByText(/đang được dùng bởi/)).toBeNull();
+    });
   });
 });

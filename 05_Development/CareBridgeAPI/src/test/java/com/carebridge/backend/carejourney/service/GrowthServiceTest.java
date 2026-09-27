@@ -375,6 +375,43 @@ class GrowthServiceTest {
     }
 
     @Test
+    void addGrowthMeasurement_measuredDateBeforeBirthDate_throwsBaby075() {
+        when(babyProfileRepository.findById(BABY_ID)).thenReturn(Optional.of(makeBaby()));
+
+        AddGrowthMeasurementRequest request = new AddGrowthMeasurementRequest();
+        request.setMeasuredDate(LocalDate.of(2026, 1, 14)); // baby birth date is 2026-01-15
+        request.setWeightKg(new BigDecimal("3.50"));
+        request.setSourceType("HOME");
+
+        assertThatThrownBy(() -> growthService.addGrowthMeasurement(MOTHER_ID, BABY_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> {
+                    BusinessException be = (BusinessException) ex;
+                    assertThat(be.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(be.getCode()).isEqualTo("BABY-075");
+                });
+        verify(growthMeasurementStore, never()).save(any());
+    }
+
+    @Test
+    void updateGrowthMeasurement_measuredDateBeforeBirthDate_throwsBaby075() {
+        when(babyProfileRepository.findById(BABY_ID)).thenReturn(Optional.of(makeBaby()));
+
+        UpdateGrowthMeasurementRequest request = new UpdateGrowthMeasurementRequest();
+        request.setMeasuredDate(LocalDate.of(2026, 1, 14)); // before birth date
+
+        assertThatThrownBy(() -> growthService.updateGrowthMeasurement(
+                MOTHER_ID, BABY_ID, UUID.randomUUID(), request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> {
+                    BusinessException be = (BusinessException) ex;
+                    assertThat(be.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(be.getCode()).isEqualTo("BABY-075");
+                });
+        verify(growthMeasurementStore, never()).save(any());
+    }
+
+    @Test
     void updateGrowthMeasurement_validPartialUpdate_savesAndAudits() {
         GrowthMeasurement measurement = makeMeasurements().get(0);
         when(babyProfileRepository.findById(BABY_ID)).thenReturn(Optional.of(makeBaby()));

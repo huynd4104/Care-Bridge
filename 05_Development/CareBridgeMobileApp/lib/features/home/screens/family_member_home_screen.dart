@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/notifications/fcm_service.dart';
 import '../../../shared/components/app_user_avatar.dart';
 import '../../auth/screens/account_profile_screen.dart';
 import '../../community/screens/community_feed_screen.dart';
@@ -22,6 +23,7 @@ import '../../notification/models/notification_model.dart';
 import '../../notification/screens/emergency_alerts_screen.dart';
 import '../../notification/screens/notification_center_screen.dart';
 import '../../notification/screens/notification_detail_screen.dart';
+import '../../notification/services/family_emergency_alert_watcher.dart';
 import '../../notification/services/notification_service.dart';
 import '../../privacy/services/location_consent_coordinator.dart';
 import '../../recommendation/models/recommendation_model.dart';
@@ -50,7 +52,8 @@ class FamilyMemberHomeScreen extends StatefulWidget {
   State<FamilyMemberHomeScreen> createState() => _FamilyMemberHomeScreenState();
 }
 
-class _FamilyMemberHomeScreenState extends State<FamilyMemberHomeScreen> {
+class _FamilyMemberHomeScreenState extends State<FamilyMemberHomeScreen>
+    with WidgetsBindingObserver {
   static const _primary = Color(0xFF845143);
   static const _canvas = Color(0xFFF8F5F1);
   static const _surface = Color(0xFFFFFCF9);
@@ -76,6 +79,7 @@ class _FamilyMemberHomeScreenState extends State<FamilyMemberHomeScreen> {
   bool _checklistGroupExplicitlySelected = false;
   bool _hasUnread = false;
   int _loadGeneration = 0;
+  FamilyEmergencyAlertWatcher? _emergencyAlertWatcher;
 
   RecommendationContentResponse? _recommendations;
   bool _recommendationLoading = false;
@@ -89,6 +93,7 @@ class _FamilyMemberHomeScreenState extends State<FamilyMemberHomeScreen> {
     _recommendationService =
         widget.recommendationService ?? RecommendationService();
     _load();
+    _startEmergencyAlertWatcher();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         unawaited(
@@ -98,6 +103,71 @@ class _FamilyMemberHomeScreenState extends State<FamilyMemberHomeScreen> {
         );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _emergencyAlertWatcher?.stop();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final watcher = _emergencyAlertWatcher;
+    if (watcher == null) return;
+    if (state == AppLifecycleState.resumed) {
+      watcher.start();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      watcher.stop();
+    }
+  }
+
+  /// Opens a new family emergency alert while this home is on screen even when
+  /// no FCM push reaches the device (the backend then only writes the in-app
+  /// record, which previously just lit the bell badge).
+  void _startEmergencyAlertWatcher() {
+    if (WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      return;
+    }
+    String? accountId;
+    try {
+      accountId = AuthState.instance.userId;
+    } catch (_) {}
+    if (accountId == null || accountId.isEmpty) return;
+    WidgetsBinding.instance.addObserver(this);
+    _emergencyAlertWatcher = FamilyEmergencyAlertWatcher(
+      fetchNotifications: () =>
+          NotificationService.instance.getNotifications(size: 20),
+      isRouteRecentlyOpened: (route) =>
+          FcmService.instance.isEmergencyRouteRecent(route),
+      recordOpenedRoute: (route) =>
+          FcmService.instance.recordEmergencyRoute(route),
+      markAsRead: (n) => NotificationService.instance.markAsRead(n.id),
+      onNotifications: (notifs) {
+        if (!mounted || !_isActiveAccount(accountId)) return;
+        final hasUnread = notifs.any((n) => n.isUnread);
+        if (hasUnread != _hasUnread) setState(() => _hasUnread = hasUnread);
+      },
+      openRoute: (route) {
+        if (!mounted || !_isActiveAccount(accountId)) return false;
+        final router = GoRouter.maybeOf(context);
+        if (router == null) return false;
+        final currentPath =
+            router.routerDelegate.currentConfiguration.uri.path;
+        if (currentPath != route) router.push(route);
+        return true;
+      },
+    )..start();
+  }
+
+  bool _isActiveAccount(String? accountId) {
+    try {
+      return AuthState.instance.userId == accountId;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _checkUnread({

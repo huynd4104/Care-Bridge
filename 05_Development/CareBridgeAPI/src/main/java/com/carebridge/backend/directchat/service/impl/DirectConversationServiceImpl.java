@@ -200,6 +200,16 @@ public class DirectConversationServiceImpl implements IDirectConversationService
         if (body == null) {
             return null;
         }
+        String trimmed = body.trim();
+        if (trimmed.startsWith("[CAREBRIDGE_CHECKLIST_SHARE]")) {
+            return "[Chia sẻ việc cần làm]";
+        }
+        if (trimmed.startsWith("[CAREBRIDGE_HEALTH_SHARE]")) {
+            return "[Chia sẻ chỉ số sức khỏe]";
+        }
+        if (trimmed.startsWith("[CAREBRIDGE_BABY_GROWTH_SHARE]")) {
+            return "[Chia sẻ phát triển của bé]";
+        }
         return body.length() <= PREVIEW_MAX_LENGTH ? body : body.substring(0, PREVIEW_MAX_LENGTH);
     }
 

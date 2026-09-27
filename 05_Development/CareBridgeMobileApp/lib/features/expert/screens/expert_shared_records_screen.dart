@@ -5,6 +5,7 @@ import '../../directChat/models/health_metrics_share_data.dart';
 import '../models/expert_shared_record_model.dart';
 import '../services/expert_shared_records_service.dart';
 import '../widgets/expert_checklist_form_dialog.dart';
+import '../../../core/network/api_error_message.dart';
 
 class ExpertSharedRecordsScreen extends StatefulWidget {
   final ExpertSharedRecordsService? service;
@@ -55,7 +56,7 @@ class _ExpertSharedRecordsScreenState extends State<ExpertSharedRecordsScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Không thể tải danh sách hồ sơ chia sẻ: $e';
+        _error = 'Không thể tải danh sách hồ sơ chia sẻ: ${userErrorMessage(e)}';
       });
     }
   }
@@ -966,7 +967,7 @@ class _ChecklistInspectionSheetState extends State<_ChecklistInspectionSheet> {
           if (mounted) {
             setState(() => _saving = false);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Lỗi: $e')),
+              SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')),
             );
           }
         }
@@ -1029,7 +1030,7 @@ class _ChecklistInspectionSheetState extends State<_ChecklistInspectionSheet> {
           if (mounted) {
             setState(() => _saving = false);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Lỗi: $e')),
+              SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')),
             );
           }
         }
@@ -1079,7 +1080,7 @@ class _ChecklistInspectionSheetState extends State<_ChecklistInspectionSheet> {
                 if (mounted) {
                   setState(() => _saving = false);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Lỗi: $e')),
+                    SnackBar(content: Text('Lỗi: ${userErrorMessage(e)}')),
                   );
                 }
               }

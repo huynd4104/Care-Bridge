@@ -33,6 +33,47 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleMethodArgumentNotValid_surfacesVietnameseFieldMessageSoTheUserSeesIt() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/v1/expert/profiles/me");
+        org.springframework.validation.BeanPropertyBindingResult result =
+                new org.springframework.validation.BeanPropertyBindingResult(new Object(), "request");
+        result.addError(new org.springframework.validation.FieldError(
+                "request", "experienceYears", 90, false, null, null, "must be less than or equal to 80"));
+        result.addError(new org.springframework.validation.FieldError(
+                "request", "consultationFeeVnd", 20_000_000L, false, null, null,
+                "Phí tư vấn tối đa 10.000.000 đồng mỗi buổi"));
+        org.springframework.core.MethodParameter parameter = new org.springframework.core.MethodParameter(
+                Object.class.getMethod("equals", Object.class), 0);
+
+        ResponseEntity<ErrorResponse> response = handler.handleMethodArgumentNotValid(
+                new org.springframework.web.bind.MethodArgumentNotValidException(parameter, result), request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError()).isEqualTo("VALIDATION_ERROR");
+        // Câu tiếng Anh đứng trước bị bỏ qua: web và app chỉ hiện message khi nó là tiếng Việt.
+        assertThat(response.getBody().getMessage()).isEqualTo("Phí tư vấn tối đa 10.000.000 đồng mỗi buổi");
+        assertThat(response.getBody().getDetails()).hasSize(2);
+    }
+
+    @Test
+    void handleMethodArgumentNotValid_keepsGenericMessageWhenNoFieldMessageIsVietnamese() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        org.springframework.validation.BeanPropertyBindingResult result =
+                new org.springframework.validation.BeanPropertyBindingResult(new Object(), "request");
+        result.addError(new org.springframework.validation.FieldError(
+                "request", "title", "", false, null, null, "must not be blank"));
+        org.springframework.core.MethodParameter parameter = new org.springframework.core.MethodParameter(
+                Object.class.getMethod("equals", Object.class), 0);
+
+        ResponseEntity<ErrorResponse> response = handler.handleMethodArgumentNotValid(
+                new org.springframework.web.bind.MethodArgumentNotValidException(parameter, result), request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Invalid request");
+    }
+
+    @Test
     void handleContent_preservesChecklistReasonMetadata() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRequestURI("/api/v1/admin/checklist-templates/1/decision");

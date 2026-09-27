@@ -1,5 +1,6 @@
 package com.carebridge.backend.checklist.service;
 
+import com.carebridge.backend.checklist.policy.ChecklistContraindicationPolicy;
 import com.carebridge.backend.audit.entity.AuditAction;
 import com.carebridge.backend.audit.service.AuditService;
 import com.carebridge.backend.baby.repository.BabyProfileRepository;
@@ -48,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Creates idempotent user-owned tasks directly in the V2 checklist aggregate. */
 @Service
 public class UserCreatedChecklistTaskService {
+    private ChecklistContraindicationPolicy contraindicationPolicy;
 
     private final MotherJourneyRepository journeyRepository;
     private final BabyProfileRepository babyRepository;
@@ -247,10 +249,21 @@ public class UserCreatedChecklistTaskService {
         }
         java.util.Map<UUID, ChecklistInstance> byId = instances.stream()
                 .collect(java.util.stream.Collectors.toMap(ChecklistInstance::getId, value -> value));
-        return taskRepository.findAllByChecklistInstanceIds(byId.keySet().stream().toList()).stream()
+        List<ChecklistTaskInstance> tasks = taskRepository.findAllByChecklistInstanceIds(byId.keySet().stream().toList());
+        // Mục hệ thống chống chỉ định với khảo sát hiện tại của người mẹ không được liệt kê.
+        java.util.Set<UUID> contraindicatedTaskIds = contraindicationPolicy == null
+                ? java.util.Set.of()
+                : contraindicationPolicy.hiddenTaskIds(instances, tasks);
+        return tasks.stream()
                 .filter(task -> task.getStatus() != ChecklistTaskStatus.CANCELLED)
+                .filter(task -> !contraindicatedTaskIds.contains(task.getId()))
                 .map(task -> response(byId.get(task.getChecklistInstanceId()), task))
                 .toList();
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setContraindicationPolicy(ChecklistContraindicationPolicy contraindicationPolicy) {
+        this.contraindicationPolicy = contraindicationPolicy;
     }
 
     private boolean isVisibleTemplate(
