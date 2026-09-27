@@ -15,17 +15,22 @@ class ShareChecklistDialog extends StatefulWidget {
     this.initialStage,
     this.initialGestationalWeek,
     this.initialBabyName,
+    this.todayTasksLoader,
   });
 
   final String? initialStage;
   final int? initialGestationalWeek;
   final String? initialBabyName;
 
+  /// Nguồn danh sách việc hôm nay; mặc định là [TodayTaskService.loadToday].
+  final Future<TodayTasksSnapshot> Function()? todayTasksLoader;
+
   static Future<ChecklistShareData?> show(
     BuildContext context, {
     String? initialStage,
     int? initialGestationalWeek,
     String? initialBabyName,
+    Future<TodayTasksSnapshot> Function()? todayTasksLoader,
   }) {
     return showModalBottomSheet<ChecklistShareData>(
       context: context,
@@ -38,6 +43,7 @@ class ShareChecklistDialog extends StatefulWidget {
         initialStage: initialStage,
         initialGestationalWeek: initialGestationalWeek,
         initialBabyName: initialBabyName,
+        todayTasksLoader: todayTasksLoader,
       ),
     );
   }
@@ -140,32 +146,6 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
     if (id.contains('13_18M')) return 'Bé · 13–18 tháng';
     if (id.contains('19_24M')) return 'Bé · 19–24 tháng';
     return defaultLabel;
-  }
-
-  bool _isBabyTodayTask(TodayTask t) {
-    if (t.careContextType?.toUpperCase() == 'JOURNEY' ||
-        t.target == TodayTaskTarget.mother ||
-        t.stage == TodayChecklistStage.pregnancy ||
-        t.stage == TodayChecklistStage.prePregnancy) {
-      return false;
-    }
-    if (t.stage == TodayChecklistStage.babyCare ||
-        t.target == TodayTaskTarget.baby ||
-        t.careContextType?.toUpperCase() == 'BABY') {
-      return true;
-    }
-    final label = (t.careContextLabel ?? '').trim().toLowerCase();
-    if (label.contains('mang thai') ||
-        label.contains('thai kỳ') ||
-        label.contains('chuẩn bị') ||
-        label.contains('mẹ')) {
-      return false;
-    }
-    final title = t.title.toLowerCase();
-    return title.contains('sơ sinh') ||
-        title.contains('chăm bé') ||
-        title.contains('em bé') ||
-        title.contains('trẻ sơ sinh');
   }
 
   Future<void> _loadAllChecklistData() async {
@@ -378,80 +358,70 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
       for (final f in _futureItems) f.text.trim().toLowerCase(),
     };
 
-    // 2. Load live today tasks from TodayTaskService (chỉ đồng bộ trạng thái cho lộ trình, không bỏ sót việc của bé)
+    // 2. "Hiện tại" = đúng các việc "Gợi ý CareBridge" mẹ đang thấy trên màn việc cần làm
+    //    (checklist hệ thống trong snapshot hôm nay, kể cả việc của bé). Không gộp thêm mẫu
+    //    lộ trình của cả tuần hay việc nhắc/việc cá nhân, để số việc & số đã xong luôn khớp.
+    var liveLoaded = false;
     try {
-      final snapshot = await TodayTaskService.instance.loadToday();
-      final liveTasks = snapshot.sections.all.toList();
-      if (liveTasks.isNotEmpty) {
-        final existingMap = {
-          for (final c in _currentItems) c.text.trim().toLowerCase(): c
-        };
+      final loader =
+          widget.todayTasksLoader ?? TodayTaskService.instance.loadToday;
+      final snapshot = await loader();
+      final existingMap = {
+        for (final c in _currentItems) c.text.trim().toLowerCase(): c
+      };
+      final seenIds = <String>{};
+      final updatedCurrent = <_ChecklistShareItem>[];
+      for (final t in snapshot.sections.all) {
+        if (!t.isCareBridgeSuggestion || !seenIds.add(t.id)) continue;
+        final key = t.title.trim().toLowerCase();
+        final existing = existingMap[key];
+        final isBaby = t.isBabyCare;
 
-        final updatedCurrent = <_ChecklistShareItem>[];
-        for (final t in liveTasks) {
-          final key = t.title.trim().toLowerCase();
-          final existing = existingMap[key];
-          final isRoadmapItem = roadmapTitleSet.contains(key);
-          final isBaby = _isBabyTodayTask(t) || (existing != null && existing.isBaby);
+        final babyName = isBaby
+            ? ((t.careContextType?.toUpperCase() == 'BABY' &&
+                    t.careContextLabel != null &&
+                    t.careContextLabel!.trim().isNotEmpty)
+                ? t.careContextLabel!.trim()
+                : (existing?.babyLabel ?? primaryBabyName))
+            : null;
+        final babyCategory = babyName != null && babyName.isNotEmpty
+            ? 'Chăm bé · $babyName'
+            : 'Chăm sóc bé';
+        final babyTimeLabel = babyName != null && babyName.isNotEmpty
+            ? 'Bé $babyName (Hôm nay)'
+            : 'Chăm bé (Hôm nay)';
 
-          // Loại bỏ tuyệt đối việc cá nhân tự tạo khi chia sẻ cho chuyên gia, nhưng giữ lại việc hệ thống gợi ý cho mẹ & bé
-          final isPersonalTask = (!isRoadmapItem && !isBaby && t.origin != TodayTaskOrigin.systemTemplate) ||
-              t.origin == TodayTaskOrigin.userCreated;
-
-          if (isPersonalTask) continue;
-
-          final babyName = isBaby
-              ? ((t.careContextType?.toUpperCase() == 'BABY' &&
-                      t.careContextLabel != null &&
-                      t.careContextLabel!.trim().isNotEmpty)
-                  ? t.careContextLabel!.trim()
-                  : (existing?.babyLabel ?? primaryBabyName))
-              : null;
-          final babyCategory = babyName != null && babyName.isNotEmpty
-              ? 'Chăm bé · $babyName'
-              : 'Chăm sóc bé';
-          final babyTimeLabel = babyName != null && babyName.isNotEmpty
-              ? 'Bé $babyName (Hôm nay)'
-              : 'Chăm bé (Hôm nay)';
-
-          updatedCurrent.add(_ChecklistShareItem(
-            id: t.id,
-            text: t.title,
-            completed: t.isCompleted,
-            category: existing?.category ?? (isBaby ? babyCategory : 'Khám thai & Y tế'),
-            timeLabel: existing?.timeLabel ??
-                (isBaby
-                    ? babyTimeLabel
-                    : (_stage == 'PRE_PREGNANCY'
-                        ? 'Chuẩn bị mang thai'
-                        : (_stage == 'POSTPARTUM'
-                            ? 'Sau sinh'
-                            : (_stage == 'BABY_CARE'
-                                ? 'Chăm sóc bé'
-                                : 'Tuần $currentWk (Hiện tại)')))),
-            section: 'CURRENT',
-            origin: 'SYSTEM',
-            createdBy: 'SYSTEM',
-            isBaby: isBaby,
-            babyLabel: babyName,
-          ));
-        }
-
-        // Add roadmap current items not in today tasks
-        for (final c in _currentItems) {
-          if (!updatedCurrent.any((u) => u.text.trim().toLowerCase() == c.text.trim().toLowerCase())) {
-            updatedCurrent.add(c);
-          }
-        }
-
-        _currentItems = updatedCurrent;
+        updatedCurrent.add(_ChecklistShareItem(
+          id: t.id,
+          text: t.title,
+          completed: t.isCompleted,
+          category: existing?.category ?? (isBaby ? babyCategory : 'Khám thai & Y tế'),
+          timeLabel: existing?.timeLabel ??
+              (isBaby
+                  ? babyTimeLabel
+                  : (_stage == 'PRE_PREGNANCY'
+                      ? 'Chuẩn bị mang thai'
+                      : (_stage == 'POSTPARTUM'
+                          ? 'Sau sinh'
+                          : (_stage == 'BABY_CARE'
+                              ? 'Chăm sóc bé'
+                              : 'Tuần $currentWk (Hiện tại)')))),
+          section: 'CURRENT',
+          origin: 'SYSTEM',
+          createdBy: 'SYSTEM',
+          isBaby: isBaby,
+          babyLabel: babyName,
+        ));
       }
+      _currentItems = updatedCurrent;
+      liveLoaded = true;
     } catch (_) {}
 
-    // 3. Synchronize with UserChecklistService: cập nhật trạng thái completed và nạp thêm việc checklist của bé
-    try {
-      final serverItems = await UserChecklistService.instance.listItems();
-      if (serverItems.isNotEmpty) {
+    // 3. Dự phòng khi không tải được việc hôm nay: đồng bộ trạng thái theo UserChecklistService
+    //    và nạp thêm việc checklist của bé.
+    if (!liveLoaded) {
+      try {
+        final serverItems = await UserChecklistService.instance.listItems();
         for (final si in serverItems) {
           final key = si.itemText.trim().toLowerCase();
           final isBabySi = si.category == ChecklistCategory.babyCare ||
@@ -490,24 +460,28 @@ class _ShareChecklistDialogState extends State<ShareChecklistDialog>
             ));
           }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     // 4. Lọc bỏ phòng vệ: Không để sót việc cá nhân nào
     _historyItems = _historyItems.where((i) => !i.isPersonal).toList();
     _currentItems = _currentItems.where((i) => !i.isPersonal).toList();
     _futureItems = _futureItems.where((i) => !i.isPersonal).toList();
 
-    // Lọc bỏ tuyệt đối: Các mục thuộc "Lịch sử đã qua" không được hiển thị ở "Tuần hiện tại"
-    final historyTextSet = _historyItems.map((h) => h.text.trim().toLowerCase()).toSet();
-    _currentItems = _currentItems.where((c) => !historyTextSet.contains(c.text.trim().toLowerCase())).toList();
+    if (!liveLoaded) {
+      // Dự phòng theo lộ trình: mục thuộc "Lịch sử đã qua" không hiển thị ở "Hiện tại"
+      // và bỏ mục trùng tiêu đề.
+      final historyTextSet = _historyItems.map((h) => h.text.trim().toLowerCase()).toSet();
+      final seen = <String>{};
+      _currentItems = _currentItems
+          .where((c) => !historyTextSet.contains(c.text.trim().toLowerCase()))
+          .where((c) => seen.add(c.text.trim().toLowerCase()))
+          .toList();
+    }
 
-    // Loại bỏ các mục trùng lặp trong _currentItems
-    final seen = <String>{};
-    _currentItems = _currentItems.where((c) => seen.add(c.text.trim().toLowerCase())).toList();
-
-    // Đảm bảo tương lai không trùng với hiện tại
+    // "Hiện tại" là nguồn chuẩn: lịch sử và tương lai không lặp lại việc đang hiển thị ở hiện tại
     final currentTextSet = _currentItems.map((c) => c.text.trim().toLowerCase()).toSet();
+    _historyItems = _historyItems.where((h) => !currentTextSet.contains(h.text.trim().toLowerCase())).toList();
     _futureItems = _futureItems.where((f) => !currentTextSet.contains(f.text.trim().toLowerCase())).toList();
 
     if (mounted) {

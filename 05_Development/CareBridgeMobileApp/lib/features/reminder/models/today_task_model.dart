@@ -326,6 +326,17 @@ class TodayTask {
   bool get isReminder => kind == TodayTaskKind.reminder;
   bool get isCareTask => kind == TodayTaskKind.careTask;
   bool get isChecklist => kind == TodayTaskKind.checklist;
+
+  /// Việc thuộc tab "Gợi ý CareBridge" của mẹ. Màn việc cần làm và dialog chia
+  /// sẻ cho chuyên gia phải dùng chung quy tắc này để số lượng luôn khớp.
+  bool get isCareBridgeSuggestion =>
+      isChecklist && origin == TodayTaskOrigin.systemTemplate;
+
+  /// Việc chăm sóc bé (cùng quy tắc nhóm "Chăm bé" trên màn việc cần làm).
+  bool get isBabyCare =>
+      stage == TodayChecklistStage.babyCare ||
+      (stage == TodayChecklistStage.unknown &&
+          careContextType?.toUpperCase() == 'BABY');
   bool get isPending => taskStatus == TodayTaskStatus.pending;
   bool get isCompleted => taskStatus == TodayTaskStatus.completed;
   bool get isSnoozed => status == ReminderStatus.snoozed;

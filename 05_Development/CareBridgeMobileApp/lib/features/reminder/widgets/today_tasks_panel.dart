@@ -562,12 +562,12 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
         ? 0
         : _checklistOnly(_snapshot!.sections.all.toList()).length;
     final systemTasks = sourceGroupedTasks
-        .where((task) => task.origin == TodayTaskOrigin.systemTemplate)
+        .where((task) => task.isCareBridgeSuggestion)
         .toList(growable: false);
     final userTasks = isFamily
         ? const <TodayTask>[]
         : sourceGroupedTasks
-              .where((task) => task.origin != TodayTaskOrigin.systemTemplate)
+              .where((task) => !task.isCareBridgeSuggestion)
               .toList(growable: false);
     final hasVisibleTasks = widget.layout == TodayTasksLayout.sourceGroups
         ? (isFamily ? systemTasks.isNotEmpty : sourceGroupedTasks.isNotEmpty)
@@ -579,12 +579,7 @@ class _TodayTasksPanelState extends State<TodayTasksPanel>
         .where((task) => task.stage == TodayChecklistStage.postpartum)
         .toList(growable: false);
     final babyCareTasks = systemTasks
-        .where(
-          (task) =>
-              task.stage == TodayChecklistStage.babyCare ||
-              (task.stage == TodayChecklistStage.unknown &&
-                  task.careContextType?.toUpperCase() == 'BABY'),
-        )
+        .where((task) => task.isBabyCare)
         .toList(growable: false);
     final babyCareGroups = <String, List<TodayTask>>{};
     for (final task in babyCareTasks) {
